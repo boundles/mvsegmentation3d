@@ -9,6 +9,7 @@ class ProgressBar:
     """A progress bar which can print the progress."""
 
     def __init__(self, task_num=0, bar_width=50, start=True, file=sys.stdout):
+        self.timer = Timer()
         self.task_num = task_num
         self.bar_width = bar_width
         self.completed = 0
@@ -28,7 +29,6 @@ class ProgressBar:
         else:
             self.file.write('completed: 0, elapsed: 0s')
         self.file.flush()
-        self.timer = Timer()
 
     def update(self, num_tasks=1):
         assert num_tasks > 0
