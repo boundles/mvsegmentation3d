@@ -1,7 +1,6 @@
-#ifndef TRILINEAR_UTILS_HPP_
-#define TRILINEAR_UTILS_HPP_
+#ifndef TRILINEAR_UTILS_H_
+#define TRILINEAR_UTILS_H_
 
-#include <ATen/cuda/CUDAContext.h>
 #include <torch/extension.h>
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")

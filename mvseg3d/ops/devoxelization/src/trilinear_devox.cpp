@@ -1,8 +1,7 @@
 #include <pybind11/pybind11.h>
 
-#include "trilinear_devox.hpp"
-#include "trilinear_devox.cuh"
-#include "trilinear_utils.hpp"
+#include "trilinear_devox.h"
+#include "trilinear_utils.h"
 
 /*
   Function: trilinear devoxelization (forward)

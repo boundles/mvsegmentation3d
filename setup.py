@@ -62,7 +62,7 @@ setuptools.setup(
             module='mvseg3d.ops.devoxelization',
             extra_include_path=['/usr/local/cuda/include'],
             sources=['src/trilinear_devox.cpp'],
-            sources_cuda=['src/trilinear_devox.cu']),
+            sources_cuda=['src/trilinear_devox_cuda.cu']),
     ],
     cmdclass={'build_ext': BuildExtension},
 )
