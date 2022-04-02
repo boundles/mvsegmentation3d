@@ -1,5 +1,3 @@
-#include <pybind11/pybind11.h>
-
 #include "trilinear_devox.h"
 #include "trilinear_utils.h"
 

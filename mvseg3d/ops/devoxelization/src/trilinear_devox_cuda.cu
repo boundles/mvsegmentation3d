@@ -2,9 +2,6 @@
 #include <stdlib.h>
 #include <cmath>
 
-#include <ATen/ATen.h>
-#include <ATen/cuda/CUDAContext.h>
-
 #include <cuda.h>
 #include <cuda_runtime.h>
 

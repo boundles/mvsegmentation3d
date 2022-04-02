@@ -1,5 +1,5 @@
-#ifndef TRILINEAR_DEVOX_HPP_
-#define TRILINEAR_DEVOX_HPP_
+#ifndef TRILINEAR_DEVOX_H_
+#define TRILINEAR_DEVOX_H_
 
 #include <torch/torch.h>
 
