@@ -5,6 +5,11 @@ import torch
 from torch.utils.cpp_extension import (BuildExtension, CppExtension,
                                        CUDAExtension)
 
+def readme():
+    with open('README.md', encoding='utf-8') as f:
+        content = f.read()
+    return content
+
 def make_cuda_ext(name,
                   module,
                   sources,
@@ -36,16 +41,13 @@ def make_cuda_ext(name,
         define_macros=define_macros,
         extra_compile_args=extra_compile_args)
 
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
-
 setuptools.setup(
     name="mvseg3d",
     version="0.0.1",
     author="darrenwang",
     author_email="wangyang9113@gmail.com",
-    description="mvsegmentation3d",
-    long_description=long_description,
+    description="A Generic Framework for Multi-View Fusion based 3D Segmentation",
+    long_description=readme(),
     long_description_content_type="text/markdown",
     url="https://github.com/boundles/mvsegmentation3d",
     classifiers=[
@@ -65,4 +67,5 @@ setuptools.setup(
             sources_cuda=['src/trilinear_devox_cuda.cu']),
     ],
     cmdclass={'build_ext': BuildExtension},
+    zip_safe=False
 )
