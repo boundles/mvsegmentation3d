@@ -18,6 +18,11 @@ class WaymoDataset(Dataset):
         self.file_ids = [os.path.basename(path).replace('.npy', '') \
                          for path in glob.glob(os.path.join(self.root, split, 'label', '*.npy'))]
 
+        self.voxel_generator = VoxelGenerator(voxel_size=[0.1, 0.1, 0.15],
+                                              point_cloud_range=[-75.2, -75.2, -2, 75.2, 75.2, 4],
+                                              max_num_points=5,
+                                              max_voxels=150000)
+
     def get_lidar(self, sample_idx):
         lidar_file = os.path.join(self.root, self.split, 'lidar', sample_idx + '.npy')
         lidar_points = np.load(lidar_file)  # (N, 6): [x, y, z, intensity, elongation, timestamp]
@@ -61,7 +66,7 @@ class WaymoDataset(Dataset):
                 voxel_coords: optional (num_voxels, 3)
                 voxel_num_points: optional (num_voxels)
         """
-        voxels, coords, num_points_per_voxel = VoxelGenerator.generate(data_dict['points'])
+        voxels, coords, num_points_per_voxel = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxels'] = voxels
         data_dict['voxel_coords'] = coords
         data_dict['voxel_num_points'] = num_points_per_voxel
