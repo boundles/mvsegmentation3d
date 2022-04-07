@@ -16,7 +16,7 @@ inline int optimal_num_threads(int work_size) {
   Function: trilinear devoxlization (forward)
   Args:
     b   : batch size
-    c   : #channels
+    c   : channels
     n   : number of points
     r   : voxel resolution
     r2  : r ** 2
@@ -117,7 +117,7 @@ __global__ void trilinear_devoxelize_kernel(int b, int c, int n, int r, int r2,
   Function: trilinear devoxlization (backward)
   Args:
     b   : batch size
-    c   : #channels
+    c   : channels
     n   : number of points
     r3  : voxel cube size = voxel resolution ** 3
     inds   : the voxel indices of point cube, IntTensor[b, 8, n]
