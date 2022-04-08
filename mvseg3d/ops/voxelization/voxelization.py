@@ -111,22 +111,23 @@ def points_to_voxel(points,
     voxels = np.zeros(
         shape=(max_voxels, max_num_points, points.shape[-1]), dtype=points.dtype)
     coors = np.zeros(shape=(max_voxels, 3), dtype=np.int32)
+    point_coors = -np.ones(shape=(points.shape[0], 3), dtype=np.int32)
     if reverse_index:
         voxel_num = _points_to_voxel_reverse_kernel(
             points, voxel_size, coors_range, num_points_per_voxel,
-            coor_to_voxelidx, voxels, coors, max_num_points, max_voxels)
+            coor_to_voxelidx, voxels, coors, point_coors, max_num_points, max_voxels)
 
     else:
         voxel_num = _points_to_voxel_kernel(points, voxel_size, coors_range,
                                             num_points_per_voxel,
-                                            coor_to_voxelidx, voxels, coors,
+                                            coor_to_voxelidx, voxels, coors, point_coors,
                                             max_num_points, max_voxels)
 
     coors = coors[:voxel_num]
     voxels = voxels[:voxel_num]
     num_points_per_voxel = num_points_per_voxel[:voxel_num]
 
-    return voxels, coors, num_points_per_voxel
+    return voxels, coors, num_points_per_voxel, point_coors
 
 
 @numba.jit(nopython=True)
@@ -137,6 +138,7 @@ def _points_to_voxel_reverse_kernel(points,
                                     coor_to_voxelidx,
                                     voxels,
                                     coors,
+                                    point_coors,
                                     max_points=35,
                                     max_voxels=20000):
     """convert kitti points(N, >=3) to voxels.
@@ -152,6 +154,7 @@ def _points_to_voxel_reverse_kernel(points,
             the index of each corresponding voxel.
         voxels (np.ndarray): Created empty voxels.
         coors (np.ndarray): Created coordinates of each voxel.
+        point_coors (np.ndarray):  Created coordinates of each point.
         max_points (int): Indicate maximum points contained in a voxel.
         max_voxels (int): Maximum number of voxels this function create.
             for second, 20000 is a good choice. Points should be shuffled for
@@ -161,6 +164,7 @@ def _points_to_voxel_reverse_kernel(points,
             voxels: Shape [M, max_num_points, ndim], only contain points.
             coordinates: Shape [M, 3].
             num_points_per_voxel: Shape [M].
+            point_coordinates: Shape [N, 3].
     """
     # put all computations to one loop.
     # we shouldn't create large array in main jit code, otherwise
@@ -184,6 +188,7 @@ def _points_to_voxel_reverse_kernel(points,
                 failed = True
                 break
             coor[ndim_minus_1 - j] = c
+            point_coors[i, j] = c
         if failed:
             continue
         voxelidx = coor_to_voxelidx[coor[0], coor[1], coor[2]]
@@ -209,6 +214,7 @@ def _points_to_voxel_kernel(points,
                             coor_to_voxelidx,
                             voxels,
                             coors,
+                            point_coors,
                             max_num_points=35,
                             max_voxels=20000):
     """convert kitti points(N, >=3) to voxels.
@@ -224,6 +230,7 @@ def _points_to_voxel_kernel(points,
             the index of each corresponding voxel.
         voxels (np.ndarray): Created empty voxels.
         coors (np.ndarray): Created coordinates of each voxel.
+        point_coors (np.ndarray):  Created coordinates of each point.
         max_num_points (int): Indicate maximum points contained in a voxel.
         max_voxels (int): Maximum number of voxels this function create.
             for second, 20000 is a good choice. Points should be shuffled for
@@ -233,6 +240,7 @@ def _points_to_voxel_kernel(points,
             voxels: Shape [M, max_points, ndim], only contain points.
             coordinates: Shape [M, 3].
             num_points_per_voxel: Shape [M].
+            point_coordinates: Shape [N, 3].
     """
     N = points.shape[0]
     # ndim = points.shape[1] - 1
@@ -254,6 +262,7 @@ def _points_to_voxel_kernel(points,
                 failed = True
                 break
             coor[j] = c
+            point_coors[i, j] = c
         if failed:
             continue
         voxelidx = coor_to_voxelidx[coor[0], coor[1], coor[2]]

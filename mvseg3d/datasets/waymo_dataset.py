@@ -66,10 +66,11 @@ class WaymoDataset(Dataset):
                 voxel_coords: optional (num_voxels, 3)
                 voxel_num_points: optional (num_voxels)
         """
-        voxels, coords, num_points_per_voxel = self.voxel_generator.generate(data_dict['points'])
+        voxels, coords, num_points_per_voxel, point_coords = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxels'] = voxels
         data_dict['voxel_coords'] = coords
         data_dict['voxel_num_points'] = num_points_per_voxel
+        data_dict['point_coords'] = point_coords
 
         return data_dict
 
@@ -84,9 +85,9 @@ class WaymoDataset(Dataset):
         batch_size = len(batch_list)
         for key, val in data_dict.items():
             try:
-                if key in ['voxels', 'voxel_num_points']:
+                if key in ['voxels', 'voxel_num_points', 'labels', 'point_coords']:
                     ret[key] = np.concatenate(val, axis=0)
-                elif key in ['points', 'voxel_coords', 'labels']:
+                elif key in ['points', 'voxel_coords']:
                     coors = []
                     for i, coor in enumerate(val):
                         coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
