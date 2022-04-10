@@ -111,14 +111,6 @@ class WaymoDataset(Dataset):
                 raise TypeError
         ret['batch_size'] = batch_size
 
-        # load data into gpu
-        for key, val in ret.items():
-            if not isinstance(val, np.ndarray):
-                continue
-            else:
-                ret[key] = torch.from_numpy(val).float().cuda()
-        return ret
-
 
 if __name__ == '__main__':
     dataset = WaymoDataset('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', 'validation')

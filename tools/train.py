@@ -1,6 +1,19 @@
+import numpy as np
+
+import torch
 from torch.utils.data import DataLoader
+
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.models.segmentors.mvf import MVFNet
+
+
+def load_data_to_gpu(data_dict):
+    for key, val in data_dict.items():
+        if not isinstance(val, np.ndarray):
+            continue
+        else:
+            data_dict[key] = torch.from_numpy(val).float().cuda()
+    return data_dict
 
 
 def main():
@@ -14,6 +27,7 @@ def main():
 
     model = MVFNet(dataset)
     for step, data_dict in enumerate(dataloader, 1):
+        load_data_to_gpu(data_dict)
         y = model(data_dict)
         print(step, type(y))
 
