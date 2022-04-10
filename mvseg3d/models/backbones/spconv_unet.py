@@ -112,10 +112,10 @@ class SparseUnet(nn.Module):
         self.conv_up_t1 = SparseBasicBlock(16, 16, indice_key='subm1', norm_fn=norm_fn)
         self.conv_up_m1 = block(32, 16, 3, norm_fn=norm_fn, indice_key='subm1')
 
-        self.conv5 = spconv.SparseSequential(
-            block(16, 16, 3, norm_fn=norm_fn, padding=1, indice_key='subm1')
-        )
         self.num_point_features = 16
+        self.conv5 = spconv.SparseSequential(
+            block(16, self.num_point_features, 3, norm_fn=norm_fn, padding=1, indice_key='subm1')
+        )
 
     def UR_block_forward(self, x_lateral, x_bottom, conv_t, conv_m, conv_inv):
         x_trans = conv_t(x_lateral)
@@ -147,11 +147,11 @@ class SparseUnet(nn.Module):
         Args:
             batch_dict:
                 batch_size: int
-                vfe_features: (num_voxels, C)
+                voxel_features: (num_voxels, Cin)
                 voxel_coords: (num_voxels, 4), [batch_idx, z_idx, y_idx, x_idx]
         Returns:
             batch_dict:
-                encoded_voxel_features: (num_voxels, C)
+                voxel_features: (num_voxels, Cout)
         """
         voxel_features, voxel_coords = batch_dict['voxel_features'], batch_dict['voxel_coords']
         batch_size = batch_dict['batch_size']
@@ -178,5 +178,5 @@ class SparseUnet(nn.Module):
         # [1600, 1408, 41] <- [1600, 1408, 41]
         x_up1 = self.UR_block_forward(x_conv1, x_up2, self.conv_up_t1, self.conv_up_m1, self.conv5)
 
-        batch_dict['encoded_voxel_features'] = x_up1.features
+        batch_dict['voxel_features'] = x_up1.features
         return batch_dict

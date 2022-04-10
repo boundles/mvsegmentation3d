@@ -26,7 +26,7 @@ def main():
     )
 
     # define model
-    model = MVFNet(dataset).cuda()
+    model = MVFNet(dataset, 6).cuda()
 
     # forward
     for step, data_dict in enumerate(dataloader, 1):
