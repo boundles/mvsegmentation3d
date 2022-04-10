@@ -18,6 +18,6 @@ class MVFNet(nn.Module):
         out = self.vfe(batch_dict)
         out = self.net(out)
 
-        point_features = voxel_to_point(out['voxel_encoded_features'], out['point_voxel_ids'])
+        point_features = voxel_to_point(out['voxel_features'], out['point_voxel_ids'])
 
         return point_features

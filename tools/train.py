@@ -12,10 +12,10 @@ def load_data_to_gpu(data_dict):
         if not isinstance(val, np.ndarray):
             continue
         else:
-            if key not in ['point_voxel_ids']:
-                data_dict[key] = torch.from_numpy(val).float().cuda()
+            if key in ['point_voxel_ids']:
+                data_dict[key] = torch.from_numpy(val).long().cuda()
             else:
-                data_dict[key] = torch.from_numpy(val).cuda()
+                data_dict[key] = torch.from_numpy(val).float().cuda()
     return data_dict
 
 
@@ -35,7 +35,7 @@ def main():
     for step, data_dict in enumerate(dataloader, 1):
         load_data_to_gpu(data_dict)
         y = model(data_dict)
-        print(step, type(y))
+        print(step, y.shape)
 
 
 if __name__ == '__main__':
