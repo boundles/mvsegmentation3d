@@ -110,7 +110,7 @@ class WaymoDataset(Dataset):
                 print('Error in collate_batch: key=%s' % key)
                 raise TypeError
         ret['batch_size'] = batch_size
-
+        return ret
 
 if __name__ == '__main__':
     dataset = WaymoDataset('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', 'validation')

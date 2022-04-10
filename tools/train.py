@@ -25,7 +25,7 @@ def main():
         drop_last=False, sampler=None, timeout=0
     )
 
-    model = MVFNet(dataset)
+    model = MVFNet(dataset).cuda()
     for step, data_dict in enumerate(dataloader, 1):
         load_data_to_gpu(data_dict)
         y = model(data_dict)

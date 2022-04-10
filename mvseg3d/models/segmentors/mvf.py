@@ -7,7 +7,7 @@ class MVFNet(nn.Module):
     def __init__(self, dataset):
         super().__init__()
 
-        self.vfe = MeanVFE(16)
+        self.vfe = MeanVFE(6)
         self.net = SparseUnet(self.vfe.get_output_feature_dim(),
                               dataset.grid_size,
                               dataset.voxel_size,

@@ -115,6 +115,7 @@ class SparseUnet(nn.Module):
         self.conv5 = spconv.SparseSequential(
             block(16, 16, 3, norm_fn=norm_fn, padding=1, indice_key='subm1')
         )
+        self.num_point_features = 16
 
     def UR_block_forward(self, x_lateral, x_bottom, conv_t, conv_m, conv_inv):
         x_trans = conv_t(x_lateral)
