@@ -1,6 +1,3 @@
-import os
-
-import torch
 import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import MeanVFE

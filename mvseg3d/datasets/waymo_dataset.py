@@ -4,6 +4,7 @@ import glob
 import numpy as np
 from collections import defaultdict
 
+import torch
 from torch.utils.data import Dataset
 from mvseg3d.ops import VoxelGenerator
 
@@ -23,9 +24,9 @@ class WaymoDataset(Dataset):
                                               max_num_points=5,
                                               max_voxels=150000)
 
-        self.grid_size = self.voxel_generator.grid_size()
-        self.voxel_size = self.voxel_generator.voxel_size()
-        self.point_cloud_range = self.voxel_generator.point_cloud_range()
+        self.grid_size = self.voxel_generator.grid_size
+        self.voxel_size = self.voxel_generator.voxel_size
+        self.point_cloud_range = self.voxel_generator.point_cloud_range
 
     def get_lidar(self, sample_idx):
         lidar_file = os.path.join(self.root, self.split, 'lidar', sample_idx + '.npy')
@@ -79,6 +80,14 @@ class WaymoDataset(Dataset):
         return data_dict
 
     @staticmethod
+    def load_data_to_gpu(batch_dict):
+        for key, val in batch_dict.items():
+            if not isinstance(val, np.ndarray):
+                continue
+            else:
+                batch_dict[key] = torch.from_numpy(val).float().cuda()
+
+    @staticmethod
     def collate_batch(batch_list, _unused=False):
         data_dict = defaultdict(list)
         for cur_sample in batch_list:
@@ -101,6 +110,13 @@ class WaymoDataset(Dataset):
                 print('Error in collate_batch: key=%s' % key)
                 raise TypeError
         ret['batch_size'] = batch_size
+
+        # load data into gpu
+        for key, val in ret.items():
+            if not isinstance(val, np.ndarray):
+                continue
+            else:
+                ret[key] = torch.from_numpy(val).float().cuda()
         return ret
 
 
