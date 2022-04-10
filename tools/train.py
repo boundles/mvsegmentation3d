@@ -25,7 +25,10 @@ def main():
         drop_last=False, sampler=None, timeout=0
     )
 
+    # define model
     model = MVFNet(dataset).cuda()
+
+    # forward
     for step, data_dict in enumerate(dataloader, 1):
         load_data_to_gpu(data_dict)
         y = model(data_dict)

@@ -71,11 +71,11 @@ class WaymoDataset(Dataset):
                 voxel_coords: optional (num_voxels, 3)
                 voxel_num_points: optional (num_voxels)
         """
-        voxels, coords, num_points_per_voxel, point_coords = self.voxel_generator.generate(data_dict['points'])
+        voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxels'] = voxels
         data_dict['voxel_coords'] = coords
         data_dict['voxel_num_points'] = num_points_per_voxel
-        data_dict['point_coords'] = point_coords
+        data_dict['point_voxel_ids'] = point_voxel_ids
 
         return data_dict
 
@@ -95,22 +95,32 @@ class WaymoDataset(Dataset):
                 data_dict[key].append(val)
 
         ret = {}
-        batch_size = len(batch_list)
+        voxel_coords_list = None
+        point_voxel_ids_list = None
         for key, val in data_dict.items():
-            try:
-                if key in ['voxels', 'voxel_num_points', 'labels', 'point_coords']:
-                    ret[key] = np.concatenate(val, axis=0)
-                elif key in ['points', 'voxel_coords']:
-                    coors = []
-                    for i, coor in enumerate(val):
-                        coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
-                        coors.append(coor_pad)
-                    ret[key] = np.concatenate(coors, axis=0)
-            except:
-                print('Error in collate_batch: key=%s' % key)
-                raise TypeError
+            if key == 'voxel_coords':
+                voxel_coords_list = val
+                coors = []
+                for i, coor in enumerate(voxel_coords_list):
+                    coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
+                    coors.append(coor_pad)
+                ret[key] = np.concatenate(coors, axis=0)
+            elif key == 'point_voxel_ids':
+                point_voxel_ids_list = val
+            elif key in ['points', 'labels', 'voxels', 'voxel_num_points']:
+                ret[key] = np.concatenate(val, axis=0)
+
+        offset = 0
+        if voxel_coords_list and point_voxel_ids_list:
+            for i, point_voxel_ids in enumerate(point_voxel_ids_list):
+                point_voxel_ids[point_voxel_ids != -1] += offset
+                offset += voxel_coords_list[i].shape[0]
+            ret['point_voxel_ids'] = np.concatenate(point_voxel_ids_list, axis=0)
+
+        batch_size = len(batch_list)
         ret['batch_size'] = batch_size
         return ret
+
 
 if __name__ == '__main__':
     dataset = WaymoDataset('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', 'validation')
