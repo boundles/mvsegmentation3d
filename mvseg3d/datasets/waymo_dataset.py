@@ -68,8 +68,8 @@ class WaymoDataset(Dataset):
                 points: (N, ndim)
                 labels: optional, (N)
                 voxels: optional (num_voxels, max_points, ndim)
-                voxel_coords: optional (num_voxels, 3)
                 voxel_num_points: optional (num_voxels)
+                point_voxel_ids: optional, (N)
         """
         voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxels'] = voxels

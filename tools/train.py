@@ -12,7 +12,7 @@ def load_data_to_gpu(data_dict):
         if not isinstance(val, np.ndarray):
             continue
         else:
-            data_dict[key] = torch.from_numpy(val).float().cuda()
+            data_dict[key] = torch.from_numpy(val).cuda()
     return data_dict
 
 

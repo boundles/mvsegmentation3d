@@ -15,9 +15,9 @@ class MVFNet(nn.Module):
                               dataset.point_cloud_range)
 
     def forward(self, batch_dict):
-        batch_dict = self.vfe(batch_dict)
-        batch_dict = self.net(batch_dict)
+        out = self.vfe(batch_dict)
+        out = self.net(out)
 
-        point_features = voxel_to_point(batch_dict['voxel_features'], batch_dict['point_voxel_ids'])
+        point_features = voxel_to_point(out['voxel_encoded_features'], out['point_voxel_ids'])
 
         return point_features
