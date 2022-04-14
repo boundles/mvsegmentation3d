@@ -1,13 +1,15 @@
 import torch
 import torch.nn as nn
 
-class MeanVFE(nn.Module):
-    def __init__(self, num_point_features):
-        super().__init__()
-        self.num_point_features = num_point_features
 
-    def get_output_feature_dim(self):
-        return self.num_point_features
+class MeanVFE(nn.Module):
+    def __init__(self, voxel_feature_channel):
+        super().__init__()
+        self._voxel_feature_channel = voxel_feature_channel
+
+    @property
+    def voxel_feature_channel(self):
+        return self._voxel_feature_channel
 
     def forward(self, batch_dict):
         """

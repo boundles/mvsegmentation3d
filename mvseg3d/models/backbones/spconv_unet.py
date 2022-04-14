@@ -112,9 +112,9 @@ class SparseUnet(nn.Module):
         self.conv_up_t1 = SparseBasicBlock(16, 16, indice_key='subm1', norm_fn=norm_fn)
         self.conv_up_m1 = block(32, 16, 3, norm_fn=norm_fn, indice_key='subm1')
 
-        self.num_point_features = 16
+        self.voxel_feature_channel = 16
         self.conv5 = spconv.SparseSequential(
-            block(16, self.num_point_features, 3, norm_fn=norm_fn, padding=1, indice_key='subm1')
+            block(16, self.voxel_feature_channel, 3, norm_fn=norm_fn, padding=1, indice_key='subm1')
         )
 
     def UR_block_forward(self, x_lateral, x_bottom, conv_t, conv_m, conv_inv):
