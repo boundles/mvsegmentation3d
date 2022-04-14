@@ -10,7 +10,7 @@ class MVFNet(nn.Module):
         super().__init__()
 
         self.point_feature_channel = 16
-        self.point_encoder = nn.Sequential(nn.Linear(self.point_dim, self.point_feature_channel, bias=False),
+        self.point_encoder = nn.Sequential(nn.Linear(dataset.point_dim, self.point_feature_channel, bias=False),
                                            nn.BatchNorm1d(self.point_feature_channel),
                                            nn.ReLU(inplace=True))
 

@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import torch.optim
-from torch.optim.lr_scheduler import StepLR
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.models.segmentors.mvf import MVFNet
