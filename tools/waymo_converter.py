@@ -25,7 +25,6 @@ class WaymoConverter(object):
             tf.enable_eager_execution()
 
         self.prefix = ''
-        self.selected_waymo_locations = None
         self.filter_no_label_zone_points = True
 
         self.load_dir = load_dir
@@ -61,10 +60,6 @@ class WaymoConverter(object):
         for frame_idx, data in enumerate(dataset):
             frame = open_dataset.Frame()
             frame.ParseFromString(bytearray(data.numpy()))
-            if (self.selected_waymo_locations is not None
-                    and frame.context.stats.location
-                    not in self.selected_waymo_locations):
-                continue
 
             self.save_image(frame, file_idx, frame_idx)
             self.save_calib(frame, file_idx, frame_idx)
@@ -379,5 +374,5 @@ class WaymoConverter(object):
 
 if __name__ == '__main__':
     converter = WaymoConverter('/nfs/s3_common_dataset/waymo_perception_v1.3/validation', \
-                               '/nfs/volume-807-2/waymo_open_dataset_v_1_3_0/validation', 4)
+                               '/nfs/volume-807-2/waymo_open_dataset_v_1_3_0/validation', 8)
     converter.convert()
