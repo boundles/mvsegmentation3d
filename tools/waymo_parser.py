@@ -4,6 +4,8 @@ import glob
 import numpy as np
 import cv2
 
+from torch.utils.data import Dataset, DataLoader
+
 import tensorflow.compat.v1 as tf
 tf.enable_eager_execution()
 
@@ -11,14 +13,11 @@ from waymo_open_dataset.utils import range_image_utils, transform_utils, frame_u
 from waymo_open_dataset.utils.frame_utils import parse_range_image_and_camera_projection
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
-from mvseg3d.utils.progressbar import track_parallel_progress
 
-
-class WaymoConverter(object):
+class WaymoParser(Dataset):
     def __init__(self,
                  load_dir,
                  save_dir,
-                 workers=16,
                  test_mode=False):
         # turn on eager execution for older tensorflow versions
         if int(tf.__version__.split('.')[0]) < 2:
@@ -29,7 +28,6 @@ class WaymoConverter(object):
 
         self.load_dir = load_dir
         self.save_dir = save_dir
-        self.workers = int(workers)
         self.test_mode = test_mode
 
         self.tfrecord_pathnames = sorted(glob.glob(os.path.join(self.load_dir, '*.tfrecord')))
@@ -42,29 +40,25 @@ class WaymoConverter(object):
 
         self.create_folder()
 
-    def convert(self):
-        """Convert action."""
-        print('Start converting ...')
-        track_parallel_progress(self.convert_one, range(len(self)),
-                                self.workers)
-        print('\nFinished ...')
-
-    def convert_one(self, file_idx):
+    def __getitem__(self, index):
         """Convert action for single file.
         Args:
             file_idx (int): Index of the file to be converted.
         """
-        pathname = self.tfrecord_pathnames[file_idx]
+        pathname = self.tfrecord_pathnames[index]
         dataset = tf.data.TFRecordDataset(pathname, compression_type='')
 
+        print('Processing ' + pathname)
         for frame_idx, data in enumerate(dataset):
             frame = open_dataset.Frame()
             frame.ParseFromString(bytearray(data.numpy()))
 
-            self.save_image(frame, file_idx, frame_idx)
-            self.save_calib(frame, file_idx, frame_idx)
-            self.save_lidar_and_label(frame, file_idx, frame_idx)
-            self.save_pose(frame, file_idx, frame_idx)
+            self.save_image(frame, index, frame_idx)
+            self.save_calib(frame, index, frame_idx)
+            self.save_lidar_and_label(frame, index, frame_idx)
+            self.save_pose(frame, index, frame_idx)
+
+        return True
 
     def __len__(self):
         """Length of the filename list."""
@@ -247,6 +241,8 @@ class WaymoConverter(object):
             frame (:obj:`Frame`): Open dataset frame.
             range_images (dict): Mapping from laser_name to list of two
                 range images corresponding with two returns.
+            segmentation_labels (dict): Mapping from laser_name to list of two
+                semantic labels corresponding with two returns.
             camera_projections (dict): Mapping from laser_name to list of two
                 camera projections corresponding with two returns.
             range_image_top_pose (:obj:`Transform`): Range image pixel pose for
@@ -373,6 +369,12 @@ class WaymoConverter(object):
 
 
 if __name__ == '__main__':
-    converter = WaymoConverter('/nfs/s3_common_dataset/waymo_perception_v1.3/validation', \
-                               '/nfs/volume-807-2/waymo_open_dataset_v_1_3_0/validation', 8)
-    converter.convert()
+    split = 'validation'
+    raw_data_dir = os.path.join('/nfs/s3_common_dataset/waymo_perception_v1.3', split)
+    parsed_data_dir = os.path.join('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', split)
+    parser = WaymoParser(raw_data_dir, parsed_data_dir)
+    print('Parse Started!')
+    data_loader = DataLoader(parser, num_workers=8)
+    for step, data in enumerate(data_loader):
+        pass
+    print('Parse Finished!')
