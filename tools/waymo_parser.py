@@ -6,7 +6,7 @@ import cv2
 from torch.utils.data import Dataset, DataLoader
 import tensorflow.compat.v1 as tf
 
-from waymo_open_dataset.utils import range_image_utils, transform_utils, frame_utils
+from waymo_open_dataset.utils import frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
 
