@@ -179,10 +179,12 @@ class WaymoParser(Dataset):
         # points of first return
         points_0, cp_points_0 = frame_utils.convert_range_image_to_point_cloud(
             frame, range_images, camera_projections, range_image_top_pose, ri_index=0, keep_polar_features=True)
+        points_0, cp_points_0 = np.concatenate(points_0, axis=0), np.concatenate(cp_points_0, axis=0)
 
         # points of second return
         points_1, cp_points_2 = frame_utils.convert_range_image_to_point_cloud(
             frame, range_images, camera_projections, range_image_top_pose, ri_index=1, keep_polar_features=True)
+        points_1, cp_points_2 = np.concatenate(points_1, axis=0), np.concatenate(cp_points_2, axis=0)
 
         # point cloud with 6-dim: x, y, z, intensity, and elongation, range
         point_cloud = np.concatenate([points_0, points_1], axis=0)
@@ -196,10 +198,12 @@ class WaymoParser(Dataset):
             # point labels of first return
             point_labels_0 = self.convert_range_image_to_point_cloud_labels(
                 frame, range_images, segmentation_labels, ri_index=0)
+            point_labels_0 = np.concatenate(point_labels_0, axis=0)
 
             # point labels of second return
             point_labels_1 = self.convert_range_image_to_point_cloud_labels(
                 frame, range_images, segmentation_labels, ri_index=1)
+            point_labels_1 = np.concatenate(point_labels_1, axis=0)
 
             point_labels = np.concatenate([point_labels_0, point_labels_1], axis=0)
             point_labels = point_labels[:, 1]
