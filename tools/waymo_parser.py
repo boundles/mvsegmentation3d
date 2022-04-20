@@ -18,9 +18,6 @@ class WaymoParser(Dataset):
         # turn on eager execution
         tf.enable_eager_execution()
 
-        self.prefix = ''
-        self.filter_no_label_zone_points = True
-
         self.load_dir = load_dir
         self.save_dir = save_dir
         self.test_mode = test_mode
@@ -68,7 +65,7 @@ class WaymoParser(Dataset):
         """
         for img in frame.images:
             img_path = f'{self.image_save_dir}/{str(img.name - 1)}/' + \
-                       f'{self.prefix}{str(file_idx).zfill(3)}' + \
+                       f'{str(file_idx).zfill(3)}' + \
                        f'{str(frame_idx).zfill(3)}.png'
             img = tf.image.decode_jpeg(img.image)
             cv2.imwrite(img_path, img.numpy())
@@ -122,7 +119,7 @@ class WaymoParser(Dataset):
                              ' '.join(Tr_velo_to_cams[i]) + '\n'
 
         with open(
-                f'{self.calib_save_dir}/{self.prefix}' +
+                f'{self.calib_save_dir}/' +
                 f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}.txt',
                 'w+') as fp_calib:
             fp_calib.write(calib_context)
@@ -188,9 +185,9 @@ class WaymoParser(Dataset):
 
         # point cloud with 6-dim: x, y, z, intensity, and elongation, range
         point_cloud = np.concatenate([points_0, points_1], axis=0)
-        point_cloud = point_cloud[:, [0, 1, 2, 4, 5, 3]]
+        point_cloud = point_cloud[:, [3, 4, 5, 1, 2, 0]]
 
-        pc_path = f'{self.point_cloud_save_dir}/{self.prefix}' + \
+        pc_path = f'{self.point_cloud_save_dir}/' + \
                   f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
         np.save(pc_path, point_cloud)
 
@@ -212,7 +209,7 @@ class WaymoParser(Dataset):
             point_labels -= 1
             point_labels[point_labels == -1] = 255
 
-            label_path = f'{self.label_save_dir}/{self.prefix}' + \
+            label_path = f'{self.label_save_dir}/' + \
                          f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
             np.save(label_path, point_labels)
 
@@ -229,7 +226,7 @@ class WaymoParser(Dataset):
         """
         pose = np.array(frame.pose.transform).reshape(4, 4)
         np.savetxt(
-            os.path.join(f'{self.pose_save_dir}/{self.prefix}' +
+            os.path.join(f'{self.pose_save_dir}/' +
                          f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}.txt'),
             pose)
 
