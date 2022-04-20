@@ -2,6 +2,7 @@ import os
 import glob
 import numpy as np
 import cv2
+from tqdm import tqdm
 
 import tensorflow as tf
 from torch.utils.data import Dataset, DataLoader
@@ -37,7 +38,6 @@ class WaymoParser(Dataset):
         pathname = self.tfrecord_pathnames[index]
         dataset = tf.data.TFRecordDataset(pathname, compression_type='')
 
-        print('Processing ' + pathname)
         for frame_idx, data in enumerate(dataset):
             frame = open_dataset.Frame()
             frame.ParseFromString(bytearray(data.numpy()))
@@ -47,7 +47,7 @@ class WaymoParser(Dataset):
             self.save_lidar_and_label(frame, index, frame_idx)
             self.save_pose(frame, index, frame_idx)
 
-        return True
+        return pathname
 
     def __len__(self):
         """Length of the filename list."""
@@ -267,8 +267,6 @@ if __name__ == '__main__':
     raw_data_dir = os.path.join('/nfs/s3_common_dataset/waymo_perception_v1.3', split)
     parsed_data_dir = os.path.join('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', split)
     parser = WaymoParser(raw_data_dir, parsed_data_dir)
-    print('Parse Started!')
     data_loader = DataLoader(parser, num_workers=8)
-    for step, data in enumerate(data_loader):
-        pass
-    print('Parse Finished!')
+    for pathnames in tqdm(data_loader):
+        print('Processing:', pathnames)
