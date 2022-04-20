@@ -6,7 +6,8 @@ from collections import defaultdict
 
 import torch
 from torch.utils.data import Dataset
-from mvseg3d.ops import VoxelGenerator
+
+from mvseg3d.core import VoxelGenerator
 
 
 class WaymoDataset(Dataset):

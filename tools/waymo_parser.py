@@ -44,7 +44,8 @@ class WaymoParser(Dataset):
 
             self.save_image(frame, index, frame_idx)
             self.save_calib(frame, index, frame_idx)
-            self.save_lidar_and_label(frame, index, frame_idx)
+            self.save_lidar(frame, index, frame_idx)
+            self.save_label(frame, index, frame_idx)
             self.save_pose(frame, index, frame_idx)
 
         return pathname
@@ -52,75 +53,6 @@ class WaymoParser(Dataset):
     def __len__(self):
         """Length of the filename list."""
         return len(self.tfrecord_pathnames)
-
-    def save_image(self, frame, file_idx, frame_idx):
-        """Parse and save the images in png format.
-        Args:
-            frame (:obj:`Frame`): Open dataset frame proto.
-            file_idx (int): Current file index.
-            frame_idx (int): Current frame index.
-        """
-        for img in frame.images:
-            img_path = f'{self.image_save_dir}/{str(img.name - 1)}/' + \
-                       f'{str(file_idx).zfill(3)}' + \
-                       f'{str(frame_idx).zfill(3)}.png'
-            img = tf.image.decode_jpeg(img.image)
-            cv2.imwrite(img_path, img.numpy())
-
-    def save_calib(self, frame, file_idx, frame_idx):
-        """Parse and save the calibration data.
-        Args:
-            frame (:obj:`Frame`): Open dataset frame proto.
-            file_idx (int): Current file index.
-            frame_idx (int): Current frame index.
-        """
-        # waymo front camera to kitti reference camera
-        T_front_cam_to_ref = np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0],
-                                       [1.0, 0.0, 0.0]])
-        camera_calibs = []
-        R0_rect = [f'{i:e}' for i in np.eye(3).flatten()]
-        Tr_velo_to_cams = []
-        calib_context = ''
-
-        for camera in frame.context.camera_calibrations:
-            # extrinsic parameters
-            T_cam_to_vehicle = np.array(camera.extrinsic.transform).reshape(
-                4, 4)
-            T_vehicle_to_cam = np.linalg.inv(T_cam_to_vehicle)
-            Tr_velo_to_cam = \
-                self.cart_to_homo(T_front_cam_to_ref) @ T_vehicle_to_cam
-            if camera.name == 1:  # FRONT = 1, see dataset.proto for details
-                self.T_velo_to_front_cam = Tr_velo_to_cam.copy()
-            Tr_velo_to_cam = Tr_velo_to_cam[:3, :].reshape((12,))
-            Tr_velo_to_cams.append([f'{i:e}' for i in Tr_velo_to_cam])
-
-            # intrinsic parameters
-            camera_calib = np.zeros((3, 4))
-            camera_calib[0, 0] = camera.intrinsic[0]
-            camera_calib[1, 1] = camera.intrinsic[1]
-            camera_calib[0, 2] = camera.intrinsic[2]
-            camera_calib[1, 2] = camera.intrinsic[3]
-            camera_calib[2, 2] = 1
-            camera_calib = list(camera_calib.reshape(12))
-            camera_calib = [f'{i:e}' for i in camera_calib]
-            camera_calibs.append(camera_calib)
-
-        # all camera ids are saved as id-1 in the result because
-        # camera 0 is unknown in the proto
-        for i in range(5):
-            calib_context += 'P' + str(i) + ': ' + \
-                             ' '.join(camera_calibs[i]) + '\n'
-        calib_context += 'R0_rect' + ': ' + ' '.join(R0_rect) + '\n'
-        for i in range(5):
-            calib_context += 'Tr_velo_to_cam_' + str(i) + ': ' + \
-                             ' '.join(Tr_velo_to_cams[i]) + '\n'
-
-        with open(
-                f'{self.calib_save_dir}/' +
-                f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}.txt',
-                'w+') as fp_calib:
-            fp_calib.write(calib_context)
-            fp_calib.close()
 
     @staticmethod
     def convert_range_image_to_point_cloud_labels(frame,
@@ -160,50 +92,130 @@ class WaymoParser(Dataset):
             point_labels.append(sl_points_tensor.numpy())
         return point_labels
 
-    def save_lidar_and_label(self, frame, file_idx, frame_idx):
+    def save_image(self, frame, file_idx, frame_idx):
+        """Parse and save the images in png format.
+        Args:
+            frame (:obj:`Frame`): Open dataset frame proto.
+            file_idx (int): Current file index.
+            frame_idx (int): Current frame index.
+        """
+        for img in frame.images:
+            img_path = f'{self.image_save_dir}/{str(img.name - 1)}/' + \
+                       f'{str(file_idx).zfill(3)}' + \
+                       f'{str(frame_idx).zfill(3)}.png'
+            if not os.path.exists(img_path):
+                img = tf.image.decode_jpeg(img.image)
+                cv2.imwrite(img_path, img.numpy())
+
+    def save_calib(self, frame, file_idx, frame_idx):
+        """Parse and save the calibration data.
+        Args:
+            frame (:obj:`Frame`): Open dataset frame proto.
+            file_idx (int): Current file index.
+            frame_idx (int): Current frame index.
+        """
+        calib_path = f'{self.calib_save_dir}/' + \
+                     f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}.txt'
+        if not os.path.exists(calib_path):
+            # waymo front camera to kitti reference camera
+            T_front_cam_to_ref = np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0],
+                                           [1.0, 0.0, 0.0]])
+            camera_calibs = []
+            R0_rect = [f'{i:e}' for i in np.eye(3).flatten()]
+            Tr_velo_to_cams = []
+            calib_context = ''
+
+            for camera in frame.context.camera_calibrations:
+                # extrinsic parameters
+                T_cam_to_vehicle = np.array(camera.extrinsic.transform).reshape(
+                    4, 4)
+                T_vehicle_to_cam = np.linalg.inv(T_cam_to_vehicle)
+                Tr_velo_to_cam = \
+                    self.cart_to_homo(T_front_cam_to_ref) @ T_vehicle_to_cam
+                if camera.name == 1:  # FRONT = 1, see dataset.proto for details
+                    self.T_velo_to_front_cam = Tr_velo_to_cam.copy()
+                Tr_velo_to_cam = Tr_velo_to_cam[:3, :].reshape((12,))
+                Tr_velo_to_cams.append([f'{i:e}' for i in Tr_velo_to_cam])
+
+                # intrinsic parameters
+                camera_calib = np.zeros((3, 4))
+                camera_calib[0, 0] = camera.intrinsic[0]
+                camera_calib[1, 1] = camera.intrinsic[1]
+                camera_calib[0, 2] = camera.intrinsic[2]
+                camera_calib[1, 2] = camera.intrinsic[3]
+                camera_calib[2, 2] = 1
+                camera_calib = list(camera_calib.reshape(12))
+                camera_calib = [f'{i:e}' for i in camera_calib]
+                camera_calibs.append(camera_calib)
+
+            # all camera ids are saved as id-1 in the result because
+            # camera 0 is unknown in the proto
+            for i in range(5):
+                calib_context += 'P' + str(i) + ': ' + \
+                                 ' '.join(camera_calibs[i]) + '\n'
+            calib_context += 'R0_rect' + ': ' + ' '.join(R0_rect) + '\n'
+            for i in range(5):
+                calib_context += 'Tr_velo_to_cam_' + str(i) + ': ' + \
+                                 ' '.join(Tr_velo_to_cams[i]) + '\n'
+
+            with open(calib_path, 'w+') as fp_calib:
+                fp_calib.write(calib_context)
+                fp_calib.close()
+
+    def save_lidar(self, frame, file_idx, frame_idx):
         """Parse and save the lidar data in psd format.
         Args:
             frame (:obj:`Frame`): Open dataset frame proto.
             file_idx (int): Current file index.
             frame_idx (int): Current frame index.
         """
-        range_images, camera_projections, segmentation_labels, range_image_top_pose = \
-            frame_utils.parse_range_image_and_camera_projection(frame)
-
-        # points of first return
-        points_0, cp_points_0 = frame_utils.convert_range_image_to_point_cloud(
-            frame, range_images, camera_projections, range_image_top_pose, ri_index=0, keep_polar_features=True)
-        points_0, cp_points_0 = np.concatenate(points_0, axis=0), np.concatenate(cp_points_0, axis=0)
-
-        # points of second return
-        points_1, cp_points_2 = frame_utils.convert_range_image_to_point_cloud(
-            frame, range_images, camera_projections, range_image_top_pose, ri_index=1, keep_polar_features=True)
-        points_1, cp_points_2 = np.concatenate(points_1, axis=0), np.concatenate(cp_points_2, axis=0)
-
-        # point cloud with 6-dim: [x, y, z, range, intensity, and elongation]
-        point_cloud = np.concatenate([points_0, points_1], axis=0)
-        point_cloud = point_cloud[:, [3, 4, 5, 0, 1, 2]]
-
         pc_path = f'{self.point_cloud_save_dir}/' + \
                   f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
-        np.save(pc_path, point_cloud)
+        if not os.path.exists(pc_path):
+            range_images, camera_projections, segmentation_labels, range_image_top_pose = \
+                frame_utils.parse_range_image_and_camera_projection(frame)
 
-        if len(segmentation_labels) > 0:
-            # point labels of first return
-            point_labels_0 = self.convert_range_image_to_point_cloud_labels(
-                frame, range_images, segmentation_labels, ri_index=0)
-            point_labels_0 = np.concatenate(point_labels_0, axis=0)
+            # points of first return
+            points_0, cp_points_0 = frame_utils.convert_range_image_to_point_cloud(
+                frame, range_images, camera_projections, range_image_top_pose, ri_index=0, keep_polar_features=True)
+            points_0, cp_points_0 = np.concatenate(points_0, axis=0), np.concatenate(cp_points_0, axis=0)
 
-            # point labels of second return
-            point_labels_1 = self.convert_range_image_to_point_cloud_labels(
-                frame, range_images, segmentation_labels, ri_index=1)
-            point_labels_1 = np.concatenate(point_labels_1, axis=0)
+            # points of second return
+            points_1, cp_points_2 = frame_utils.convert_range_image_to_point_cloud(
+                frame, range_images, camera_projections, range_image_top_pose, ri_index=1, keep_polar_features=True)
+            points_1, cp_points_2 = np.concatenate(points_1, axis=0), np.concatenate(cp_points_2, axis=0)
 
-            point_labels = np.concatenate([point_labels_0, point_labels_1], axis=0)
+            # point cloud with 6-dim: [x, y, z, range, intensity, and elongation]
+            point_cloud = np.concatenate([points_0, points_1], axis=0)
+            point_cloud = point_cloud[:, [3, 4, 5, 0, 1, 2]]
 
-            label_path = f'{self.label_save_dir}/' + \
-                         f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
-            np.save(label_path, point_labels)
+            np.save(pc_path, point_cloud)
+
+    def save_label(self, frame, file_idx, frame_idx):
+        """Parse and save the label data in psd format.
+        Args:
+            frame (:obj:`Frame`): Open dataset frame proto.
+            file_idx (int): Current file index.
+            frame_idx (int): Current frame index.
+        """
+        label_path = f'{self.label_save_dir}/' + \
+                     f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
+        if not os.path.exists(label_path):
+            range_images, camera_projections, segmentation_labels, range_image_top_pose = \
+                frame_utils.parse_range_image_and_camera_projection(frame)
+            if len(segmentation_labels) > 0:
+                # point labels of first return
+                point_labels_0 = self.convert_range_image_to_point_cloud_labels(
+                    frame, range_images, segmentation_labels, ri_index=0)
+                point_labels_0 = np.concatenate(point_labels_0, axis=0)
+
+                # point labels of second return
+                point_labels_1 = self.convert_range_image_to_point_cloud_labels(
+                    frame, range_images, segmentation_labels, ri_index=1)
+                point_labels_1 = np.concatenate(point_labels_1, axis=0)
+                point_labels = np.concatenate([point_labels_0, point_labels_1], axis=0)
+
+                np.save(label_path, point_labels)
 
     def save_pose(self, frame, file_idx, frame_idx):
         """Parse and save the pose data.
@@ -216,11 +228,11 @@ class WaymoParser(Dataset):
             file_idx (int): Current file index.
             frame_idx (int): Current frame index.
         """
-        pose = np.array(frame.pose.transform).reshape(4, 4)
-        np.savetxt(
-            os.path.join(f'{self.pose_save_dir}/' +
-                         f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}.txt'),
-            pose)
+        pose_path = f'{self.pose_save_dir}/' + \
+                    f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}.txt'
+        if not os.path.exists(pose_path):
+            pose = np.array(frame.pose.transform).reshape(4, 4)
+            np.savetxt(pose_path, pose)
 
     def create_folder(self):
         """Create folder for data preprocessing."""
