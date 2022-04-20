@@ -3,8 +3,8 @@ import glob
 import numpy as np
 import cv2
 
+import tensorflow as tf
 from torch.utils.data import Dataset, DataLoader
-import tensorflow.compat.v1 as tf
 
 from waymo_open_dataset.utils import frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
@@ -15,9 +15,6 @@ class WaymoParser(Dataset):
                  load_dir,
                  save_dir,
                  test_mode=False):
-        # turn on eager execution
-        tf.enable_eager_execution()
-
         self.load_dir = load_dir
         self.save_dir = save_dir
         self.test_mode = test_mode
