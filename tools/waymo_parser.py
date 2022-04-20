@@ -1,16 +1,12 @@
 import os
-import sys
 import glob
 import numpy as np
 import cv2
 
 from torch.utils.data import Dataset, DataLoader
-
 import tensorflow.compat.v1 as tf
-tf.enable_eager_execution()
 
 from waymo_open_dataset.utils import range_image_utils, transform_utils, frame_utils
-from waymo_open_dataset.utils.frame_utils import parse_range_image_and_camera_projection
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
 
@@ -19,9 +15,8 @@ class WaymoParser(Dataset):
                  load_dir,
                  save_dir,
                  test_mode=False):
-        # turn on eager execution for older tensorflow versions
-        if int(tf.__version__.split('.')[0]) < 2:
-            tf.enable_eager_execution()
+        # turn on eager execution
+        tf.enable_eager_execution()
 
         self.prefix = ''
         self.filter_no_label_zone_points = True
@@ -133,6 +128,44 @@ class WaymoParser(Dataset):
             fp_calib.write(calib_context)
             fp_calib.close()
 
+    @staticmethod
+    def convert_range_image_to_point_cloud_labels(frame,
+                                                  range_images,
+                                                  segmentation_labels,
+                                                  ri_index=0):
+        """Convert segmentation labels from range images to point clouds.
+
+        Args:
+          frame: open dataset frame
+          range_images: A dict of {laser_name, [range_image_first_return,
+             range_image_second_return]}.
+          segmentation_labels: A dict of {laser_name, [range_image_first_return,
+             range_image_second_return]}.
+          ri_index: 0 for the first return, 1 for the second return.
+
+        Returns:
+          point_labels: {[N, 2]} list of 3d lidar points's segmentation labels. 0 for
+            points that are not labeled.
+        """
+        calibrations = sorted(frame.context.laser_calibrations, key=lambda c: c.name)
+        point_labels = []
+        for c in calibrations:
+            range_image = range_images[c.name][ri_index]
+            range_image_tensor = tf.reshape(
+                tf.convert_to_tensor(range_image.data), range_image.shape.dims)
+            range_image_mask = range_image_tensor[..., 0] > 0
+
+            if c.name in segmentation_labels:
+                sl = segmentation_labels[c.name][ri_index]
+                sl_tensor = tf.reshape(tf.convert_to_tensor(sl.data), sl.shape.dims)
+                sl_points_tensor = tf.gather_nd(sl_tensor, tf.where(range_image_mask))
+            else:
+                num_valid_point = tf.math.reduce_sum(tf.cast(range_image_mask, tf.int32))
+                sl_points_tensor = tf.zeros([num_valid_point, 2], dtype=tf.int32)
+
+            point_labels.append(sl_points_tensor.numpy())
+        return point_labels
+
     def save_lidar_and_label(self, frame, file_idx, frame_idx):
         """Parse and save the lidar data in psd format.
         Args:
@@ -141,53 +174,40 @@ class WaymoParser(Dataset):
             frame_idx (int): Current frame index.
         """
         range_images, camera_projections, segmentation_labels, range_image_top_pose = \
-            parse_range_image_and_camera_projection(frame)
+            frame_utils.parse_range_image_and_camera_projection(frame)
 
-        # First return
-        points_0, cp_points_0, point_labels_0, intensity_0, elongation_0 = \
-            self.convert_range_image_to_point_cloud_labels(
-                frame,
-                range_images,
-                segmentation_labels,
-                camera_projections,
-                range_image_top_pose,
-                ri_index=0
-            )
-        points_0 = np.concatenate(points_0, axis=0)
-        point_labels_0 = np.concatenate(point_labels_0, axis=0)
-        intensity_0 = np.concatenate(intensity_0, axis=0)
-        elongation_0 = np.concatenate(elongation_0, axis=0)
+        # points of first return
+        points_0, cp_points_0 = frame_utils.convert_range_image_to_point_cloud(
+            frame, range_images, camera_projections, range_image_top_pose, ri_index=0, keep_polar_features=True)
 
-        # Second return
-        points_1, cp_points_1, point_labels_1, intensity_1, elongation_1 = \
-            self.convert_range_image_to_point_cloud_labels(
-                frame,
-                range_images,
-                segmentation_labels,
-                camera_projections,
-                range_image_top_pose,
-                ri_index=1
-            )
-        points_1 = np.concatenate(points_1, axis=0)
-        point_labels_1 = np.concatenate(point_labels_1, axis=0)
-        intensity_1 = np.concatenate(intensity_1, axis=0)
-        elongation_1 = np.concatenate(elongation_1, axis=0)
+        # points of second return
+        points_1, cp_points_2 = frame_utils.convert_range_image_to_point_cloud(
+            frame, range_images, camera_projections, range_image_top_pose, ri_index=1, keep_polar_features=True)
 
-        points = np.concatenate([points_0, points_1], axis=0)
-        point_labels = np.concatenate([point_labels_0, point_labels_1], axis=0)
-        intensity = np.concatenate([intensity_0, intensity_1], axis=0)
-        elongation = np.concatenate([elongation_0, elongation_1], axis=0)
-        timestamp = frame.timestamp_micros * np.ones_like(intensity)
-
-        # concatenate x,y,z, intensity, elongation, timestamp (6-dim)
-        point_cloud = np.column_stack(
-            (points, intensity, elongation, timestamp))
+        # point cloud with 6-dim: x, y, z, intensity, and elongation, range
+        point_cloud = np.concatenate([points_0, points_1], axis=0)
+        point_cloud = point_cloud[:, [0, 1, 2, 4, 5, 3]]
 
         pc_path = f'{self.point_cloud_save_dir}/{self.prefix}' + \
                   f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
         np.save(pc_path, point_cloud)
 
-        if frame.lasers[0].ri_return1.segmentation_label_compressed:
+        if len(segmentation_labels) > 0:
+            # point labels of first return
+            point_labels_0 = self.convert_range_image_to_point_cloud_labels(
+                frame, range_images, segmentation_labels, ri_index=0)
+
+            # point labels of second return
+            point_labels_1 = self.convert_range_image_to_point_cloud_labels(
+                frame, range_images, segmentation_labels, ri_index=1)
+
+            point_labels = np.concatenate([point_labels_0, point_labels_1], axis=0)
+            point_labels = point_labels[:, 1]
+
+            # convert 0 to 255 for ignore label
+            point_labels -= 1
+            point_labels[point_labels == -1] = 255
+
             label_path = f'{self.label_save_dir}/{self.prefix}' + \
                          f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
             np.save(label_path, point_labels)
@@ -228,125 +248,6 @@ class WaymoParser(Dataset):
         for i in range(5):
             if not os.path.exists(f'{self.image_save_dir}/{str(i)}'):
                 os.makedirs(f'{self.image_save_dir}/{str(i)}')
-
-    def convert_range_image_to_point_cloud_labels(self,
-                                                  frame,
-                                                  range_images,
-                                                  segmentation_labels,
-                                                  camera_projections,
-                                                  range_image_top_pose,
-                                                  ri_index=0):
-        """Convert range images to point cloud and semantic labels.
-        Args:
-            frame (:obj:`Frame`): Open dataset frame.
-            range_images (dict): Mapping from laser_name to list of two
-                range images corresponding with two returns.
-            segmentation_labels (dict): Mapping from laser_name to list of two
-                semantic labels corresponding with two returns.
-            camera_projections (dict): Mapping from laser_name to list of two
-                camera projections corresponding with two returns.
-            range_image_top_pose (:obj:`Transform`): Range image pixel pose for
-                top lidar.
-            ri_index (int, optional): 0 for the first return,
-                1 for the second return. Default: 0.
-        Returns:
-            tuple[list[np.ndarray]]: (List of points with shape [N, 3],
-                camera projections of points with shape [N, 6], lables with shape [N, 1],
-                intensity with shape [N, 1], elongation with shape [N, 1]). All the
-                lists have the length of lidar numbers (5).
-        """
-        calibrations = sorted(
-            frame.context.laser_calibrations, key=lambda c: c.name)
-        points = []
-        cp_points = []
-        point_labels = []
-        intensity = []
-        elongation = []
-
-        frame_pose = tf.convert_to_tensor(
-            value=np.reshape(np.array(frame.pose.transform), [4, 4]))
-        # [H, W, 6]
-        range_image_top_pose_tensor = tf.reshape(
-            tf.convert_to_tensor(value=range_image_top_pose.data),
-            range_image_top_pose.shape.dims)
-        # [H, W, 3, 3]
-        range_image_top_pose_tensor_rotation = \
-            transform_utils.get_rotation_matrix(
-                range_image_top_pose_tensor[..., 0],
-                range_image_top_pose_tensor[..., 1],
-                range_image_top_pose_tensor[..., 2])
-        range_image_top_pose_tensor_translation = \
-            range_image_top_pose_tensor[..., 3:]
-        range_image_top_pose_tensor = transform_utils.get_transform(
-            range_image_top_pose_tensor_rotation,
-            range_image_top_pose_tensor_translation)
-        for c in calibrations:
-            range_image = range_images[c.name][ri_index]
-            if len(c.beam_inclinations) == 0:
-                beam_inclinations = range_image_utils.compute_inclination(
-                    tf.constant(
-                        [c.beam_inclination_min, c.beam_inclination_max]),
-                    height=range_image.shape.dims[0])
-            else:
-                beam_inclinations = tf.constant(c.beam_inclinations)
-
-            beam_inclinations = tf.reverse(beam_inclinations, axis=[-1])
-            extrinsic = np.reshape(np.array(c.extrinsic.transform), [4, 4])
-
-            range_image_tensor = tf.reshape(
-                tf.convert_to_tensor(value=range_image.data),
-                range_image.shape.dims)
-            pixel_pose_local = None
-            frame_pose_local = None
-            if c.name == open_dataset.LaserName.TOP:
-                pixel_pose_local = range_image_top_pose_tensor
-                pixel_pose_local = tf.expand_dims(pixel_pose_local, axis=0)
-                frame_pose_local = tf.expand_dims(frame_pose, axis=0)
-            range_image_mask = range_image_tensor[..., 0] > 0
-
-            if self.filter_no_label_zone_points:
-                nlz_mask = range_image_tensor[..., 3] != 1.0  # 1.0: in NLZ
-                range_image_mask = range_image_mask & nlz_mask
-
-            range_image_cartesian = \
-                range_image_utils.extract_point_cloud_from_range_image(
-                    tf.expand_dims(range_image_tensor[..., 0], axis=0),
-                    tf.expand_dims(extrinsic, axis=0),
-                    tf.expand_dims(tf.convert_to_tensor(
-                        value=beam_inclinations), axis=0),
-                    pixel_pose=pixel_pose_local,
-                    frame_pose=frame_pose_local)
-
-            range_image_cartesian = tf.squeeze(range_image_cartesian, axis=0)
-            points_tensor = tf.gather_nd(range_image_cartesian,
-                                         tf.compat.v1.where(range_image_mask))
-
-            cp = camera_projections[c.name][ri_index]
-            cp_tensor = tf.reshape(
-                tf.convert_to_tensor(value=cp.data), cp.shape.dims)
-            cp_points_tensor = tf.gather_nd(
-                cp_tensor, tf.compat.v1.where(range_image_mask))
-            points.append(points_tensor.numpy())
-            cp_points.append(cp_points_tensor.numpy())
-
-            if c.name in segmentation_labels:
-                sl = segmentation_labels[c.name][ri_index]
-                sl_tensor = tf.reshape(tf.convert_to_tensor(sl.data), sl.shape.dims)
-                sl_points_tensor = tf.gather_nd(sl_tensor, tf.where(range_image_mask))
-            else:
-                sl_points_tensor = tf.zeros([points_tensor.shape[0], 2], dtype=tf.int32)
-
-            point_labels.append(sl_points_tensor.numpy())
-
-            intensity_tensor = tf.gather_nd(range_image_tensor[..., 1],
-                                            tf.where(range_image_mask))
-            intensity.append(intensity_tensor.numpy())
-
-            elongation_tensor = tf.gather_nd(range_image_tensor[..., 2],
-                                             tf.where(range_image_mask))
-            elongation.append(elongation_tensor.numpy())
-
-        return points, cp_points, point_labels, intensity, elongation
 
     def cart_to_homo(self, mat):
         """Convert transformation matrix in Cartesian coordinates to

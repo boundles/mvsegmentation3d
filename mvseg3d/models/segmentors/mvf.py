@@ -26,7 +26,7 @@ class MVFNet(nn.Module):
                                         nn.ReLU(inplace=True),
                                         nn.Linear(self.fusion_feature_channel, dataset.num_classes, bias=False))
 
-        self.ce_loss = nn.CrossEntropyLoss()
+        self.ce_loss = nn.CrossEntropyLoss(ignore_index=255)
 
     def forward(self, batch_dict):
         point_per_features = self.point_encoder(batch_dict['points'])

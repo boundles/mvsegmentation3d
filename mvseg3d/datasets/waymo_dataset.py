@@ -29,7 +29,7 @@ class WaymoDataset(Dataset):
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
         self.point_dim = 6
-        self.num_classes = 23
+        self.num_classes = 22
 
     def get_lidar(self, sample_idx):
         lidar_file = os.path.join(self.root, self.split, 'lidar', sample_idx + '.npy')
