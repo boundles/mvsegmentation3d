@@ -42,6 +42,10 @@ class WaymoDataset(Dataset):
     def get_label(self, sample_idx):
         label_file = os.path.join(self.root, self.split, 'label', sample_idx + '.npy')
         semantic_labels = np.load(label_file)[:, 1]  # (N, 1)
+
+        # convert ignored  label 0 to 255
+        semantic_labels -= 1
+        semantic_labels[semantic_labels == -1] = 255
         return semantic_labels
 
     def __len__(self):
