@@ -33,9 +33,10 @@ class WaymoDataset(Dataset):
 
     def get_lidar(self, sample_idx):
         lidar_file = os.path.join(self.root, self.split, 'lidar', sample_idx + '.npy')
-        lidar_points = np.load(lidar_file)  # (N, 6): [x, y, z, intensity, elongation, timestamp]
+        lidar_points = np.load(lidar_file)  # (N, 6): [x, y, z, range, intensity, elongation]
 
-        lidar_points[:, 3] = np.tanh(lidar_points[:, 3])
+        # normalize intensity
+        lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points[:, :self.point_dim]
 
     def get_label(self, sample_idx):

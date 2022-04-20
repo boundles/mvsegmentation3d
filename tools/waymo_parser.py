@@ -183,9 +183,9 @@ class WaymoParser(Dataset):
             frame, range_images, camera_projections, range_image_top_pose, ri_index=1, keep_polar_features=True)
         points_1, cp_points_2 = np.concatenate(points_1, axis=0), np.concatenate(cp_points_2, axis=0)
 
-        # point cloud with 6-dim: x, y, z, intensity, and elongation, range
+        # point cloud with 6-dim: [x, y, z, range, intensity, and elongation]
         point_cloud = np.concatenate([points_0, points_1], axis=0)
-        point_cloud = point_cloud[:, [3, 4, 5, 1, 2, 0]]
+        point_cloud = point_cloud[:, [3, 4, 5, 0, 1, 2]]
 
         pc_path = f'{self.point_cloud_save_dir}/' + \
                   f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
@@ -203,11 +203,6 @@ class WaymoParser(Dataset):
             point_labels_1 = np.concatenate(point_labels_1, axis=0)
 
             point_labels = np.concatenate([point_labels_0, point_labels_1], axis=0)
-            point_labels = point_labels[:, 1]
-
-            # convert 0 to 255 for ignore label
-            point_labels -= 1
-            point_labels[point_labels == -1] = 255
 
             label_path = f'{self.label_save_dir}/' + \
                          f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
