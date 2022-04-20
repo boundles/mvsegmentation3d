@@ -64,8 +64,8 @@ def main():
             out, loss = model(data_dict)
             print('epoch:', epoch, ', step:', step, ', loss:', loss)
 
-            loss.backward()
             optimizer.zero_grad()
+            loss.backward()
             optimizer.step()
         scheduler.step()
 
