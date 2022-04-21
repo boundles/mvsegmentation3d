@@ -1,7 +1,6 @@
 import multiprocessing
 import os
 import glob
-import traceback
 
 import numpy as np
 import cv2
@@ -47,10 +46,10 @@ class WaymoParser(object):
         Args:
             file_idx (int): Index of the file to be converted.
         """
-        try:
-            pathname = self.tfrecord_pathnames[file_idx]
-            dataset = tf.data.TFRecordDataset(pathname, compression_type='')
+        pathname = self.tfrecord_pathnames[file_idx]
 
+        try:
+            dataset = tf.data.TFRecordDataset(pathname, compression_type='')
             for frame_idx, data in enumerate(dataset):
                 frame = open_dataset.Frame()
                 frame.ParseFromString(bytearray(data.numpy()))
@@ -62,13 +61,10 @@ class WaymoParser(object):
 
                 if not self.test_mode:
                     self.save_label(frame, file_idx, frame_idx)
-
-            return pathname
         except Exception as e:
-            traceback.print_exc()
-            err = traceback.format_exc()
-            print(err)
-            return None
+            print('Failed to parse: %s, error msg: %s' % (pathname, str(e)))
+
+        return pathname
 
     def __len__(self):
         """Length of the filename list."""
