@@ -285,5 +285,5 @@ if __name__ == '__main__':
     split = 'validation'
     raw_data_dir = os.path.join('/nfs/s3_common_dataset/waymo_perception_v1.3', split)
     parsed_data_dir = os.path.join('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', split)
-    parser = WaymoParser(raw_data_dir, parsed_data_dir, 5)
+    parser = WaymoParser(raw_data_dir, parsed_data_dir, 64)
     parser.parse()
