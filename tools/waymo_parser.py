@@ -3,9 +3,9 @@ import os
 import glob
 import numpy as np
 import cv2
-from tqdm import tqdm
 
 import tensorflow as tf
+from tqdm import tqdm
 
 from waymo_open_dataset.utils import frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
@@ -33,9 +33,12 @@ class WaymoParser(object):
         self.create_folder()
 
     def parse(self):
-        with multiprocessing.Pool(self.num_workers) as p:
-            parsed_filenames = list(tqdm(p.imap(self.parse_one, range(len(self))), total=len(self)))
-        print('Parse %d files finished!' % len(parsed_filenames))
+        print('======Parse Started!======')
+        pool = multiprocessing.Pool(self.num_workers)
+        gen = list(tqdm(pool.imap(self.parse_one, range(len(self))), total=len(self)))
+        pool.close()
+        pool.join()
+        print('======Parse Finished!======')
 
     def parse_one(self, file_idx):
         """Convert action for single file.
@@ -285,5 +288,5 @@ if __name__ == '__main__':
     split = 'validation'
     raw_data_dir = os.path.join('/nfs/s3_common_dataset/waymo_perception_v1.3', split)
     parsed_data_dir = os.path.join('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', split)
-    parser = WaymoParser(raw_data_dir, parsed_data_dir, 64)
+    parser = WaymoParser(raw_data_dir, parsed_data_dir, 8)
     parser.parse()
