@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import glob
 import numpy as np
@@ -5,19 +6,20 @@ import cv2
 from tqdm import tqdm
 
 import tensorflow as tf
-from torch.utils.data import Dataset, DataLoader
 
 from waymo_open_dataset.utils import frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
 
-class WaymoParser(Dataset):
+class WaymoParser(object):
     def __init__(self,
                  load_dir,
                  save_dir,
+                 num_workers,
                  test_mode=False):
         self.load_dir = load_dir
         self.save_dir = save_dir
+        self.num_workers = num_workers
         self.test_mode = test_mode
 
         self.tfrecord_pathnames = sorted(glob.glob(os.path.join(self.load_dir, '*.tfrecord')))
@@ -30,23 +32,28 @@ class WaymoParser(Dataset):
 
         self.create_folder()
 
-    def __getitem__(self, index):
+    def parse(self):
+        with multiprocessing.Pool(self.num_workers) as p:
+            parsed_filenames = list(tqdm(p.imap(self.parse_one, range(len(self))), total=len(self)))
+        print('Parse %d files finished!' % len(parsed_filenames))
+
+    def parse_one(self, file_idx):
         """Convert action for single file.
         Args:
             file_idx (int): Index of the file to be converted.
         """
-        pathname = self.tfrecord_pathnames[index]
+        pathname = self.tfrecord_pathnames[file_idx]
         dataset = tf.data.TFRecordDataset(pathname, compression_type='')
 
         for frame_idx, data in enumerate(dataset):
             frame = open_dataset.Frame()
             frame.ParseFromString(bytearray(data.numpy()))
 
-            self.save_image(frame, index, frame_idx)
-            self.save_calib(frame, index, frame_idx)
-            self.save_lidar(frame, index, frame_idx)
-            self.save_label(frame, index, frame_idx)
-            self.save_pose(frame, index, frame_idx)
+            self.save_image(frame, file_idx, frame_idx)
+            self.save_calib(frame, file_idx, frame_idx)
+            self.save_lidar(frame, file_idx, frame_idx)
+            self.save_label(frame, file_idx, frame_idx)
+            self.save_pose(frame, file_idx, frame_idx)
 
         return pathname
 
@@ -278,7 +285,5 @@ if __name__ == '__main__':
     split = 'validation'
     raw_data_dir = os.path.join('/nfs/s3_common_dataset/waymo_perception_v1.3', split)
     parsed_data_dir = os.path.join('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', split)
-    parser = WaymoParser(raw_data_dir, parsed_data_dir)
-    data_loader = DataLoader(parser, num_workers=8)
-    for pathnames in tqdm(data_loader):
-        print('Processing:', pathnames)
+    parser = WaymoParser(raw_data_dir, parsed_data_dir, 5)
+    parser.parse()
