@@ -61,7 +61,7 @@ class FocalLoss(nn.Module):
         Returns:
             torch.Tensor: The calculated loss
         """
-        valid_mask = (targets != self.ignore_index).view(-1, 1)
+        valid_mask = (targets != self.ignore_index)
         inputs = inputs[valid_mask]
         targets = targets[valid_mask]
 
