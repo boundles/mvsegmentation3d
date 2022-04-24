@@ -80,7 +80,7 @@ def eval_one_epoch(val_loader, model, iou_metric, epoch):
         iou_metric.add(pred_labels, gt_labels)
 
     metric_result = iou_metric.get_metric()
-    print('Metrics on validation dataset:%s', str(metric_result))
+    print('Metrics on validation dataset: %s' % str(metric_result))
 
 
 def main():
