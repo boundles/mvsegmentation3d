@@ -58,7 +58,7 @@ def train_one_epoch(train_loader, model, optimizer, lr_scheduler, epoch):
         load_data_to_gpu(data_dict)
         out, loss = model(data_dict)
         if step % 5 == 0:
-            print('train@epoch: {:<5}, step: {:<5}, loss: {:.4f}'.format(epoch, step, loss.cpu().item()))
+            print('train@epoch: {:<3}, step: {:<5}, loss: {:.4f}'.format(epoch, step, loss.cpu().item()))
 
         optimizer.zero_grad()
         loss.backward()
@@ -73,7 +73,7 @@ def eval_one_epoch(val_loader, model, iou_metric, epoch):
         with torch.no_grad():
             out, loss = model(data_dict)
         if step % 5 == 0:
-            print('eval@epoch: {:<5}, step: {:<5}, loss: {:.4f}'.format(epoch, step, loss.cpu().item()))
+            print('eval@epoch: {:<3}, step: {:<5}, loss: {:.4f}'.format(epoch, step, loss.cpu().item()))
 
         pred_labels = torch.argmax(out, dim=1).cpu()
         gt_labels = data_dict['labels'].cpu()
