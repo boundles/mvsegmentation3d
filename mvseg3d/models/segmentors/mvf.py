@@ -37,7 +37,7 @@ class MVFNet(nn.Module):
         point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
         out = self.cls_layers(point_fusion_features)
 
-        if self.training:
+        if 'labels' in batch_dict:
             labels = batch_dict['labels']
             loss = self.ce_loss(out, labels)
             return out, loss

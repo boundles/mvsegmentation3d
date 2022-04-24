@@ -29,8 +29,23 @@ class WaymoDataset(Dataset):
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
-        self.point_dim = 6
-        self.num_classes = 22
+    @property
+    def point_dim(self):
+        return 6
+
+    @property
+    def num_classes(self):
+        return 22
+
+    @property
+    def id2label(self):
+        labels = ['Car', 'Truck', 'Bus', 'Other Vehicle', 'MotorCyclist', 'Bicyclist', 'Pedestrian', 'Sign',
+                  'Traffic Light', 'Pole', 'Construction Zone', 'Bicycle', 'MotorCycle', 'Building', 'Vegetation',
+                  'Tree Truck', 'Curb', 'Road', 'Lane Marker', 'Other Ground', 'Walkable', 'SideWalk']
+        id2label = dict()
+        for i, label in enumerate(labels):
+            id2label[i] = label
+        return id2label
 
     def get_lidar(self, sample_idx):
         lidar_file = os.path.join(self.root, self.split, 'lidar', sample_idx + '.npy')
