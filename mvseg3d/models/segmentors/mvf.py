@@ -27,7 +27,7 @@ class MVFNet(nn.Module):
                                         nn.ReLU(inplace=True),
                                         nn.Linear(self.fusion_feature_channel, dataset.num_classes, bias=False))
 
-        self.focal_loss = FocalLoss(num_classes=dataset.num_classe)
+        self.focal_loss = FocalLoss(num_classes=dataset.num_classes)
 
     def forward(self, batch_dict):
         point_per_features = self.point_encoder(batch_dict['points'])
