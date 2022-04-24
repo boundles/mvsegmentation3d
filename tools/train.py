@@ -54,6 +54,7 @@ def parse_args():
 
 
 def train_one_epoch(train_loader, model, optimizer, lr_scheduler, epoch):
+    model.train()
     for step, data_dict in enumerate(train_loader):
         load_data_to_gpu(data_dict)
         out, loss = model(data_dict)
@@ -66,8 +67,9 @@ def train_one_epoch(train_loader, model, optimizer, lr_scheduler, epoch):
     lr_scheduler.step()
 
 
-def eval_one_epoch(val_loader, model, iou_metric, epoch):
+def eval_one_epoch(val_loader, model, id2label, epoch):
     model.eval()
+    iou_metric = IOUMetric(id2label)
     for step, data_dict in enumerate(val_loader):
         load_data_to_gpu(data_dict)
         with torch.no_grad():
@@ -101,8 +103,6 @@ def main():
         drop_last=False, sampler=None, timeout=0
     )
 
-    iou_metric = IOUMetric(val_dataset.id2label)
-
     # define model
     model = MVFNet(train_dataset).cuda()
 
@@ -115,7 +115,7 @@ def main():
         train_one_epoch(train_loader, model, optimizer, lr_scheduler, epoch)
 
         print('****************Evaluation stage on epoch: %d*****************' % epoch)
-        eval_one_epoch(val_loader, model, iou_metric, epoch)
+        eval_one_epoch(val_loader, model, val_dataset.id2label, epoch)
 
 
 if __name__ == '__main__':

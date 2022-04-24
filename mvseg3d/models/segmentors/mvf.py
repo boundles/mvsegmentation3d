@@ -4,6 +4,7 @@ import torch.nn as nn
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.utils.voxel_point_utils import voxel_to_point
+from mvseg3d.models.losses.focal_loss import FocalLoss
 
 class MVFNet(nn.Module):
     def __init__(self, dataset):
@@ -26,7 +27,7 @@ class MVFNet(nn.Module):
                                         nn.ReLU(inplace=True),
                                         nn.Linear(self.fusion_feature_channel, dataset.num_classes, bias=False))
 
-        self.ce_loss = nn.CrossEntropyLoss(ignore_index=255)
+        self.focal_loss = FocalLoss(ignore_index=255)
 
     def forward(self, batch_dict):
         point_per_features = self.point_encoder(batch_dict['points'])
