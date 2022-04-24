@@ -40,7 +40,7 @@ class MVFNet(nn.Module):
 
         if 'labels' in batch_dict:
             labels = batch_dict['labels']
-            loss = self.ce_loss(out, labels)
+            loss = self.focal_loss(out, labels)
             return out, loss
         else:
             return out
