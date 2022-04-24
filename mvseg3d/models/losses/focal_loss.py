@@ -7,6 +7,7 @@ class FocalLoss(nn.Module):
     def __init__(self,
                  gamma=2.0,
                  alpha=0.5,
+                 num_classes=-1,
                  ignore_index=255,
                  reduction='mean',
                  loss_name='loss_focal'):
@@ -16,6 +17,7 @@ class FocalLoss(nn.Module):
                 factor. Defaults to 2.0.
             alpha (float | list[float], optional): A balanced form for Focal
                 Loss. Defaults to 0.5.
+            num_classes (int, optional): Number of classes
             ignore_index (int, optional): The label index to be ignored.
                 Default: 255
             reduction (str, optional): The method used to reduce the loss into
@@ -37,6 +39,7 @@ class FocalLoss(nn.Module):
             'AssertionError: loss_name should be of type str'
         self.gamma = gamma
         self.alpha = alpha
+        self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.reduction = reduction
         self._loss_name = loss_name
@@ -58,7 +61,12 @@ class FocalLoss(nn.Module):
         Returns:
             torch.Tensor: The calculated loss
         """
+        valid_mask = (targets != self.ignore_index).view(-1, 1)
+        inputs = inputs[valid_mask]
+        targets = targets[valid_mask]
+
         p = torch.sigmoid(inputs)
+        targets = F.one_hot(targets, self.num_classes)
         ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
         p_t = p * targets + (1 - p) * (1 - targets)
         loss = ce_loss * ((1 - p_t) ** self.gamma)
@@ -66,9 +74,6 @@ class FocalLoss(nn.Module):
         if self.alpha >= 0:
             alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
             loss = alpha_t * loss
-
-        valid_mask = (targets != self.ignore_index).view(-1, 1)
-        loss = loss[valid_mask]
 
         if self.reduction == "mean":
             loss = loss.mean()
