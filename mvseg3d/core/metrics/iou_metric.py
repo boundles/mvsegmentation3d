@@ -16,8 +16,7 @@ class IOUMetric(object):
         self.id2label = id2label
         self.ignore_index = ignore_index
 
-        self.pred_labels = []
-        self.gt_labels = []
+        self.hist_list = []
 
     @staticmethod
     def fast_hist(preds, labels, num_classes):
@@ -50,27 +49,20 @@ class IOUMetric(object):
 
         return np.diag(hist) / (hist.sum(1) + hist.sum(0) - np.diag(hist))
 
-    def add(self, pred_label, gt_label):
-        self.pred_labels.append(pred_label)
-        self.gt_labels.append(gt_label)
+    def add(self, pred_labels, gt_labels):
+        preds = pred_labels.clone().numpy().astype(np.int)
+        labels = gt_labels.clone().numpy().astype(np.int)
+
+        # filter out ignored points
+        preds[preds == self.ignore_index] = -1
+        labels[labels == self.ignore_index] = -1
+
+        # calculate one instance result'
+        hist = self.fast_hist(preds, labels, len(self.id2label))
+        self.hist_list.append(hist)
 
     def get_metric(self):
-        assert len(self.pred_labels) == len(self.gt_labels)
-        num_classes = len(self.id2label)
-
-        hist_list = []
-        for i in range(len(self.gt_labels)):
-            pred_label = self.pred_labels[i].clone().numpy().astype(np.int)
-            gt_label = self.gt_labels[i].clone().numpy().astype(np.int)
-
-            # filter out ignored points
-            pred_label[pred_label == self.ignore_index] = -1
-            gt_label[gt_label == self.ignore_index] = -1
-
-            # calculate one instance result
-            hist_list.append(self.fast_hist(pred_label, gt_label, num_classes))
-
-        iou = self.per_class_iou(sum(hist_list))
+        iou = self.per_class_iou(sum(self.hist_list))
         miou = np.nanmean(iou)
 
         # mean iou
@@ -89,11 +81,11 @@ if __name__ == '__main__':
     id2label = {0: 'bg', 1: 'fg'}
     iou_metric = IOUMetric(id2label, 255)
 
-    pred_label = torch.ones(3)
-    gt_label = torch.ones(3)
-    iou_metric.add(pred_label, gt_label)
+    pred_labels = torch.ones(3)
+    gt_labels = torch.ones(3)
+    iou_metric.add(pred_labels, gt_labels)
 
-    pred_label = torch.zeros(2)
-    gt_label = torch.zeros(2)
-    iou_metric.add(pred_label, gt_label)
+    pred_labels = torch.zeros(2)
+    gt_labels = torch.zeros(2)
+    iou_metric.add(pred_labels, gt_labels)
     print(iou_metric.get_metric())
