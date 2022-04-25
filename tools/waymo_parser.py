@@ -1,3 +1,4 @@
+import argparse
 import multiprocessing
 import os
 import glob
@@ -14,16 +15,18 @@ from waymo_open_dataset import dataset_pb2 as open_dataset
 
 class WaymoParser(object):
     def __init__(self,
-                 load_dir,
+                 tfrecord_list_file,
                  save_dir,
                  num_workers,
                  test_mode=False):
-        self.load_dir = load_dir
+        self.tfrecord_list_file = tfrecord_list_file
         self.save_dir = save_dir
         self.num_workers = num_workers
         self.test_mode = test_mode
 
-        self.tfrecord_pathnames = sorted(glob.glob(os.path.join(self.load_dir, '*.tfrecord')))
+        with open(self.tfrecord_list_file, 'r') as fp:
+            self.tfrecord_pathnames = fp.readlines()
+        # self.tfrecord_pathnames = sorted(glob.glob(os.path.join(self.load_dir, '*.tfrecord')))
 
         self.label_save_dir = f'{self.save_dir}/label'
         self.image_save_dir = f'{self.save_dir}/image'
@@ -285,10 +288,22 @@ class WaymoParser(object):
             raise ValueError(mat.shape)
         return ret
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train a 3d segmentor')
+    parser.add_argument(
+        '--tfrecord_list_file',
+        type=str,
+        help='the file with tfrecord file list')
+
+    parser.add_argument(
+        '--save_dir',
+        type=str,
+        help='directory for saving output file')
+
+    args = parser.parse_args()
+    return args
 
 if __name__ == '__main__':
-    split = 'validation'
-    raw_data_dir = os.path.join('/nfs/s3_common_dataset/waymo_perception_v1.3', split)
-    parsed_data_dir = os.path.join('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', split)
-    parser = WaymoParser(raw_data_dir, parsed_data_dir, 8)
+    args = parse_args()
+    parser = WaymoParser(args.tfrecord_list_file, args.save_dir, 8)
     parser.parse()
