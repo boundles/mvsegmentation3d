@@ -195,13 +195,17 @@ class WaymoParser(object):
         points_0, cp_points_0 = np.concatenate(points_0, axis=0), np.concatenate(cp_points_0, axis=0)
 
         # points of second return
-        points_1, cp_points_2 = frame_utils.convert_range_image_to_point_cloud(
+        points_1, cp_points_1 = frame_utils.convert_range_image_to_point_cloud(
             frame, range_images, camera_projections, range_image_top_pose, ri_index=1, keep_polar_features=True)
-        points_1, cp_points_2 = np.concatenate(points_1, axis=0), np.concatenate(cp_points_2, axis=0)
+        points_1, cp_points_1 = np.concatenate(points_1, axis=0), np.concatenate(cp_points_1, axis=0)
 
         # point cloud with 6-dim: [x, y, z, range, intensity, and elongation]
         point_cloud = np.concatenate([points_0, points_1], axis=0)
         point_cloud = point_cloud[:, [3, 4, 5, 0, 1, 2]]
+
+        # point cloud with 12-dim: [x, y, z, range, intensity, elongation and camera projection]
+        cp_cloud = np.concatenate([cp_points_0, cp_points_1], axis=0)
+        point_cloud = np.concatenate([point_cloud, cp_cloud], axis=1)
 
         pc_path = f'{self.point_cloud_save_dir}/' + \
                   f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
