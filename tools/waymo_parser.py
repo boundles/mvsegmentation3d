@@ -1,7 +1,6 @@
 import argparse
 import multiprocessing
 import os
-import glob
 
 import numpy as np
 import cv2
@@ -25,8 +24,7 @@ class WaymoParser(object):
         self.test_mode = test_mode
 
         with open(self.tfrecord_list_file, 'r') as fp:
-            self.tfrecord_pathnames = fp.readlines()
-        # self.tfrecord_pathnames = sorted(glob.glob(os.path.join(self.load_dir, '*.tfrecord')))
+            self.tfrecord_pathnames = fp.read().splitlines()
 
         self.label_save_dir = f'{self.save_dir}/label'
         self.image_save_dir = f'{self.save_dir}/image'
