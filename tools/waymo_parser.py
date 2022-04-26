@@ -34,6 +34,11 @@ class WaymoParser(object):
 
         self.create_folder()
 
+    @staticmethod
+    def get_file_id(pathname):
+        file_id = pathname.replace('segment-', '').replace('_with_camera_labels', '')
+        return file_id
+
     def parse(self):
         print('======Parse Started!======')
         pool = multiprocessing.Pool(self.num_workers)
@@ -48,6 +53,7 @@ class WaymoParser(object):
             file_idx (int): Index of the file to be converted.
         """
         pathname = self.tfrecord_pathnames[file_idx]
+        file_id = self.get_file_id(pathname)
 
         try:
             dataset = tf.data.TFRecordDataset(pathname, compression_type='')
@@ -55,13 +61,13 @@ class WaymoParser(object):
                 frame = open_dataset.Frame()
                 frame.ParseFromString(bytearray(data.numpy()))
 
-                self.save_image(frame, file_idx, frame_idx)
-                self.save_calib(frame, file_idx, frame_idx)
-                self.save_lidar(frame, file_idx, frame_idx)
-                self.save_pose(frame, file_idx, frame_idx)
+                self.save_image(frame, file_id, frame_idx)
+                self.save_calib(frame, file_id, frame_idx)
+                self.save_lidar(frame, file_id, frame_idx)
+                self.save_pose(frame, file_id, frame_idx)
 
                 if not self.test_mode:
-                    self.save_label(frame, file_idx, frame_idx)
+                    self.save_label(frame, file_id, frame_idx)
         except Exception as e:
             print('Failed to parse: %s, error msg: %s' % (pathname, str(e)))
 
@@ -109,25 +115,24 @@ class WaymoParser(object):
             point_labels.append(sl_points_tensor.numpy())
         return point_labels
 
-    def save_image(self, frame, file_idx, frame_idx):
+    def save_image(self, frame, file_id, frame_idx):
         """Parse and save the images in png format.
         Args:
             frame (:obj:`Frame`): Open dataset frame proto.
-            file_idx (int): Current file index.
+            file_id (str): Current file id.
             frame_idx (int): Current frame index.
         """
         for img in frame.images:
-            img_path = f'{self.image_save_dir}/{str(img.name - 1)}/' + \
-                       f'{str(file_idx).zfill(3)}' + \
+            img_path = f'{self.image_save_dir}/{str(img.name - 1)}/{file_id}' + \
                        f'{str(frame_idx).zfill(3)}.png'
             img = tf.image.decode_jpeg(img.image)
             cv2.imwrite(img_path, img.numpy())
 
-    def save_calib(self, frame, file_idx, frame_idx):
+    def save_calib(self, frame, file_id, frame_idx):
         """Parse and save the calibration data.
         Args:
             frame (:obj:`Frame`): Open dataset frame proto.
-            file_idx (int): Current file index.
+            file_id (str): Current file id.
             frame_idx (int): Current frame index.
         """
         # waymo front camera to kitti reference camera
@@ -171,17 +176,17 @@ class WaymoParser(object):
             calib_context += 'Tr_velo_to_cam_' + str(i) + ': ' + \
                              ' '.join(Tr_velo_to_cams[i]) + '\n'
 
-        calib_path = f'{self.calib_save_dir}/' + \
-                     f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}.txt'
+        calib_path = f'{self.calib_save_dir}/{file_id}' + \
+                     f'{str(frame_idx).zfill(3)}.txt'
         with open(calib_path, 'w+') as fp_calib:
             fp_calib.write(calib_context)
             fp_calib.close()
 
-    def save_lidar(self, frame, file_idx, frame_idx):
+    def save_lidar(self, frame, file_id, frame_idx):
         """Parse and save the lidar data in psd format.
         Args:
             frame (:obj:`Frame`): Open dataset frame proto.
-            file_idx (int): Current file index.
+            file_id (str): Current file id.
             frame_idx (int): Current frame index.
         """
         range_images, camera_projections, segmentation_labels, range_image_top_pose = \
@@ -205,15 +210,15 @@ class WaymoParser(object):
         cp_cloud = np.concatenate([cp_points_0, cp_points_1], axis=0)
         point_cloud = np.concatenate([point_cloud, cp_cloud], axis=1)
 
-        pc_path = f'{self.point_cloud_save_dir}/' + \
-                  f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
+        pc_path = f'{self.point_cloud_save_dir}/{file_id}' + \
+                  f'{str(frame_idx).zfill(3)}'
         np.save(pc_path, point_cloud)
 
-    def save_label(self, frame, file_idx, frame_idx):
+    def save_label(self, frame, file_id, frame_idx):
         """Parse and save the label data in psd format.
         Args:
             frame (:obj:`Frame`): Open dataset frame proto.
-            file_idx (int): Current file index.
+            file_id (str): Current file id.
             frame_idx (int): Current frame index.
         """
         range_images, camera_projections, segmentation_labels, range_image_top_pose = \
@@ -231,11 +236,11 @@ class WaymoParser(object):
             point_labels_1 = np.concatenate(point_labels_1, axis=0)
             point_labels = np.concatenate([point_labels_0, point_labels_1], axis=0)
 
-            label_path = f'{self.label_save_dir}/' + \
-                         f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}'
+            label_path = f'{self.label_save_dir}/{file_id}' + \
+                         f'{str(frame_idx).zfill(3)}'
             np.save(label_path, point_labels)
 
-    def save_pose(self, frame, file_idx, frame_idx):
+    def save_pose(self, frame, file_id, frame_idx):
         """Parse and save the pose data.
         Note that SDC's own pose is not included in the regular training
         of KITTI dataset. KITTI raw dataset contains ego motion files
@@ -243,11 +248,11 @@ class WaymoParser(object):
         take advantage of the temporal information.
         Args:
             frame (:obj:`Frame`): Open dataset frame proto.
-            file_idx (int): Current file index.
+            file_id (str): Current file id.
             frame_idx (int): Current frame index.
         """
-        pose_path = f'{self.pose_save_dir}/' + \
-                    f'{str(file_idx).zfill(3)}{str(frame_idx).zfill(3)}.txt'
+        pose_path = f'{self.pose_save_dir}/{file_id}' + \
+                    f'{str(frame_idx).zfill(3)}.txt'
         pose = np.array(frame.pose.transform).reshape(4, 4)
         np.savetxt(pose_path, pose)
 
@@ -295,12 +300,14 @@ def parse_args():
     parser.add_argument(
         '--tfrecord_list_file',
         type=str,
-        help='the file with tfrecord file list')
+        help='the file with tfrecord file list'
+    )
 
     parser.add_argument(
         '--save_dir',
         type=str,
-        help='directory for saving output file')
+        help='directory for saving output file'
+    )
 
     args = parser.parse_args()
     return args
