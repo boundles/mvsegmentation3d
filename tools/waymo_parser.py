@@ -37,7 +37,7 @@ class WaymoParser(object):
     @staticmethod
     def get_file_id(pathname):
         filename = os.path.basename(pathname)
-        file_id = filename.replace('segment-', '').replace('_with_camera_labels', '')
+        file_id = filename.replace('segment-', '').replace('_with_camera_labels.tfrecord', '')
         return file_id
 
     def parse(self):
