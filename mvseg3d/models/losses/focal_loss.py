@@ -9,6 +9,7 @@ class FocalLoss(nn.Module):
                  alpha=0.5,
                  num_classes=-1,
                  ignore_index=255,
+                 class_weight=None,
                  reduction='mean',
                  loss_name='loss_focal'):
         """`Focal Loss <https://arxiv.org/abs/1708.02002>`_
@@ -20,6 +21,8 @@ class FocalLoss(nn.Module):
             num_classes (int, optional): Number of classes
             ignore_index (int, optional): The label index to be ignored.
                 Default: 255
+            class_weight (list[float], optional): Weight of each class.
+                Defaults to None.
             reduction (str, optional): The method used to reduce the loss into
                 a scalar. Defaults to 'mean'. Options are "none", "mean" and
                 "sum".
@@ -41,6 +44,7 @@ class FocalLoss(nn.Module):
         self.alpha = alpha
         self.num_classes = num_classes
         self.ignore_index = ignore_index
+        self.class_weight = class_weight
         self.reduction = reduction
         self._loss_name = loss_name
 
@@ -61,6 +65,10 @@ class FocalLoss(nn.Module):
         Returns:
             torch.Tensor: The calculated loss
         """
+        final_weight = torch.ones(1, inputs.size(1)).type_as(inputs)
+        if self.class_weight is not None:
+            final_weight = final_weight * inputs.new_tensor(self.class_weight)
+
         valid_mask = (targets != self.ignore_index)
         inputs = inputs[valid_mask]
         targets = targets[valid_mask]
@@ -75,6 +83,7 @@ class FocalLoss(nn.Module):
             alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
             loss = alpha_t * loss
 
+        loss = loss * final_weight
         if self.reduction == "mean":
             loss = loss.mean()
         elif self.reduction == "sum":

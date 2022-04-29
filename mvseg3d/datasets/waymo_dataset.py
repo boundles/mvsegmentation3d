@@ -40,16 +40,24 @@ class WaymoDataset(Dataset):
     @property
     def id2label(self):
         labels = ['Car', 'Truck', 'Bus', 'Other Vehicle', 'MotorCyclist', 'Bicyclist', 'Pedestrian', 'Sign',
-                  'Traffic Light', 'Pole', 'Construction Zone', 'Bicycle', 'MotorCycle', 'Building', 'Vegetation',
-                  'Tree Truck', 'Curb', 'Road', 'Lane Marker', 'Other Ground', 'Walkable', 'SideWalk']
+                  'Traffic Light', 'Pole', 'Construction Cone', 'Bicycle', 'MotorCycle', 'Building', 'Vegetation',
+                  'Tree Trunk', 'Curb', 'Road', 'Lane Marker', 'Other Ground', 'Walkable', 'SideWalk']
         id2label = dict()
         for i, label in enumerate(labels):
             id2label[i] = label
         return id2label
 
+    @property
+    def class_weight(self):
+        return [2.5573495292786705, 4.674679353043209, 4.999718438900531, 5.563321749633249, 10.73673169853078,
+                8.227823688837296, 4.962283296561223, 5.237239400142882, 7.307259288590015, 4.610857239545126,
+                7.607454941285682, 9.15210312179631, 8.753426840231054, 1.1511133803065023, 1.63258363570334,
+                3.8735526105804743, 4.443068509630746, 1.6108377340079234, 5.1972959658694355, 5.3112725890845445,
+                2.626942890303363, 2.958990264327497]
+
     def get_lidar(self, sample_idx):
         lidar_file = os.path.join(self.root, self.split, 'lidar', sample_idx + '.npy')
-        lidar_points = np.load(lidar_file)  # (N, 6): [x, y, z, range, intensity, elongation]
+        lidar_points = np.load(lidar_file)  # (N, 12): [x, y, z, range, intensity, elongation, camera project]
 
         # normalize intensity
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
@@ -59,7 +67,7 @@ class WaymoDataset(Dataset):
         label_file = os.path.join(self.root, self.split, 'label', sample_idx + '.npy')
         semantic_labels = np.load(label_file)[:, 1]  # (N, 1)
 
-        # convert ignored  label 0 to 255
+        # convert undefined label: 0 to ignore index: 255
         semantic_labels -= 1
         semantic_labels[semantic_labels == -1] = 255
         return semantic_labels
