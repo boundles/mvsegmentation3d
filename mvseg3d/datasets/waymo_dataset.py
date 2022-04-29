@@ -12,7 +12,7 @@ from mvseg3d.core import VoxelGenerator
 
 class WaymoDataset(Dataset):
     def __init__(self, root, split='train', filter_nlz_points=False):
-        assert split in ['train', 'validation', 'test']
+        assert split in ['training', 'validation', 'test']
         self.root = root
         self.split = split
         self.filter_nlz_points = filter_nlz_points
