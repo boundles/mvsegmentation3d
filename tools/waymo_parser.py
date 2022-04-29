@@ -48,12 +48,12 @@ class WaymoParser(object):
         pool.join()
         print('======Parse Finished!======')
 
-    def parse_one(self, file_idx):
+    def parse_one(self, index):
         """Convert action for single file.
         Args:
-            file_idx (int): Index of the file to be converted.
+            index (int): Index of the file to be converted.
         """
-        pathname = self.tfrecord_pathnames[file_idx]
+        pathname = self.tfrecord_pathnames[index]
         file_id = self.get_file_id(pathname)
 
         try:

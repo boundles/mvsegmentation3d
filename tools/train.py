@@ -89,7 +89,7 @@ def main():
     args = parse_args()
 
     # load data
-    train_dataset = WaymoDataset(args.data_dir, 'validation')
+    train_dataset = WaymoDataset(args.data_dir, 'training')
     train_loader = DataLoader(
         train_dataset, batch_size=args.train_batch_size, pin_memory=True, shuffle=True,
         num_workers=args.num_workers, collate_fn=train_dataset.collate_batch,
