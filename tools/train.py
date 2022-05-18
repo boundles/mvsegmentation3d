@@ -41,6 +41,10 @@ def parse_args():
         default=4,
         type=int)
     parser.add_argument(
+        '--num_gpus',
+        default=1,
+        type=int)
+    parser.add_argument(
         '--num_workers',
         default=2,
         type=int)
@@ -95,6 +99,7 @@ def parse_args():
     return args
 
 def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir):
+    logger.info('Save checkpoint at epoch %d' % epoch)
     checkpoint = {
         "model": model.state_dict(),
         'optimizer': optimizer.state_dict(),
@@ -107,36 +112,32 @@ def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir):
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
-def evaluate(data_loaders, model, id2label, args):
-    cur_iter = 0
-    total_iter = args.epochs * len(data_loaders['val'])
-    model.eval()
+def evaluate(data_loader, model, id2label, args):
     iou_metric = IOUMetric(id2label)
-    for epoch in range(args.epochs):
-        for step, data_dict in enumerate(data_loaders['val']):
-            load_data_to_gpu(data_dict)
-            with torch.no_grad():
-                out, loss = model(data_dict)
-            cur_iter += 1
-            if cur_iter % args.log_interval == 0:
-                logger.info(
-                    'Iter [%d/%d] loss: %f' % (cur_iter, total_iter, loss.cpu().item()))
+    model.eval()
+    for step, data_dict in enumerate(data_loader):
+        load_data_to_gpu(data_dict)
+        with torch.no_grad():
+            out, loss = model(data_dict)
+        if step % args.log_interval == 0:
+            logger.info(
+                'Iter [%d/%d] loss: %f' % (step, len(data_loader), loss.cpu().item()))
 
-            pred_labels = torch.argmax(out, dim=1).cpu()
-            gt_labels = data_dict['labels'].cpu()
-            iou_metric.add(pred_labels, gt_labels)
+        pred_labels = torch.argmax(out, dim=1).cpu()
+        gt_labels = data_dict['labels'].cpu()
+        iou_metric.add(pred_labels, gt_labels)
 
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
 
 def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args):
-    cur_iter = 0
-    total_iter = args.epochs * len(data_loaders['train'])
-    start_epoch = 0
+    model.train()
 
+    start_epoch = -1
     latest_checkpoint = os.path.join(args.save_dir, 'latest.pth')
     if args.auto_resume and os.path.isfile(latest_checkpoint):
+        logger.info('Resume from epoch %d' % start_epoch)
         checkpoint = torch.load(latest_checkpoint)
 
         model.load_state_dict(checkpoint['model'])
@@ -144,28 +145,31 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
         start_epoch = checkpoint['epoch']
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
 
-    model.train()
-    for epoch in range(start_epoch, args.epochs):
-        for step, data_dict in enumerate(data_loaders['train']):
-                load_data_to_gpu(data_dict)
-                out, loss = model(data_dict)
+    train_loader = data_loaders['train']
+    epoch_iter = len(train_loader)
+    total_iter = args.epochs * epoch_iter
+    for epoch in range(start_epoch + 1, args.epochs):
+        for step, data_dict in enumerate(train_loader):
+            load_data_to_gpu(data_dict)
+            out, loss = model(data_dict)
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-                cur_iter += 1
-                if cur_iter % args.log_interval == 0:
-                    logger.info(
-                        'Iter [%d/%d] lr: %f, loss: %f' % (cur_iter, total_iter, lr_scheduler.get_last_lr()[0], loss.cpu().item()))
+            cur_iter = epoch * epoch_iter + step
+            if cur_iter % args.log_interval == 0:
+                logger.info(
+                    'Iter [%d/%d] lr: %f, loss: %f' % (cur_iter, total_iter, lr_scheduler.get_last_lr()[0], loss.cpu().item()))
 
-                if cur_iter % args.eval_interval == 0:
-                    logger.info('Evaluate on epoch: %d' % epoch)
-                    evaluate(data_loaders, model, id2label, args)
+            if cur_iter % args.eval_interval == 0:
+                logger.info('Evaluate on epoch: %d' % epoch)
+                evaluate(data_loaders['val'], model, id2label, args)
 
         lr_scheduler.step()
 
-        save_checkpoint(epoch, model, optimizer, lr_scheduler, args.save_dir)
+        if args.auto_resume:
+            save_checkpoint(epoch, model, optimizer, lr_scheduler, args.save_dir)
 
 
 def main():
