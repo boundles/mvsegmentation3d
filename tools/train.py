@@ -8,6 +8,9 @@ import torch.optim
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.models.segmentors.mvf import MVFNet
 from mvseg3d.core.metrics import IOUMetric
+from mvseg3d.utils.logging import get_logger
+
+logger = get_logger("mvseg3d")
 
 
 def load_data_to_gpu(data_dict):
@@ -48,41 +51,66 @@ def parse_args():
         '--lr',
         default=0.01,
         type=float)
+    parser.add_argument(
+        '--log_interval',
+        default=50,
+        type=int
+    )
+    parser.add_argument(
+        '--eval_interval',
+        default=1000,
+        type=int
+    )
 
     args = parser.parse_args()
     return args
 
 
-def train_one_epoch(train_loader, model, optimizer, lr_scheduler, epoch):
-    model.train()
-    for step, data_dict in enumerate(train_loader):
-        load_data_to_gpu(data_dict)
-        out, loss = model(data_dict)
-        if step % 5 == 0:
-            print('train@epoch: {:<3}, step: {:<5}, loss: {:.4f}'.format(epoch, step, loss.cpu().item()))
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-    lr_scheduler.step()
-
-
-def eval_one_epoch(val_loader, model, id2label, epoch):
+def evaluate(data_loaders, model, id2label, args):
+    iter = 0
+    total_iter = args.epochs * len(data_loaders['val'])
     model.eval()
     iou_metric = IOUMetric(id2label)
-    for step, data_dict in enumerate(val_loader):
-        load_data_to_gpu(data_dict)
-        with torch.no_grad():
-            out, loss = model(data_dict)
-        if step % 5 == 0:
-            print('eval@epoch: {:<3}, step: {:<5}, loss: {:.4f}'.format(epoch, step, loss.cpu().item()))
+    for epoch in args.epochs:
+        for step, data_dict in enumerate(data_loaders['val']):
+            load_data_to_gpu(data_dict)
+            with torch.no_grad():
+                out, loss = model(data_dict)
+            iter += 1
+            if iter % args.log_interval == 0:
+                logger.info(
+                    'Iter [%d/%d] loss: %f'.format(iter, total_iter, loss.cpu().item()))
 
-        pred_labels = torch.argmax(out, dim=1).cpu()
-        gt_labels = data_dict['labels'].cpu()
-        iou_metric.add(pred_labels, gt_labels)
+            pred_labels = torch.argmax(out, dim=1).cpu()
+            gt_labels = data_dict['labels'].cpu()
+            iou_metric.add(pred_labels, gt_labels)
 
     metric_result = iou_metric.get_metric()
-    print('Metrics on validation dataset: %s' % str(metric_result))
+    logger.info('Metrics on validation dataset: %s' % str(metric_result))
+
+
+def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args):
+    iter = 0
+    total_iter = args.epochs * len(data_loaders['train'])
+    model.train()
+    for epoch in args.epochs:
+        for step, data_dict in enumerate(data_loaders['train']):
+            load_data_to_gpu(data_dict)
+            out, loss = model(data_dict)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            iter += 1
+            if iter % args.log_interval == 0:
+                logger.info(
+                    'Iter [%d/%d] lr: %f, loss: %f'.format(iter, total_iter, lr_scheduler.get_lr(), loss.cpu().item()))
+
+            logger.info('Evaluate on epoch: %d'.format(epoch))
+            if iter % args.eval_interval == 0:
+                evaluate(data_loaders, model, id2label, args)
+        lr_scheduler.step()
 
 
 def main():
@@ -103,6 +131,8 @@ def main():
         drop_last=False, sampler=None, timeout=0
     )
 
+    data_loaders = {'train': train_loader, 'val': val_loader}
+
     # define model
     model = MVFNet(train_dataset).cuda()
 
@@ -110,12 +140,7 @@ def main():
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
     # train and evaluation
-    for epoch in range(args.epochs):
-        print('****************Train stage on epoch: %d*****************' % epoch)
-        train_one_epoch(train_loader, model, optimizer, lr_scheduler, epoch)
-
-        print('****************Evaluation stage on epoch: %d*****************' % epoch)
-        eval_one_epoch(val_loader, model, val_dataset.id2label, epoch)
+    train_segmentor(data_loaders, val_dataset.id2label, model, optimizer, lr_scheduler, args)
 
 
 if __name__ == '__main__':
