@@ -53,7 +53,7 @@ def parse_args():
         type=float)
     parser.add_argument(
         '--log_interval',
-        default=50,
+        default=5,
         type=int
     )
     parser.add_argument(
@@ -105,10 +105,10 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
             cur_iter += 1
             if cur_iter % args.log_interval == 0:
                 logger.info(
-                    'Iter [%d/%d] lr: %f, loss: %f' % (cur_iter, total_iter, lr_scheduler.get_lr(), loss.cpu().item()))
+                    'Iter [%d/%d] lr: %f, loss: %f' % (cur_iter, total_iter, lr_scheduler.get_last_lr()[0], loss.cpu().item()))
 
-            logger.info('Evaluate on epoch: %d'.format(epoch))
             if cur_iter % args.eval_interval == 0:
+                logger.info('Evaluate on epoch: %d' % epoch)
                 evaluate(data_loaders, model, id2label, args)
         lr_scheduler.step()
 
@@ -132,6 +132,9 @@ def main():
     )
 
     data_loaders = {'train': train_loader, 'val': val_loader}
+
+    logger.info('Loaded %d train samples, batch size: %d' % (len(train_dataset), args.train_batch_size))
+    logger.info('Loaded %d validation samples, batch size: %d' % (len(val_dataset), args.test_batch_size))
 
     # define model
     model = MVFNet(train_dataset).cuda()
