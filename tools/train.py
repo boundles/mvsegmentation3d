@@ -57,18 +57,13 @@ def parse_args():
         default=0.01,
         type=float)
     parser.add_argument(
-        '--log_interval',
+        '--log_iter_interval',
         default=5,
         type=int
     )
     parser.add_argument(
-        '--eval_interval',
-        default=1000,
-        type=int
-    )
-    parser.add_argument(
-        '--checkpoint_interval',
-        default=500,
+        '--eval_epoch_interval',
+        default=1,
         type=int
     )
     parser.add_argument(
@@ -119,7 +114,7 @@ def evaluate(data_loader, model, id2label, args):
         load_data_to_gpu(data_dict)
         with torch.no_grad():
             out, loss = model(data_dict)
-        if step % args.log_interval == 0:
+        if step % args.log_iter_interval == 0:
             logger.info(
                 'Iter [%d/%d] loss: %f' % (step, len(data_loader), loss.cpu().item()))
 
@@ -137,7 +132,6 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
     start_epoch = -1
     latest_checkpoint = os.path.join(args.save_dir, 'latest.pth')
     if args.auto_resume and os.path.isfile(latest_checkpoint):
-        logger.info('Resume from epoch %d' % start_epoch)
         checkpoint = torch.load(latest_checkpoint)
 
         model.load_state_dict(checkpoint['model'])
@@ -145,9 +139,9 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
         start_epoch = checkpoint['epoch']
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
 
+        logger.info('Resume from epoch %d' % start_epoch)
+
     train_loader = data_loaders['train']
-    epoch_iter = len(train_loader)
-    total_iter = args.epochs * epoch_iter
     for epoch in range(start_epoch + 1, args.epochs):
         for step, data_dict in enumerate(train_loader):
             load_data_to_gpu(data_dict)
@@ -157,12 +151,11 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
             loss.backward()
             optimizer.step()
 
-            cur_iter = epoch * epoch_iter + step
-            if cur_iter % args.log_interval == 0:
+            if step % args.log_iter_interval == 0:
                 logger.info(
-                    'Iter [%d/%d] lr: %f, loss: %f' % (cur_iter, total_iter, lr_scheduler.get_last_lr()[0], loss.cpu().item()))
+                    'Iter [%d/%d] in epoch [%d/%d] lr: %f, loss: %f' % (step, len(train_loader), epoch, args.epochs, lr_scheduler.get_last_lr()[0], loss.cpu().item()))
 
-            if cur_iter % args.eval_interval == 0:
+            if epoch % args.eval_epoch_interval == 0:
                 logger.info('Evaluate on epoch: %d' % epoch)
                 evaluate(data_loaders['val'], model, id2label, args)
 
