@@ -67,19 +67,19 @@ def parse_args():
 
 
 def evaluate(data_loaders, model, id2label, args):
-    iter = 0
+    cur_iter = 0
     total_iter = args.epochs * len(data_loaders['val'])
     model.eval()
     iou_metric = IOUMetric(id2label)
-    for epoch in args.epochs:
+    for epoch in range(args.epochs):
         for step, data_dict in enumerate(data_loaders['val']):
             load_data_to_gpu(data_dict)
             with torch.no_grad():
                 out, loss = model(data_dict)
-            iter += 1
-            if iter % args.log_interval == 0:
+            cur_iter += 1
+            if cur_iter % args.log_interval == 0:
                 logger.info(
-                    'Iter [%d/%d] loss: %f'.format(iter, total_iter, loss.cpu().item()))
+                    'Iter [%d/%d] loss: %f' % (cur_iter, total_iter, loss.cpu().item()))
 
             pred_labels = torch.argmax(out, dim=1).cpu()
             gt_labels = data_dict['labels'].cpu()
@@ -90,10 +90,10 @@ def evaluate(data_loaders, model, id2label, args):
 
 
 def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args):
-    iter = 0
+    cur_iter = 0
     total_iter = args.epochs * len(data_loaders['train'])
     model.train()
-    for epoch in args.epochs:
+    for epoch in range(args.epochs):
         for step, data_dict in enumerate(data_loaders['train']):
             load_data_to_gpu(data_dict)
             out, loss = model(data_dict)
@@ -102,13 +102,13 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
             loss.backward()
             optimizer.step()
 
-            iter += 1
-            if iter % args.log_interval == 0:
+            cur_iter += 1
+            if cur_iter % args.log_interval == 0:
                 logger.info(
-                    'Iter [%d/%d] lr: %f, loss: %f'.format(iter, total_iter, lr_scheduler.get_lr(), loss.cpu().item()))
+                    'Iter [%d/%d] lr: %f, loss: %f' % (cur_iter, total_iter, lr_scheduler.get_lr(), loss.cpu().item()))
 
             logger.info('Evaluate on epoch: %d'.format(epoch))
-            if iter % args.eval_interval == 0:
+            if cur_iter % args.eval_interval == 0:
                 evaluate(data_loaders, model, id2label, args)
         lr_scheduler.step()
 
