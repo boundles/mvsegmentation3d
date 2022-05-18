@@ -1,3 +1,4 @@
+import os
 import argparse
 import numpy as np
 
@@ -32,12 +33,12 @@ def parse_args():
         type=str,
         help='the data directory')
     parser.add_argument(
-        '--train_batch_size',
-        default=4,
-        type=int)
+        '--save_dir',
+        type=str,
+        help='the saved directory')
     parser.add_argument(
-        '--test_batch_size',
-        default=8,
+        '--batch_size',
+        default=4,
         type=int)
     parser.add_argument(
         '--num_workers',
@@ -61,10 +62,50 @@ def parse_args():
         default=1000,
         type=int
     )
-
+    parser.add_argument(
+        '--checkpoint_interval',
+        default=500,
+        type=int
+    )
+    parser.add_argument(
+        '--auto_resume',
+        action='store_true',
+        default=True
+    )
     args = parser.parse_args()
+
+    # calculate the batch size
+    batch_size = args.num_gpus * args.batch_size
+    logger.info(f'Training with {args.num_gpus} GPU(s) with {args.batch_size} '
+                f'samples per GPU. The total batch size is {batch_size}.')
+
+    if batch_size != args.batch_size:
+        # scale LR with
+        # [linear scaling rule](https://arxiv.org/abs/1706.02677)
+        scaled_lr = (batch_size / args.batch_size) * args.lr
+        logger.info('LR has been automatically scaled '
+                    f'from {args.lr} to {scaled_lr}')
+        args.lr = scaled_lr
+        args.batch_size = batch_size
+    else:
+        logger.info('The batch size match the '
+                    f'base batch size: {args.batch_size}, '
+                    f'will not scaling the LR ({args.lr}).')
+
     return args
 
+def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir):
+    checkpoint = {
+        "model": model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        "epoch": epoch,
+        'lr_scheduler': lr_scheduler.state_dict()
+    }
+
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+    torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
+    torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
 def evaluate(data_loaders, model, id2label, args):
     cur_iter = 0
@@ -92,58 +133,75 @@ def evaluate(data_loaders, model, id2label, args):
 def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args):
     cur_iter = 0
     total_iter = args.epochs * len(data_loaders['train'])
+    start_epoch = 0
+
+    latest_checkpoint = os.path.join(args.save_dir, 'latest.pth')
+    if args.auto_resume and os.path.isfile(latest_checkpoint):
+        checkpoint = torch.load(latest_checkpoint)
+
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        start_epoch = checkpoint['epoch']
+        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+
     model.train()
-    for epoch in range(args.epochs):
+    for epoch in range(start_epoch, args.epochs):
         for step, data_dict in enumerate(data_loaders['train']):
-            load_data_to_gpu(data_dict)
-            out, loss = model(data_dict)
+                load_data_to_gpu(data_dict)
+                out, loss = model(data_dict)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-            cur_iter += 1
-            if cur_iter % args.log_interval == 0:
-                logger.info(
-                    'Iter [%d/%d] lr: %f, loss: %f' % (cur_iter, total_iter, lr_scheduler.get_last_lr()[0], loss.cpu().item()))
+                cur_iter += 1
+                if cur_iter % args.log_interval == 0:
+                    logger.info(
+                        'Iter [%d/%d] lr: %f, loss: %f' % (cur_iter, total_iter, lr_scheduler.get_last_lr()[0], loss.cpu().item()))
 
-            if cur_iter % args.eval_interval == 0:
-                logger.info('Evaluate on epoch: %d' % epoch)
-                evaluate(data_loaders, model, id2label, args)
+                if cur_iter % args.eval_interval == 0:
+                    logger.info('Evaluate on epoch: %d' % epoch)
+                    evaluate(data_loaders, model, id2label, args)
+
         lr_scheduler.step()
+
+        save_checkpoint(epoch, model, optimizer, lr_scheduler, args.save_dir)
 
 
 def main():
+    # parse args
     args = parse_args()
 
     # load data
     train_dataset = WaymoDataset(args.data_dir, 'training')
+    logger.info('Loaded %d train samples' % len(train_dataset))
+
+    val_dataset = WaymoDataset(args.data_dir, 'validation')
+    logger.info('Loaded %d validation samples' % len(val_dataset))
+
     train_loader = DataLoader(
-        train_dataset, batch_size=args.train_batch_size, pin_memory=True, shuffle=True,
+        train_dataset, batch_size=args.batch_size, pin_memory=True, shuffle=True,
         num_workers=args.num_workers, collate_fn=train_dataset.collate_batch,
         drop_last=False, sampler=None, timeout=0
     )
 
-    val_dataset = WaymoDataset(args.data_dir, 'validation')
     val_loader = DataLoader(
-        val_dataset, batch_size=args.test_batch_size, pin_memory=True, shuffle=False,
+        val_dataset, batch_size=args.batch_size, pin_memory=True, shuffle=False,
         num_workers=args.num_workers, collate_fn=val_dataset.collate_batch,
         drop_last=False, sampler=None, timeout=0
     )
 
     data_loaders = {'train': train_loader, 'val': val_loader}
 
-    logger.info('Loaded %d train samples, batch size: %d' % (len(train_dataset), args.train_batch_size))
-    logger.info('Loaded %d validation samples, batch size: %d' % (len(val_dataset), args.test_batch_size))
-
     # define model
-    model = MVFNet(train_dataset).cuda()
+    model = MVFNet(train_dataset)
+    model = torch.nn.DataParallel(model).cuda()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
     # train and evaluation
-    train_segmentor(data_loaders, val_dataset.id2label, model, optimizer, lr_scheduler, args)
+    train_segmentor(data_loaders, train_dataset.id2label, model, optimizer, lr_scheduler, args)
 
 
 if __name__ == '__main__':
