@@ -110,7 +110,7 @@ def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir):
 def evaluate(data_loader, model, id2label, args):
     iou_metric = IOUMetric(id2label)
     model.eval()
-    for step, data_dict in enumerate(data_loader):
+    for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
         with torch.no_grad():
             out, loss = model(data_dict)
@@ -143,7 +143,7 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
 
     train_loader = data_loaders['train']
     for epoch in range(start_epoch + 1, args.epochs):
-        for step, data_dict in enumerate(train_loader):
+        for step, data_dict in enumerate(train_loader, 1):
             load_data_to_gpu(data_dict)
             out, loss = model(data_dict)
 
@@ -155,14 +155,16 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
                 logger.info(
                     'Iter [%d/%d] in epoch [%d/%d] lr: %f, loss: %f' % (step, len(train_loader), epoch, args.epochs, lr_scheduler.get_last_lr()[0], loss.cpu().item()))
 
-            if epoch % args.eval_epoch_interval == 0:
-                logger.info('Evaluate on epoch: %d' % epoch)
-                evaluate(data_loaders['val'], model, id2label, args)
-
         lr_scheduler.step()
 
+        # save checkpoint
         if args.auto_resume:
             save_checkpoint(epoch, model, optimizer, lr_scheduler, args.save_dir)
+
+        # evaluation
+        if epoch % args.eval_epoch_interval == 0:
+            logger.info('Evaluate on epoch: %d' % epoch)
+            evaluate(data_loaders['val'], model, id2label, args)
 
 
 def main():
