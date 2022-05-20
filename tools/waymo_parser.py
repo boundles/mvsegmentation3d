@@ -41,13 +41,13 @@ class WaymoParser(object):
     def get_file_id(frame):
         context_name = frame.context.name
         timestamp = frame.timestamp_micros
-        file_id = context_name + '-' + timestamp + '-'
+        file_id = context_name + '-' + str(timestamp) + '-'
         return file_id
 
     def parse(self):
         print('======Parse Started!======')
         if self.test_mode:
-            for i in range(len(self)):
+            for i in tqdm(range(len(self))):
                 self.parse_one(i)
         else:
             pool = multiprocessing.Pool(self.num_workers)
@@ -91,12 +91,12 @@ class WaymoParser(object):
         calibrations = sorted(frame.context.laser_calibrations, key=lambda c: c.name)
         point_indexing = []
         for c in calibrations:
-            if c.name == open_dataset.LaserName.TOP:
-                range_image = range_images[c.name][ri_index]
-                range_image_tensor = tf.reshape(
-                    tf.convert_to_tensor(range_image.data), range_image.shape.dims)
-                range_image_mask = range_image_tensor[..., 0] > 0
+            range_image = range_images[c.name][ri_index]
+            range_image_tensor = tf.reshape(
+                tf.convert_to_tensor(range_image.data), range_image.shape.dims)
+            range_image_mask = range_image_tensor[..., 0] > 0
 
+            if c.name == open_dataset.LaserName.TOP:
                 xgrid, ygrid = np.meshgrid(range(TOP_LIDAR_COL_NUM), range(TOP_LIDAR_ROW_NUM))
                 col_row_inds_top = np.stack([xgrid, ygrid], axis=-1)
                 sl_points_indexing = col_row_inds_top[np.where(range_image_mask)]
@@ -104,7 +104,7 @@ class WaymoParser(object):
                 num_valid_point = tf.math.reduce_sum(tf.cast(range_image_mask, tf.int32))
                 sl_points_indexing = tf.ones([num_valid_point, 2], dtype=tf.int32) * -1
 
-            point_indexing.append(sl_points_indexing.numpy())
+            point_indexing.append(sl_points_indexing)
         return point_indexing
 
     @staticmethod
@@ -305,7 +305,8 @@ class WaymoParser(object):
         else:
             dir_list = [
                 self.calib_save_dir, self.point_cloud_save_dir,
-                self.pose_save_dir, self.image_save_dir
+                self.pose_save_dir, self.image_save_dir,
+                self.misc_save_dir
             ]
         for d in dir_list:
             if not os.path.exists(d):
@@ -349,13 +350,12 @@ def parse_args():
 
     parser.add_argument(
         '--test_mode',
-        action='store_true',
-        default=False
+        action='store_true'
     )
 
     parser.add_argument(
         '--num_workers',
-        action=int,
+        type=int,
         default=4
     )
 
