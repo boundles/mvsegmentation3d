@@ -11,6 +11,8 @@ from tqdm import tqdm
 from waymo_open_dataset.utils import frame_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
+TOP_LIDAR_ROW_NUM = 64
+TOP_LIDAR_COL_NUM = 2650
 
 class WaymoParser(object):
     def __init__(self,
@@ -31,21 +33,27 @@ class WaymoParser(object):
         self.calib_save_dir = f'{self.save_dir}/calib'
         self.point_cloud_save_dir = f'{self.save_dir}/lidar'
         self.pose_save_dir = f'{self.save_dir}/pose'
+        self.misc_save_dir = f'{self.save_dir}/misc'
 
         self.create_folder()
 
     @staticmethod
-    def get_file_id(pathname):
-        filename = os.path.basename(pathname)
-        file_id = filename.replace('segment-', '').replace('_with_camera_labels.tfrecord', '')
+    def get_file_id(frame):
+        context_name = frame.context.name
+        timestamp = frame.timestamp_micros
+        file_id = context_name + '-' + timestamp + '-'
         return file_id
 
     def parse(self):
         print('======Parse Started!======')
-        pool = multiprocessing.Pool(self.num_workers)
-        gen = list(tqdm(pool.imap(self.parse_one, range(len(self))), total=len(self)))
-        pool.close()
-        pool.join()
+        if self.test_mode:
+            for i in range(len(self)):
+                self.parse_one(i)
+        else:
+            pool = multiprocessing.Pool(self.num_workers)
+            gen = list(tqdm(pool.imap(self.parse_one, range(len(self))), total=len(self)))
+            pool.close()
+            pool.join()
         print('======Parse Finished!======')
 
     def parse_one(self, index):
@@ -54,21 +62,19 @@ class WaymoParser(object):
             index (int): Index of the file to be converted.
         """
         pathname = self.tfrecord_pathnames[index]
-        file_id = self.get_file_id(pathname)
 
         try:
             dataset = tf.data.TFRecordDataset(pathname, compression_type='')
             for frame_idx, data in enumerate(dataset):
                 frame = open_dataset.Frame()
                 frame.ParseFromString(bytearray(data.numpy()))
+                file_id = self.get_file_id(frame)
 
                 self.save_image(frame, file_id, frame_idx)
                 self.save_calib(frame, file_id, frame_idx)
-                self.save_lidar(frame, file_id, frame_idx)
+                self.save_lidar_label(frame, file_id, frame_idx)
                 self.save_pose(frame, file_id, frame_idx)
 
-                if not self.test_mode:
-                    self.save_label(frame, file_id, frame_idx)
         except Exception as e:
             print('Failed to parse: %s, error msg: %s' % (pathname, str(e)))
 
@@ -77,6 +83,29 @@ class WaymoParser(object):
     def __len__(self):
         """Length of the filename list."""
         return len(self.tfrecord_pathnames)
+
+    @staticmethod
+    def convert_range_image_to_point_cloud_indexing(frame,
+                                                    range_images,
+                                                    ri_index=0):
+        calibrations = sorted(frame.context.laser_calibrations, key=lambda c: c.name)
+        point_indexing = []
+        for c in calibrations:
+            if c.name == open_dataset.LaserName.TOP:
+                range_image = range_images[c.name][ri_index]
+                range_image_tensor = tf.reshape(
+                    tf.convert_to_tensor(range_image.data), range_image.shape.dims)
+                range_image_mask = range_image_tensor[..., 0] > 0
+
+                xgrid, ygrid = np.meshgrid(range(TOP_LIDAR_COL_NUM), range(TOP_LIDAR_ROW_NUM))
+                col_row_inds_top = np.stack([xgrid, ygrid], axis=-1)
+                sl_points_indexing = col_row_inds_top[np.where(range_image_mask)]
+            else:
+                num_valid_point = tf.math.reduce_sum(tf.cast(range_image_mask, tf.int32))
+                sl_points_indexing = tf.ones([num_valid_point, 2], dtype=tf.int32) * -1
+
+            point_indexing.append(sl_points_indexing.numpy())
+        return point_indexing
 
     @staticmethod
     def convert_range_image_to_point_cloud_labels(frame,
@@ -183,7 +212,7 @@ class WaymoParser(object):
             fp_calib.write(calib_context)
             fp_calib.close()
 
-    def save_lidar(self, frame, file_id, frame_idx):
+    def save_lidar_label(self, frame, file_id, frame_idx):
         """Parse and save the lidar data in psd format.
         Args:
             frame (:obj:`Frame`): Open dataset frame proto.
@@ -215,17 +244,8 @@ class WaymoParser(object):
                   f'{str(frame_idx).zfill(3)}'
         np.save(pc_path, point_cloud)
 
-    def save_label(self, frame, file_id, frame_idx):
-        """Parse and save the label data in psd format.
-        Args:
-            frame (:obj:`Frame`): Open dataset frame proto.
-            file_id (str): Current file id.
-            frame_idx (int): Current frame index.
-        """
-        range_images, camera_projections, segmentation_labels, range_image_top_pose = \
-            frame_utils.parse_range_image_and_camera_projection(frame)
-
-        if len(segmentation_labels) > 0:
+        # save label
+        if not self.test_mode and len(segmentation_labels) > 0:
             # point labels of first return
             point_labels_0 = self.convert_range_image_to_point_cloud_labels(
                 frame, range_images, segmentation_labels, ri_index=0)
@@ -240,6 +260,23 @@ class WaymoParser(object):
             label_path = f'{self.label_save_dir}/{file_id}' + \
                          f'{str(frame_idx).zfill(3)}'
             np.save(label_path, point_labels)
+
+        # save misc
+        if self.test_mode:
+            # point indexing of first return
+            point_indexing_0 = self.convert_range_image_to_point_cloud_indexing(
+                frame, range_images, ri_index=0)
+            point_indexing_0 = np.concatenate(point_indexing_0, axis=0)
+
+            # point indexing of second return
+            point_indexing_1 = self.convert_range_image_to_point_cloud_indexing(
+                frame, range_images, ri_index=1)
+            point_indexing_1 = np.concatenate(point_indexing_1, axis=0)
+            point_indexing = np.concatenate([point_indexing_0, point_indexing_1], axis=0)
+
+            indexing_path = f'{self.misc_save_dir}/{file_id}' + \
+                            f'{str(frame_idx).zfill(3)}'
+            np.save(indexing_path, point_indexing)
 
     def save_pose(self, frame, file_id, frame_idx):
         """Parse and save the pose data.
@@ -310,10 +347,22 @@ def parse_args():
         help='directory for saving output file'
     )
 
+    parser.add_argument(
+        '--test_mode',
+        action='store_true',
+        default=False
+    )
+
+    parser.add_argument(
+        '--num_workers',
+        action=int,
+        default=4
+    )
+
     args = parser.parse_args()
     return args
 
 if __name__ == '__main__':
     args = parse_args()
-    parser = WaymoParser(args.tfrecord_list_file, args.save_dir, 8)
+    parser = WaymoParser(args.tfrecord_list_file, args.save_dir, args.num_workers, args.test_mode)
     parser.parse()
