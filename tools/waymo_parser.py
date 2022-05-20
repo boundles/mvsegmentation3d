@@ -46,14 +46,10 @@ class WaymoParser(object):
 
     def parse(self):
         print('======Parse Started!======')
-        if self.test_mode:
-            for i in tqdm(range(len(self))):
-                self.parse_one(i)
-        else:
-            pool = multiprocessing.Pool(self.num_workers)
-            gen = list(tqdm(pool.imap(self.parse_one, range(len(self))), total=len(self)))
-            pool.close()
-            pool.join()
+        pool = multiprocessing.Pool(self.num_workers)
+        gen = list(tqdm(pool.imap(self.parse_one, range(len(self))), total=len(self)))
+        pool.close()
+        pool.join()
         print('======Parse Finished!======')
 
     def parse_one(self, index):
