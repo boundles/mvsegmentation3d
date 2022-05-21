@@ -11,14 +11,18 @@ from mvseg3d.core import VoxelGenerator
 
 
 class WaymoDataset(Dataset):
-    def __init__(self, root, split='train', filter_nlz_points=False):
+    def __init__(self, root, split='training', test_mode=False):
         assert split in ['training', 'validation', 'test']
         self.root = root
         self.split = split
-        self.filter_nlz_points = filter_nlz_points
+        self.test_mode = test_mode
 
-        self.file_ids = [os.path.basename(path).replace('.npy', '') \
-                         for path in glob.glob(os.path.join(self.root, split, 'label', '*.npy'))]
+        if self.test_mode:
+            self.filenames = [self.get_filename(path) for path in
+                              glob.glob(os.path.join(self.root, split, 'lidar', '*.npy'))]
+        else:
+            self.filenames = [self.get_filename(path) for path in
+                              glob.glob(os.path.join(self.root, split, 'label', '*.npy'))]
 
         self.voxel_generator = VoxelGenerator(voxel_size=[0.1, 0.1, 0.15],
                                               point_cloud_range=[-75.2, -75.2, -2, 75.2, 75.2, 4],
@@ -55,19 +59,23 @@ class WaymoDataset(Dataset):
                 3.8735526105804743, 4.443068509630746, 1.6108377340079234, 5.1972959658694355, 5.3112725890845445,
                 2.626942890303363, 2.958990264327497]
 
-    def get_lidar(self, sample_idx):
-        lidar_file = os.path.join(self.root, self.split, 'lidar', sample_idx + '.npy')
+    @staticmethod
+    def get_filename(path):
+        return os.path.splitext(os.path.basename(path))[0]
+
+    def get_lidar(self, filename):
+        lidar_file = os.path.join(self.root, self.split, 'lidar', filename + '.npy')
         lidar_points = np.load(lidar_file)  # (N, 12): [x, y, z, range, intensity, elongation, camera project]
 
         # normalize intensity
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points[:, :self.point_dim]
 
-    def get_label(self, sample_idx):
-        label_file = os.path.join(self.root, self.split, 'label', sample_idx + '.npy')
+    def get_label(self, filename):
+        label_file = os.path.join(self.root, self.split, 'label', filename + '.npy')
         semantic_labels = np.load(label_file)[:, 1]  # (N, 1)
 
-        # convert undefined label: 0 to ignore index: 255
+        # convert unlabeled to ignored label (0 to 255)
         semantic_labels -= 1
         semantic_labels[semantic_labels == -1] = 255
         return semantic_labels
@@ -76,15 +84,16 @@ class WaymoDataset(Dataset):
         return len(self.file_ids)
 
     def __getitem__(self, index):
-        sample_idx = self.file_ids[index]
+        filename = self.filenames[index]
 
-        points = self.get_lidar(sample_idx)
-        labels = self.get_label(sample_idx)
-
+        points = self.get_lidar(filename)
         input_dict = {
-            'points': points,
-            'labels': labels
+            'points': points
         }
+
+        if not self.test_mode:
+            labels = self.get_label(filename)
+            input_dict['labels'] = labels
 
         data_dict = self.prepare_data(data_dict=input_dict)
         return data_dict

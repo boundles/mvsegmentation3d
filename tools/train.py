@@ -57,19 +57,23 @@ def parse_args():
         default=0.01,
         type=float)
     parser.add_argument(
-        '--log_iter_interval',
-        default=5,
-        type=int
-    )
+        '--no_validate',
+        action='store_true',
+        help='whether not to evaluate the checkpoint during training')
     parser.add_argument(
         '--eval_epoch_interval',
         default=1,
         type=int
     )
     parser.add_argument(
+        '--log_iter_interval',
+        default=5,
+        type=int
+    )
+    parser.add_argument(
         '--auto_resume',
         action='store_true',
-        default=True
+        help='resume from the latest checkpoint automatically.'
     )
     args = parser.parse_args()
 
@@ -142,7 +146,7 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
         logger.info('Resume from epoch %d' % start_epoch)
 
     train_loader = data_loaders['train']
-    for epoch in range(start_epoch + 1, args.epochs):
+    for epoch, _ in enumerate(range(start_epoch + 1, args.epochs), 1):
         for step, data_dict in enumerate(train_loader, 1):
             load_data_to_gpu(data_dict)
             out, loss = model(data_dict)
@@ -162,7 +166,7 @@ def train_segmentor(data_loaders, id2label, model, optimizer, lr_scheduler, args
             save_checkpoint(epoch, model, optimizer, lr_scheduler, args.save_dir)
 
         # evaluation
-        if epoch % args.eval_epoch_interval == 0:
+        if not args.no_validate and epoch % args.eval_epoch_interval == 0:
             logger.info('Evaluate on epoch: %d' % epoch)
             evaluate(data_loaders['val'], model, id2label, args)
 
