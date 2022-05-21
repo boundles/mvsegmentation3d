@@ -176,10 +176,10 @@ def main():
     args = parse_args()
 
     # load data
-    train_dataset = WaymoDataset(args.data_dir, 'training')
+    train_dataset = WaymoDataset(args.data_dir, 'training', use_image_feature=True)
     logger.info('Loaded %d train samples' % len(train_dataset))
 
-    val_dataset = WaymoDataset(args.data_dir, 'validation')
+    val_dataset = WaymoDataset(args.data_dir, 'validation', use_image_feature=True)
     logger.info('Loaded %d validation samples' % len(val_dataset))
 
     train_loader = DataLoader(
