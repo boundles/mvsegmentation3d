@@ -54,7 +54,7 @@ def parse_args():
         type=int)
     parser.add_argument(
         '--lr',
-        default=0.01,
+        default=0.0125,
         type=float)
     parser.add_argument(
         '--no_validate',
@@ -82,6 +82,9 @@ def parse_args():
     logger.info(f'Training with {args.num_gpus} GPU(s) with {args.batch_size} '
                 f'samples per GPU. The total batch size is {batch_size}.')
 
+    # calculate the num of workers
+    num_workers = args.num_gpus * args.num_workers
+
     if batch_size != args.batch_size:
         # scale LR with
         # [linear scaling rule](https://arxiv.org/abs/1706.02677)
@@ -90,6 +93,7 @@ def parse_args():
                     f'from {args.lr} to {scaled_lr}')
         args.lr = scaled_lr
         args.batch_size = batch_size
+        args.num_workers = num_workers
     else:
         logger.info('The batch size match the '
                     f'base batch size: {args.batch_size}, '
