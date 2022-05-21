@@ -11,11 +11,12 @@ from mvseg3d.core import VoxelGenerator
 
 
 class WaymoDataset(Dataset):
-    def __init__(self, root, split='training', test_mode=False):
+    def __init__(self, root, split='training', test_mode=False, use_image_feature=False):
         assert split in ['training', 'validation', 'test']
         self.root = root
         self.split = split
         self.test_mode = test_mode
+        self.use_image_feature = use_image_feature
 
         if self.test_mode:
             self.filenames = [self.get_filename(path) for path in
@@ -34,8 +35,12 @@ class WaymoDataset(Dataset):
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
     @property
-    def point_dim(self):
+    def dim_point(self):
         return 6
+
+    @property
+    def dim_image_feature(self):
+        return 66
 
     @property
     def num_classes(self):
@@ -63,13 +68,27 @@ class WaymoDataset(Dataset):
     def get_filename(path):
         return os.path.splitext(os.path.basename(path))[0]
 
+    def get_point_image_features(self, num_points, filename):
+        # assemble all camera features
+        image_features = dict()
+        for i in range(5):
+            image_feature_file = os.path.join(self.root, self.split, 'image_feature', str(i),  filename + '.npy')
+            image_feature = np.load(image_feature_file).item()
+            image_features.update(image_feature)
+
+        # get point image features
+        point_image_features = np.zeros((num_points, self.dim_image_feature), dtype=np.float32)
+        for i in range(num_points):
+            point_image_features[i] = image_features[i]
+        return point_image_features
+
     def get_lidar(self, filename):
         lidar_file = os.path.join(self.root, self.split, 'lidar', filename + '.npy')
         lidar_points = np.load(lidar_file)  # (N, 12): [x, y, z, range, intensity, elongation, camera project]
 
         # normalize intensity
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
-        return lidar_points[:, :self.point_dim]
+        return lidar_points[:, :self.dim_point]
 
     def get_label(self, filename):
         label_file = os.path.join(self.root, self.split, 'label', filename + '.npy')
@@ -81,7 +100,7 @@ class WaymoDataset(Dataset):
         return semantic_labels
 
     def __len__(self):
-        return len(self.file_ids)
+        return len(self.filenames)
 
     def __getitem__(self, index):
         filename = self.filenames[index]
@@ -90,6 +109,10 @@ class WaymoDataset(Dataset):
         input_dict = {
             'points': points
         }
+
+        if self.use_image_feature:
+            point_image_features = self.get_point_image_features(points.shape[0], filename)
+            input_dict['point_image_features'] = point_image_features
 
         if not self.test_mode:
             labels = self.get_label(filename)
@@ -148,7 +171,7 @@ class WaymoDataset(Dataset):
                 ret[key] = np.concatenate(coors, axis=0)
             elif key == 'point_voxel_ids':
                 point_voxel_ids_list = val
-            elif key in ['points', 'labels', 'voxels', 'voxel_num_points']:
+            elif key in ['points', 'point_image_features', 'labels', 'voxels', 'voxel_num_points']:
                 ret[key] = np.concatenate(val, axis=0)
 
         offset = 0
@@ -164,6 +187,6 @@ class WaymoDataset(Dataset):
 
 
 if __name__ == '__main__':
-    dataset = WaymoDataset('/nfs/volume-807-2/waymo_open_dataset_v_1_3_0', 'validation')
+    dataset = WaymoDataset('/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_0', 'validation')
     for step, sample in enumerate(dataset):
         print(step, sample['points'].shape, sample['labels'].shape)

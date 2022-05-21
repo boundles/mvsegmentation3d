@@ -11,11 +11,11 @@ class MVFNet(nn.Module):
         super().__init__()
 
         self.point_feature_channel = 16
-        self.point_encoder = nn.Sequential(nn.Linear(dataset.point_dim, self.point_feature_channel, bias=False),
+        self.point_encoder = nn.Sequential(nn.Linear(dataset.dim_point, self.point_feature_channel, bias=False),
                                            nn.BatchNorm1d(self.point_feature_channel),
                                            nn.ReLU(inplace=True))
 
-        self.vfe = MeanVFE(dataset.point_dim)
+        self.vfe = MeanVFE(dataset.dim_point)
         self.voxel_encoder = SparseUnet(self.vfe.voxel_feature_channel,
                                         dataset.grid_size,
                                         dataset.voxel_size,
