@@ -73,13 +73,13 @@ class WaymoDataset(Dataset):
         image_features = dict()
         for i in range(5):
             image_feature_file = os.path.join(self.root, self.split, 'image_feature', str(i),  filename + '.npy')
-            image_feature = np.load(image_feature_file).item()
+            image_feature = np.load(image_feature_file, allow_pickle=True).item()
             image_features.update(image_feature)
 
         # get point image features
         point_image_features = np.zeros((num_points, self.dim_image_feature), dtype=np.float32)
-        for i in range(num_points):
-            point_image_features[i] = image_features[i]
+        for k in image_features:
+            point_image_features[k] = image_features[k]
         return point_image_features
 
     def get_lidar(self, filename):

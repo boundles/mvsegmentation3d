@@ -21,7 +21,8 @@ class MVFNet(nn.Module):
                                         dataset.voxel_size,
                                         dataset.point_cloud_range)
 
-        self.fusion_feature_channel = self.point_feature_channel + self.voxel_encoder.voxel_feature_channel
+        self.fusion_feature_channel = self.point_feature_channel + self.voxel_encoder.voxel_feature_channel + \
+                                      dataset.dim_image_feature
         self.cls_layers = nn.Sequential(nn.Linear(self.fusion_feature_channel, self.fusion_feature_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_feature_channel),
                                         nn.ReLU(inplace=True),
@@ -35,7 +36,9 @@ class MVFNet(nn.Module):
         enc_out = self.voxel_encoder(self.vfe(batch_dict))
         point_voxel_features = voxel_to_point(enc_out['voxel_features'], enc_out['point_voxel_ids'])
 
-        point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
+        point_image_features = batch_dict['point_image_features']
+
+        point_fusion_features = torch.cat([point_voxel_features, point_per_features, point_image_features], dim=1)
         out = self.cls_layers(point_fusion_features)
 
         if 'labels' in batch_dict:
