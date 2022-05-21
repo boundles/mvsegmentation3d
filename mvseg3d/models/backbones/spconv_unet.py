@@ -16,7 +16,7 @@ class SparseBasicBlock(spconv.SparseModule):
             inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=False, indice_key=indice_key
         )
         self.bn1 = norm_fn(planes)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
         self.conv2 = spconv.SubMConv3d(
             planes, planes, kernel_size=3, stride=1, padding=1, bias=False, indice_key=indice_key
         )
@@ -63,7 +63,7 @@ class SparseUnet(nn.Module):
         self.conv_input = spconv.SparseSequential(
             spconv.SubMConv3d(input_channels, 16, 3, padding=1, bias=False, indice_key='subm1'),
             norm_fn(16),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
         )
         block = post_act_block
 

@@ -144,14 +144,6 @@ class WaymoDataset(Dataset):
         return data_dict
 
     @staticmethod
-    def load_data_to_gpu(batch_dict):
-        for key, val in batch_dict.items():
-            if not isinstance(val, np.ndarray):
-                continue
-            else:
-                batch_dict[key] = torch.from_numpy(val).float().cuda()
-
-    @staticmethod
     def collate_batch(batch_list, _unused=False):
         data_dict = defaultdict(list)
         for cur_sample in batch_list:
@@ -159,26 +151,25 @@ class WaymoDataset(Dataset):
                 data_dict[key].append(val)
 
         ret = {}
-        voxel_coords_list = None
-        point_voxel_ids_list = None
+        voxel_nums = None
         for key, val in data_dict.items():
-            if key == 'voxel_coords':
-                voxel_coords_list = val
+            if key in ['voxel_coords']:
                 coors = []
-                for i, coor in enumerate(voxel_coords_list):
+                voxel_nums = []
+                for i, coor in enumerate(val):
                     coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
                     coors.append(coor_pad)
+                    voxel_nums.append(coor.shape[0])
                 ret[key] = np.concatenate(coors, axis=0)
-            elif key == 'point_voxel_ids':
-                point_voxel_ids_list = val
             elif key in ['points', 'point_image_features', 'labels', 'voxels', 'voxel_num_points']:
                 ret[key] = np.concatenate(val, axis=0)
 
         offset = 0
-        if voxel_coords_list and point_voxel_ids_list:
+        if voxel_nums and 'point_voxel_ids' in data_dict:
+            point_voxel_ids_list = data_dict['point_voxel_ids']
             for i, point_voxel_ids in enumerate(point_voxel_ids_list):
                 point_voxel_ids[point_voxel_ids != -1] += offset
-                offset += voxel_coords_list[i].shape[0]
+                offset += voxel_nums[i]
             ret['point_voxel_ids'] = np.concatenate(point_voxel_ids_list, axis=0)
 
         batch_size = len(batch_list)
