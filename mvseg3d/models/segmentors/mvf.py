@@ -67,7 +67,7 @@ class MVFNet(nn.Module):
         self.cls_layers = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_out_channel),
                                         nn.ReLU(inplace=True),
-                                        nn.Linear(self.fusion_feature_channel, dataset.num_classes, bias=False))
+                                        nn.Linear(self.fusion_out_channel, dataset.num_classes, bias=False))
 
         self.ce_loss = nn.CrossEntropyLoss(weight=torch.FloatTensor(dataset.class_weight), ignore_index=255)
 
