@@ -4,39 +4,28 @@ import torch.nn as nn
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.utils.voxel_point_utils import voxel_to_point
-from mvseg3d.models.losses.focal_loss import FocalLoss
 
 class MVFNet(nn.Module):
     def __init__(self, dataset):
         super().__init__()
 
         self.point_feature_channel = 32
-        self.point_encoder = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(dataset.dim_point, 32, bias=False),
-                nn.BatchNorm1d(32),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.Linear(32, 64, bias=False),
-                nn.BatchNorm1d(64),
-                nn.ReLU(inplace=True)
-            ),
-            nn.Sequential(
-                nn.Linear(64, self.point_feature_channel, bias=False),
-                nn.BatchNorm1d(self.point_feature_channel),
-                nn.ReLU(inplace=True)
-            )
-        ])
+        self.point_encoder = nn.Sequential(
+            nn.Linear(dataset.dim_point, 32, bias=False),
+            nn.BatchNorm1d(32),
+            nn.ReLU(inplace=True),
+            nn.Linear(32, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, self.point_feature_channel, bias=False),
+            nn.BatchNorm1d(self.point_feature_channel),
+            nn.ReLU(inplace=True))
 
         self.image_feature_channel = 32
-        self.image_encoder = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(dataset.dim_image_feature, self.image_feature_channel, bias=False),
-                nn.BatchNorm1d(self.image_feature_channel),
-                nn.ReLU(inplace=True)
-            )
-        ])
+        self.image_encoder = nn.Sequential(
+            nn.Linear(dataset.dim_image_feature, self.image_feature_channel, bias=False),
+            nn.BatchNorm1d(self.image_feature_channel),
+            nn.ReLU(inplace=True))
 
         self.vfe = MeanVFE(dataset.dim_point)
         self.voxel_encoder = SparseUnet(self.vfe.voxel_feature_channel,
@@ -51,7 +40,7 @@ class MVFNet(nn.Module):
                                         nn.ReLU(inplace=True),
                                         nn.Linear(self.fusion_feature_channel, dataset.num_classes, bias=False))
 
-        self.ce_loss = nn.CrossEntropyLoss(weight=dataset.class_weight, ignore_index=255)
+        self.ce_loss = nn.CrossEntropyLoss(weight=torch.FloatTensor(dataset.class_weight), ignore_index=255)
 
         self.weight_initialization()
         self.dropout = nn.Dropout(0.3, True)
