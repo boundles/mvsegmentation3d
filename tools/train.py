@@ -163,7 +163,7 @@ def main():
         training=True)
 
     val_set, val_loader, sampler = build_dataloader(
-        dataset=train_dataset,
+        dataset=val_dataset,
         batch_size=args.batch_size,
         dist=distributed,
         num_workers=args.num_workers,
@@ -181,8 +181,8 @@ def main():
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank % torch.cuda.device_count()])
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0001)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     # train and evaluation
     train_segmentor(args, data_loaders, train_sampler, train_dataset.id2label, model, optimizer, lr_scheduler, rank, logger)
