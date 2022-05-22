@@ -26,7 +26,7 @@ def load_data_to_gpu(data_dict):
     return data_dict
 
 
-def parse_args(logger):
+def parse_args():
     parser = argparse.ArgumentParser(description='Train a 3d segmentor')
     parser.add_argument('--data_dir', type=str, help='the data directory')
     parser.add_argument('--save_dir', type=str, help='the saved directory')
@@ -55,8 +55,6 @@ def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir, logger):
         'lr_scheduler': lr_scheduler.state_dict()
     }
 
-    if not os.path.isdir(save_dir):
-        os.mkdir(save_dir)
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
@@ -132,6 +130,9 @@ def main():
     args = parse_args()
 
     # create logger
+    if not os.path.isdir(args.save_dir):
+        os.mkdir(args.save_dir)
+
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = os.path.join(args.save_dir, f'{timestamp}.log')
     logger = get_logger("mvseg3d", log_file)
@@ -152,6 +153,9 @@ def main():
 
     # calculate the num of workers
     num_workers = args.num_gpus * args.num_workers
+    logger.info('Num of workers has been automatically scaled '
+                 f'from {args.num_workers} to {num_workers}')
+    args.num_workers = num_workers
 
     if batch_size != args.batch_size:
         # scale LR with
@@ -161,7 +165,6 @@ def main():
                     f'from {args.lr} to {scaled_lr}')
         args.lr = scaled_lr
         args.batch_size = batch_size
-        args.num_workers = num_workers
     else:
         logger.info('The batch size match the '
                     f'base batch size: {args.batch_size}, '
