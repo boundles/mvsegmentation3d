@@ -36,13 +36,15 @@ def parse_args():
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')
     parser.add_argument('--epochs', default=10, type=int)
-    parser.add_argument('--lr', default=0.0125, type=float)
+    parser.add_argument('--lr', default=0.1, type=float)
     parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')
     parser.add_argument('--no_validate', action='store_true', help='whether not to evaluate the checkpoint during training')
     parser.add_argument('--eval_epoch_interval', default=2, type=int)
     parser.add_argument('--log_iter_interval', default=5, type=int)
     parser.add_argument('--auto_resume', action='store_true', help='resume from the latest checkpoint automatically')
     args = parser.parse_args()
+    if 'LOCAL_RANK' not in os.environ:
+        os.environ['LOCAL_RANK'] = str(args.local_rank)
 
     return args
 
@@ -122,20 +124,12 @@ def train_segmentor(args, data_loaders, train_sampler, id2label, model, optimize
             save_checkpoint(epoch, model, optimizer, lr_scheduler, args.save_dir, logger)
 
         # evaluate on validation set
-        if not args.no_validate and epoch % args.eval_epoch_interval == 0:
+        if rank == 0 and not args.no_validate and epoch % args.eval_epoch_interval == 0:
             evaluate(args, data_loaders['val'], model, id2label, epoch, logger)
 
 def main():
     # parse args
     args = parse_args()
-
-    # create logger
-    if not os.path.isdir(args.save_dir):
-        os.mkdir(args.save_dir)
-
-    timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-    log_file = os.path.join(args.save_dir, f'{timestamp}.log')
-    logger = get_logger("mvseg3d", log_file)
 
     # whether to distributed training
     if args.launcher == 'none':
@@ -146,29 +140,13 @@ def main():
         # gpu_ids is used to calculate iter when resuming checkpoint
         rank, world_size = distributed_utils.get_dist_info()
 
-    # calculate the batch size
-    batch_size = args.num_gpus * args.batch_size
-    logger.info(f'Training with {args.num_gpus} GPU(s) with {args.batch_size} '
-                f'samples per GPU. The total batch size is {batch_size}.')
+    # create saved directory
+    os.makedirs(args.save_dir, exist_ok=True)
 
-    # calculate the num of workers
-    num_workers = args.num_gpus * args.num_workers
-    logger.info('Num of workers has been automatically scaled '
-                 f'from {args.num_workers} to {num_workers}')
-    args.num_workers = num_workers
-
-    if batch_size != args.batch_size:
-        # scale LR with
-        # [linear scaling rule](https://arxiv.org/abs/1706.02677)
-        scaled_lr = (batch_size / args.batch_size) * args.lr
-        logger.info('LR has been automatically scaled '
-                    f'from {args.lr} to {scaled_lr}')
-        args.lr = scaled_lr
-        args.batch_size = batch_size
-    else:
-        logger.info('The batch size match the '
-                    f'base batch size: {args.batch_size}, '
-                    f'will not scaling the LR ({args.lr}).')
+    # create logger
+    timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+    log_file = os.path.join(args.save_dir, f'{timestamp}.log')
+    logger = get_logger("mvseg3d", log_file)
 
     # load data
     train_dataset = WaymoDataset(args.data_dir, 'training', use_image_feature=True)

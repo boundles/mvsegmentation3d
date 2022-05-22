@@ -14,7 +14,6 @@ def init_dist(launcher, backend='nccl'):
         num_gpus = torch.cuda.device_count()
         torch.cuda.set_device(rank % num_gpus)
         dist.init_process_group(backend=backend)
-        return num_gpus, rank
     else:
         raise ValueError(f'Invalid launcher type: {launcher}')
 
