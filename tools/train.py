@@ -1,4 +1,5 @@
 import os
+import time
 import argparse
 import numpy as np
 
@@ -42,28 +43,6 @@ def parse_args(logger):
     parser.add_argument('--log_iter_interval', default=5, type=int)
     parser.add_argument('--auto_resume', action='store_true', help='resume from the latest checkpoint automatically')
     args = parser.parse_args()
-
-    # calculate the batch size
-    batch_size = args.num_gpus * args.batch_size
-    logger.info(f'Training with {args.num_gpus} GPU(s) with {args.batch_size} '
-                f'samples per GPU. The total batch size is {batch_size}.')
-
-    # calculate the num of workers
-    num_workers = args.num_gpus * args.num_workers
-
-    if batch_size != args.batch_size:
-        # scale LR with
-        # [linear scaling rule](https://arxiv.org/abs/1706.02677)
-        scaled_lr = (batch_size / args.batch_size) * args.lr
-        logger.info('LR has been automatically scaled '
-                    f'from {args.lr} to {scaled_lr}')
-        args.lr = scaled_lr
-        args.batch_size = batch_size
-        args.num_workers = num_workers
-    else:
-        logger.info('The batch size match the '
-                    f'base batch size: {args.batch_size}, '
-                    f'will not scaling the LR ({args.lr}).')
 
     return args
 
@@ -149,12 +128,15 @@ def train_segmentor(args, data_loaders, train_sampler, id2label, model, optimize
             evaluate(args, data_loaders['val'], model, id2label, epoch, logger)
 
 def main():
-    # create logger
-    logger = get_logger("mvseg3d")
-
     # parse args
-    args = parse_args(logger)
+    args = parse_args()
 
+    # create logger
+    timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+    log_file = os.path.join(args.save_dir, f'{timestamp}.log')
+    logger = get_logger("mvseg3d", log_file)
+
+    # whether to distributed training
     if args.launcher == 'none':
         distributed = False
     else:
@@ -162,6 +144,28 @@ def main():
         distributed_utils.init_dist(args.launcher)
         # gpu_ids is used to calculate iter when resuming checkpoint
         rank, world_size = distributed_utils.get_dist_info()
+
+    # calculate the batch size
+    batch_size = args.num_gpus * args.batch_size
+    logger.info(f'Training with {args.num_gpus} GPU(s) with {args.batch_size} '
+                f'samples per GPU. The total batch size is {batch_size}.')
+
+    # calculate the num of workers
+    num_workers = args.num_gpus * args.num_workers
+
+    if batch_size != args.batch_size:
+        # scale LR with
+        # [linear scaling rule](https://arxiv.org/abs/1706.02677)
+        scaled_lr = (batch_size / args.batch_size) * args.lr
+        logger.info('LR has been automatically scaled '
+                    f'from {args.lr} to {scaled_lr}')
+        args.lr = scaled_lr
+        args.batch_size = batch_size
+        args.num_workers = num_workers
+    else:
+        logger.info('The batch size match the '
+                    f'base batch size: {args.batch_size}, '
+                    f'will not scaling the LR ({args.lr}).')
 
     # load data
     train_dataset = WaymoDataset(args.data_dir, 'training', use_image_feature=True)
