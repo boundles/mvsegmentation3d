@@ -5,6 +5,23 @@ from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.utils.voxel_point_utils import voxel_to_point
 
+class SELayer(nn.Module):
+    def __init__(self, channel, reduction=4):
+        super(SELayer, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(channel, channel // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channel // reduction, channel, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.avg_pool(x).view(b, c)
+        y = self.fc(y).view(b, c, 1, 1)
+        return x + x * y.expand_as(x)
+
 class MVFNet(nn.Module):
     def __init__(self, dataset):
         super().__init__()
@@ -33,10 +50,17 @@ class MVFNet(nn.Module):
                                         dataset.voxel_size,
                                         dataset.point_cloud_range)
 
-        self.fusion_feature_channel = self.point_feature_channel + self.voxel_encoder.voxel_feature_channel + \
-                                      self.image_feature_channel
-        self.cls_layers = nn.Sequential(nn.Linear(self.fusion_feature_channel, self.fusion_feature_channel, bias=False),
-                                        nn.BatchNorm1d(self.fusion_feature_channel),
+        self.fusion_in_channel = self.point_feature_channel + self.voxel_encoder.voxel_feature_channel + \
+                                 self.image_feature_channel
+        self.fusion_out_channel = 64
+        self.fusion_encoder = nn.Sequential(nn.Linear(self.fusion_in_channel, self.fusion_out_channel, bias=False),
+                                            nn.BatchNorm1d(self.fusion_out_channel),
+                                            nn.ReLU(inplace=True))
+
+        self.se = SELayer(self.fusion_out_channel)
+
+        self.cls_layers = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
+                                        nn.BatchNorm1d(self.fusion_out_channel),
                                         nn.ReLU(inplace=True),
                                         nn.Linear(self.fusion_feature_channel, dataset.num_classes, bias=False))
 
@@ -60,6 +84,8 @@ class MVFNet(nn.Module):
         point_image_features = self.image_encoder(point_image_features)
 
         point_fusion_features = torch.cat([point_voxel_features, point_per_features, point_image_features], dim=1)
+        point_fusion_features = self.fusion_encoder(point_fusion_features)
+        point_fusion_features = self.se(point_fusion_features)
         point_fusion_features = self.dropout(point_fusion_features)
 
         out = self.cls_layers(point_fusion_features)
