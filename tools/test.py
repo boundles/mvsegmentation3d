@@ -76,7 +76,10 @@ def main():
         training=False)
 
     # define model
-    model = MVFNet(val_dataset).cuda()
+    model = MVFNet(val_dataset)
+    model = torch.nn.DataParallel(model).cuda()
+    checkpoint = torch.load(os.path.join(args.save_dir, 'latest.pth'))
+    model.load_state_dict(checkpoint['model'])
 
     # evaluation
     evaluate(args, val_loader, model, val_dataset.id2label, logger)

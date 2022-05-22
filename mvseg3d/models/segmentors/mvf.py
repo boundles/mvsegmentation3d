@@ -82,11 +82,11 @@ class MVFNet(nn.Module):
 
     def forward(self, batch_dict):
         point_per_features = self.point_encoder(batch_dict['points'])
-        enc_out = self.voxel_encoder(self.vfe(batch_dict))
-        point_voxel_features = voxel_to_point(enc_out['voxel_features'], enc_out['point_voxel_ids'])
+        voxel_enc_out = self.voxel_encoder(self.vfe(batch_dict))
+        point_voxel_features = voxel_to_point(voxel_enc_out['enc_voxel_features'], voxel_enc_out['point_voxel_ids'])
 
-        point_image_features = batch_dict['point_image_features']
-        point_image_features = self.image_encoder(point_image_features)
+        point_raw_image_features = batch_dict['point_image_features']
+        point_image_features = self.image_encoder(point_raw_image_features)
 
         point_fusion_features = torch.cat([point_voxel_features, point_per_features, point_image_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
