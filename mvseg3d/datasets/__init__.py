@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.data import DistributedSampler as
+from torch.utils.data import DistributedSampler as _DistributedSampler
 
 from mvseg3d.utils import distributed_utils
 

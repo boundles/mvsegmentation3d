@@ -12,8 +12,6 @@ from mvseg3d.core.metrics import IOUMetric
 from mvseg3d.utils.logging import get_logger
 from mvseg3d.utils import distributed_utils
 
-logger = get_logger("mvseg3d")
-
 
 def load_data_to_gpu(data_dict):
     for key, val in data_dict.items():
@@ -27,7 +25,7 @@ def load_data_to_gpu(data_dict):
     return data_dict
 
 
-def parse_args():
+def parse_args(logger):
     parser = argparse.ArgumentParser(description='Train a 3d segmentor')
     parser.add_argument('--data_dir', type=str, help='the data directory')
     parser.add_argument('--save_dir', type=str, help='the saved directory')
@@ -69,7 +67,7 @@ def parse_args():
 
     return args
 
-def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir):
+def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir, logger):
     logger.info('Save checkpoint at epoch %d' % epoch)
     checkpoint = {
         "model": model.state_dict(),
@@ -83,7 +81,7 @@ def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir):
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
-def evaluate(args, data_loader, model, id2label, epoch):
+def evaluate(args, data_loader, model, id2label, epoch, logger):
     iou_metric = IOUMetric(id2label)
     model.eval()
     for step, data_dict in enumerate(data_loader, 1):
@@ -101,7 +99,7 @@ def evaluate(args, data_loader, model, id2label, epoch):
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
-def train_epoch(args, data_loader, model, optimizer, epoch, rank):
+def train_epoch(args, data_loader, model, optimizer, epoch, rank, logger):
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
         out, loss = model(data_dict)
@@ -118,7 +116,7 @@ def train_epoch(args, data_loader, model, optimizer, epoch, rank):
             logger.info(
                 'Train - Epoch [%d/%d] Iter [%d/%d] lr: %f, loss: %f' % (epoch, args.epochs - 1, step, len(data_loader), cur_lr, loss.cpu().item()))
 
-def train_segmentor(args, data_loaders, train_sampler, id2label, model, optimizer, lr_scheduler, rank):
+def train_segmentor(args, data_loaders, train_sampler, id2label, model, optimizer, lr_scheduler, rank, logger):
     model.train()
 
     start_epoch = -1
@@ -138,22 +136,24 @@ def train_segmentor(args, data_loaders, train_sampler, id2label, model, optimize
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
-        train_epoch(args, data_loaders['train'], model, optimizer, epoch, rank)
+        train_epoch(args, data_loaders['train'], model, optimizer, epoch, rank, logger)
 
         lr_scheduler.step()
 
-        # evaluate on validation set
-        if not args.no_validate and epoch % args.eval_epoch_interval == 0:
-            evaluate(data_loaders['val'], model, id2label, args)
-
         # save checkpoint
         if rank == 0 and args.auto_resume:
-            save_checkpoint(epoch, model, optimizer, lr_scheduler, args.save_dir)
+            save_checkpoint(epoch, model, optimizer, lr_scheduler, args.save_dir, logger)
 
+        # evaluate on validation set
+        if not args.no_validate and epoch % args.eval_epoch_interval == 0:
+            evaluate(args, data_loaders['val'], model, id2label, epoch, logger)
 
 def main():
+    # create logger
+    logger = get_logger("mvseg3d")
+
     # parse args
-    args = parse_args()
+    args = parse_args(logger)
 
     if args.launcher == 'none':
         distributed = False
@@ -200,7 +200,7 @@ def main():
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
     # train and evaluation
-    train_segmentor(args, data_loaders, train_sampler, train_dataset.id2label, model, lr_scheduler, rank)
+    train_segmentor(args, data_loaders, train_sampler, train_dataset.id2label, model, optimizer, lr_scheduler, rank, logger)
 
 
 if __name__ == '__main__':
