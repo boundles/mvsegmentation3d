@@ -43,8 +43,6 @@ def parse_args():
     parser.add_argument('--log_iter_interval', default=5, type=int)
     parser.add_argument('--auto_resume', action='store_true', help='resume from the latest checkpoint automatically')
     args = parser.parse_args()
-    if 'LOCAL_RANK' not in os.environ:
-        os.environ['LOCAL_RANK'] = str(args.local_rank)
 
     return args
 
