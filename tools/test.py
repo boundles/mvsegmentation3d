@@ -94,7 +94,7 @@ def semseg_for_one_frame(model, data_dict):
 
     points_ri = data_dict['points_ri']
     ri1_start_index, ri1_end_index, ri2_start_index, ri2_end_index = get_range_index(points_ri)
-    for i in range(pred_labels.shape):
+    for i in range(pred_labels.shape[0]):
         if ri1_start_index <= i <= ri1_end_index:
             range_image_pred[points_ri[i, 1], points_ri[i, 0], 1] = pred_labels[i].item() + 1
         elif ri2_start_index <= i <= ri2_end_index:
@@ -104,7 +104,7 @@ def semseg_for_one_frame(model, data_dict):
     name_parts = data_dict['filename'][0].split('-')
     segmentation_frame = segmentation_metrics_pb2.SegmentationFrame()
     segmentation_frame.context_name = name_parts[0]
-    segmentation_frame.frame_timestamp_micros = long(name_parts[1])
+    segmentation_frame.frame_timestamp_micros = int(name_parts[1])
     laser_semseg = open_dataset.Laser()
     laser_semseg.name = open_dataset.LaserName.TOP
     laser_semseg.ri_return1.segmentation_label_compressed = compress_array(
@@ -115,10 +115,10 @@ def semseg_for_one_frame(model, data_dict):
     return segmentation_frame
 
 def inference(data_loader, model, logger):
-    logger('inference start!')
+    logger.info('Inference start!')
     model.eval()
     segmentation_frame_list = segmentation_metrics_pb2.SegmentationFrameList()
-    for step, data_dict in enumerate(tqdm(data_loader, 1)):
+    for step, data_dict in enumerate(tqdm(data_loader), 1):
         segmentation_frame = semseg_for_one_frame(model, data_dict)
         segmentation_frame_list.frames.append(segmentation_frame)
 
@@ -140,7 +140,7 @@ def inference(data_loader, model, logger):
     f.write(submission.SerializeToString())
     f.close()
 
-    logger('inference finished!')
+    logger.info('Inference finished!')
 
 def main():
     # parse args
