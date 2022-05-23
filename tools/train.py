@@ -31,7 +31,6 @@ def parse_args():
     parser.add_argument('--data_dir', type=str, help='the data directory')
     parser.add_argument('--save_dir', type=str, help='the saved directory')
     parser.add_argument('--batch_size', default=4, type=int)
-    parser.add_argument('--num_gpus', default=1, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')

@@ -102,6 +102,11 @@ class WaymoDataset(Dataset):
         semantic_labels[semantic_labels == -1] = 255
         return semantic_labels
 
+    def get_points_indexing(self, filename):
+        indexing_file = os.path.join(self.root, self.split, 'misc', filename + '.npy')
+        points_indexing = np.load(indexing_file)
+        return points_indexing
+
     def __len__(self):
         return len(self.filenames)
 
@@ -120,6 +125,10 @@ class WaymoDataset(Dataset):
         if not self.test_mode:
             labels = self.get_label(filename)
             input_dict['labels'] = labels
+
+        if self.test_mode:
+            points_indexing = self.get_points_indexing(filename)
+            input_dict['points_indexing'] = points_indexing
 
         data_dict = self.prepare_data(data_dict=input_dict)
         return data_dict
