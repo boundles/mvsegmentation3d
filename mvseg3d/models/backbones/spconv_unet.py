@@ -178,5 +178,5 @@ class SparseUnet(nn.Module):
         # [1600, 1408, 41] <- [1600, 1408, 41]
         x_up1 = self.UR_block_forward(x_conv1, x_up2, self.conv_up_t1, self.conv_up_m1, self.conv5)
 
-        batch_dict['voxel_features'] = x_up1.features
+        batch_dict['enc_voxel_features'] = x_up1.features
         return batch_dict
