@@ -43,10 +43,10 @@ class Compose:
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, batch_dict):
+    def __call__(self, data_dict):
         for t in self.transforms:
-            batch_dict = t(batch_dict)
-        return batch_dict
+            data_dict = t(data_dict)
+        return data_dict
 
     def __repr__(self) -> str:
         format_string = self.__class__.__name__ + "("
@@ -60,12 +60,12 @@ class RandomGlobalScaling:
     def __init__(self, scale_range) -> None:
         self.scale_range = scale_range
 
-    def __call__(self, batch_dict):
+    def __call__(self, data_dict):
         if self.scale_range[1] - self.scale_range[0] < 1e-3:
-            return batch_dict
+            return data_dict
         noise_scale = np.random.uniform(self.scale_range[0], self.scale_range[1])
-        batch_dict['points'][:, :3] *= noise_scale
-        return batch_dict
+        data_dict['points'][:, :3] *= noise_scale
+        return data_dict
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -75,11 +75,30 @@ class RandomGlobalRotation:
     def __init__(self, rot_range) -> None:
         self.rot_range = rot_range
 
-    def __call__(self, batch_dict):
+    def __call__(self, data_dict):
         noise_rotation = np.random.uniform(self.rot_range[0], self.rot_range[1])
-        batch_dict['points'] = rotate_points_along_z(batch_dict['points'][np.newaxis, :, :], np.array([noise_rotation]))[0]
+        data_dict['points'] = rotate_points_along_z(data_dict['points'][np.newaxis, :, :], np.array([noise_rotation]))[0]
 
-        return batch_dict
+        return data_dict
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+class PointShuffle:
+    def __call__(self, data_dict):
+        idx = batch_dict['points'].shuffle()
+        idx = idx.numpy()
+
+        point_image_features = data_dict.get('point_image_features', None)
+        labels = data_dict.get('labels', None)
+
+        if point_image_features is not None:
+            data_dict['point_image_features'] = point_image_features[idx]
+
+        if labels is not None:
+            data_dict['labels'] = labels[idx]
+
+        return data_dict
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -87,6 +106,7 @@ class RandomGlobalRotation:
 if __name__ == '__main__':
     batch_dict = {'points': np.ones((100, 3))}
     transforms = Compose([RandomGlobalScaling([0.95, 1.05]),
-                          RandomGlobalRotation([-0.78539816, 0.78539816])])
+                          RandomGlobalRotation([-0.78539816, 0.78539816]),
+                          PointShuffle()])
     batch_dict = transforms(batch_dict)
     print(batch_dict)

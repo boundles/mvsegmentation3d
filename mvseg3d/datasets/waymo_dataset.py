@@ -25,7 +25,7 @@ class WaymoDataset(Dataset):
             self.filenames = [self.get_filename(path) for path in
                               glob.glob(os.path.join(self.root, split, 'label', '*.npy'))]
 
-        self.voxel_generator = VoxelGenerator(voxel_size=[0.1, 0.1, 0.15],
+        self.voxel_generator = VoxelGenerator(voxel_size=[0.05, 0.05, 0.05],
                                               point_cloud_range=[-75.2, -75.2, -2, 75.2, 75.2, 4],
                                               max_num_points=5,
                                               max_voxels=150000)
@@ -35,7 +35,8 @@ class WaymoDataset(Dataset):
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
         self.transforms = transforms.Compose([transforms.RandomGlobalScaling([0.95, 1.05]),
-                                              transforms.RandomGlobalRotation([-0.78539816, 0.78539816])])
+                                              transforms.RandomGlobalRotation([-0.78539816, 0.78539816]),
+                                              transforms.PointShuffle()])
 
     @property
     def dim_point(self):
