@@ -4,10 +4,10 @@ import glob
 import numpy as np
 from collections import defaultdict
 
-import torch
 from torch.utils.data import Dataset
 
 from mvseg3d.core import VoxelGenerator
+from mvseg3d.datasets.transforms import transforms
 
 
 class WaymoDataset(Dataset):
@@ -33,6 +33,9 @@ class WaymoDataset(Dataset):
         self.grid_size = self.voxel_generator.grid_size
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
+
+        self.transforms = transforms.Compose([transforms.RandomGlobalScaling([0.95, 1.05]),
+                                              transforms.RandomGlobalRotation([-0.78539816, 0.78539816])])
 
     @property
     def dim_point(self):
@@ -135,6 +138,9 @@ class WaymoDataset(Dataset):
                 voxel_num_points: optional (num_voxels)
                 point_voxel_ids: optional, (N)
         """
+        if self.split == 'training':
+            data_dict = self.transforms(data_dict)
+
         voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxels'] = voxels
         data_dict['voxel_coords'] = coords

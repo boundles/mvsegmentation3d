@@ -1,14 +1,11 @@
+import torch
 import numpy as np
 
-import torch
-
-@staticmethod
 def check_numpy_to_torch(x):
     if isinstance(x, np.ndarray):
         return torch.from_numpy(x).float(), True
     return x, False
 
-@staticmethod
 def rotate_points_along_z(points, angle):
     """
     Args:
@@ -92,3 +89,4 @@ if __name__ == '__main__':
     transforms = Compose([RandomGlobalScaling([0.95, 1.05]),
                           RandomGlobalRotation([-0.78539816, 0.78539816])])
     batch_dict = transforms(batch_dict)
+    print(batch_dict)
