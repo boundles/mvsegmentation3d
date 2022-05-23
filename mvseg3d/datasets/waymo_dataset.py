@@ -11,7 +11,7 @@ from mvseg3d.datasets.transforms import transforms
 
 class WaymoDataset(Dataset):
     def __init__(self, root, split='training', test_mode=False, use_image_feature=False):
-        assert split in ['training', 'validation', 'test']
+        assert split in ['training', 'validation', 'testing']
         self.root = root
         self.split = split
         self.test_mode = test_mode
@@ -19,7 +19,7 @@ class WaymoDataset(Dataset):
 
         if self.test_mode:
             self.filenames = [self.get_filename(path) for path in
-                              glob.glob(os.path.join(self.root, split, 'lidar', '*.npy'))]
+                              glob.glob(os.path.join(self.root, split, 'image_feature/0', '*.npy'))]
         else:
             self.filenames = [self.get_filename(path) for path in
                               glob.glob(os.path.join(self.root, split, 'label', '*.npy'))]
@@ -102,10 +102,10 @@ class WaymoDataset(Dataset):
         semantic_labels[semantic_labels == -1] = 255
         return semantic_labels
 
-    def get_points_indexing(self, filename):
-        indexing_file = os.path.join(self.root, self.split, 'misc', filename + '.npy')
-        points_indexing = np.load(indexing_file)
-        return points_indexing
+    def get_points_ri(self, filename):
+        ri_file = os.path.join(self.root, self.split, 'misc', filename + '.npy')
+        points_ri = np.load(ri_file)
+        return points_ri
 
     def __len__(self):
         return len(self.filenames)
@@ -127,8 +127,9 @@ class WaymoDataset(Dataset):
             input_dict['labels'] = labels
 
         if self.test_mode:
-            points_indexing = self.get_points_indexing(filename)
-            input_dict['points_indexing'] = points_indexing
+            points_ri = self.get_points_ri(filename)
+            input_dict['points_ri'] = points_ri
+            input_dict['filename'] = filename
 
         data_dict = self.prepare_data(data_dict=input_dict)
         return data_dict
@@ -176,8 +177,10 @@ class WaymoDataset(Dataset):
                     coors.append(coor_pad)
                     voxel_nums.append(coor.shape[0])
                 ret[key] = np.concatenate(coors, axis=0)
-            elif key in ['points', 'point_image_features', 'labels', 'voxels', 'voxel_num_points']:
+            elif key in ['points', 'points_ri', 'point_image_features', 'labels', 'voxels', 'voxel_num_points']:
                 ret[key] = np.concatenate(val, axis=0)
+            elif key in ['filename']:
+                ret[key] = val
 
         offset = 0
         if voxel_nums and 'point_voxel_ids' in data_dict:
