@@ -85,9 +85,11 @@ class RandomGlobalRotation:
         return f"{self.__class__.__name__}()"
 
 class PointShuffle:
-    def __call__(self, data_dict):
-        idx = batch_dict['points'].shuffle()
-        idx = idx.numpy()
+   def __call__(self, data_dict):
+        idx = np.array(range(data_dict['points'].shape[0]))
+        np.random.shuffle(idx)
+
+        data_dict['points'] = data_dict['points'][idx]
 
         point_image_features = data_dict.get('point_image_features', None)
         labels = data_dict.get('labels', None)
