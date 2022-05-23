@@ -46,10 +46,21 @@ def parse_args():
 
     return args
 
+def model_state_to_cpu(model_state):
+    model_state_cpu = type(model_state)()  # ordered dict
+    for key, val in model_state.items():
+        model_state_cpu[key] = val.cpu()
+    return model_state_cpu
+
 def save_checkpoint(epoch, model, optimizer, lr_scheduler, save_dir, logger):
     logger.info('Save checkpoint at epoch %d' % epoch)
+    if isinstance(model, torch.nn.parallel.DistributedDataParallel):
+        model_state = model_state_to_cpu(model.module.state_dict())
+    else:
+        model_state = model.state_dict()
+
     checkpoint = {
-        "model": model.state_dict(),
+        "model": model_state,
         'optimizer': optimizer.state_dict(),
         "epoch": epoch,
         'lr_scheduler': lr_scheduler.state_dict()
@@ -77,6 +88,7 @@ def evaluate(args, data_loader, model, id2label, epoch, logger):
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
 def train_epoch(args, data_loader, model, optimizer, epoch, rank, logger):
+    model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
         out, loss = model(data_dict)
@@ -93,21 +105,7 @@ def train_epoch(args, data_loader, model, optimizer, epoch, rank, logger):
             logger.info(
                 'Train - Epoch [%d/%d] Iter [%d/%d] lr: %f, loss: %f' % (epoch, args.epochs - 1, step, len(data_loader), cur_lr, loss.cpu().item()))
 
-def train_segmentor(args, data_loaders, train_sampler, id2label, model, optimizer, lr_scheduler, rank, logger):
-    model.train()
-
-    start_epoch = -1
-    latest_checkpoint = os.path.join(args.save_dir, 'latest.pth')
-    if args.auto_resume and os.path.isfile(latest_checkpoint):
-        checkpoint = torch.load(latest_checkpoint)
-
-        model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        start_epoch = checkpoint['epoch']
-        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-
-        logger.info('Resume from epoch %d' % start_epoch)
-
+def train_segmentor(args, start_epoch, data_loaders, train_sampler, id2label, model, optimizer, lr_scheduler, rank, logger):
     for epoch in range(start_epoch + 1, args.epochs):
         if train_sampler is not None:
             train_sampler.set_epoch(epoch)
@@ -175,15 +173,28 @@ def main():
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()
 
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0001)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+
+    start_epoch = -1
+    latest_checkpoint = os.path.join(args.save_dir, 'latest.pth')
+    if args.auto_resume and os.path.isfile(latest_checkpoint):
+        loc_type = torch.device('cpu') if distributed else None
+        checkpoint = torch.load(latest_checkpoint, map_location=loc_type)
+
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        start_epoch = checkpoint['epoch']
+        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+
+        logger.info('Resume from epoch %d' % start_epoch)
+
     model.train()  # before wrap to DistributedDataParallel to support fixed some parameters
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank % torch.cuda.device_count()])
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0001)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
-
     # train and evaluation
-    train_segmentor(args, data_loaders, train_sampler, train_dataset.id2label, model, optimizer, lr_scheduler, rank, logger)
+    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.id2label, model, optimizer, lr_scheduler, rank, logger)
 
 
 if __name__ == '__main__':
