@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument('--save_dir', type=str, help='the saved directory')
     parser.add_argument('--batch_size', default=4, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
+    parser.add_argument('--cudnn_benchmark', action='store_true', default=False, help='whether to use cudnn')
     parser.add_argument('--log_iter_interval', default=5, type=int)
     args = parser.parse_args()
 
@@ -57,6 +58,10 @@ def evaluate(args, data_loader, model, id2label, logger):
 def main():
     # parse args
     args = parse_args()
+
+    # set cudnn_benchmark
+    if args.cudnn_benchmark:
+        torch.backends.cudnn.benchmark = True
 
     # create logger
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())

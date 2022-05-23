@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')
     parser.add_argument('--epochs', default=10, type=int)
     parser.add_argument('--lr', default=0.1, type=float)
+    parser.add_argument('--cudnn_benchmark', action='store_true', default=False, help='whether to use cudnn')
     parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')
     parser.add_argument('--no_validate', action='store_true', help='whether not to evaluate the checkpoint during training')
     parser.add_argument('--eval_epoch_interval', default=2, type=int)
@@ -134,6 +135,10 @@ def main():
         distributed_utils.init_dist(args.launcher)
         # gpu_ids is used to calculate iter when resuming checkpoint
         rank, world_size = distributed_utils.get_dist_info()
+
+    # set cudnn_benchmark
+    if args.cudnn_benchmark:
+        torch.backends.cudnn.benchmark = True
 
     # create saved directory
     os.makedirs(args.save_dir, exist_ok=True)
