@@ -247,8 +247,8 @@ class WaymoParser(object):
             points_ri_1 = self.convert_range_image_to_point_cloud_ri(
                 frame, range_images, ri_index=1)
             points_ri_1 = np.concatenate(points_ri_1, axis=0)
-            points_ri = np.concatenate([points_ri_0, points_ri_1], axis=0)
 
+            points_ri = np.concatenate([points_ri_0, points_ri_1], axis=0)
             point_cloud = np.concatenate([point_cloud, points_ri], axis=1)
 
         pc_path = f'{self.point_cloud_save_dir}/{file_id}' + \
