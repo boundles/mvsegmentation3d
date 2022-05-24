@@ -9,18 +9,18 @@ from mmseg.apis import inference_segmentor, init_segmentor
 
 if __name__ == '__main__':
     # args
-    camera_id = int(sys.argv[1])
-    split = sys.argv[2]
+    data_dir = sys.argv[1]
+    work_dir = sys.argv[2]
+    camera_id = int(sys.argv[3])
+    split = sys.argv[4]
 
     # data dirs
-    data_dir = '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_0'
     lidar_dir = os.path.join(data_dir, split, 'lidar')
     label_dir = os.path.join(data_dir, split, 'label')
     image_dir = os.path.join(data_dir, split, 'image', str(camera_id))
     feature_dir = os.path.join(data_dir, split, 'image_feature', str(camera_id))
 
     # init model
-    work_dir = '/nfs/volume-807-2/darrenwang/mmseg_workspace_769x769_segformer'
     config_file = os.path.join(work_dir, 'segformer_mit-b3_8x1_769x769_160k_waymo.py')
     checkpoint_file = os.path.join(work_dir, 'latest.pth')
     model = init_segmentor(config_file, checkpoint_file, device='cuda:0')

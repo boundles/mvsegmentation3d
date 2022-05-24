@@ -1,4 +1,6 @@
-CAMERA_ID=$1
-SPLIT=$2
+DATA_DIR=$1
+WORK_DIR=$2
+CAMERA_ID=$3
+SPLIT=$4
 
-python3 extract_image_feature.py $CAMERA_ID $SPLIT
+python3 extract_image_feature.py $DATA_DIR $WORK_DIR $CAMERA_ID $SPLIT
