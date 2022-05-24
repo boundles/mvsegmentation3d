@@ -33,7 +33,6 @@ class MVFNet(nn.Module):
 
         self.point_feature_channel = 32
         self.point_encoder = nn.Sequential(
-            nn.BatchNorm1d(dataset.dim_point),
             nn.Linear(dataset.dim_point, 32, bias=False),
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
@@ -44,11 +43,15 @@ class MVFNet(nn.Module):
             nn.BatchNorm1d(self.point_feature_channel),
             nn.ReLU(inplace=True))
 
-        self.image_feature_channel = 32
-        self.image_encoder = nn.Sequential(
-            nn.Linear(dataset.dim_image_feature, self.image_feature_channel, bias=False),
-            nn.BatchNorm1d(self.image_feature_channel),
-            nn.ReLU(inplace=True))
+        self.use_image_feature = dataset.use_image_feature
+        if self.use_image_feature:
+            self.image_feature_channel = 32
+            self.image_encoder = nn.Sequential(
+                nn.Linear(dataset.dim_image_feature, self.image_feature_channel, bias=False),
+                nn.BatchNorm1d(self.image_feature_channel),
+                nn.ReLU(inplace=True))
+        else:
+            self.image_feature_channel = 0
 
         self.vfe = MeanVFE(dataset.dim_point)
         self.voxel_encoder = SparseUnet(self.vfe.voxel_feature_channel,
@@ -86,10 +89,12 @@ class MVFNet(nn.Module):
         voxel_enc_out = self.voxel_encoder(self.vfe(batch_dict))
         point_voxel_features = voxel_to_point(voxel_enc_out['enc_voxel_features'], voxel_enc_out['point_voxel_ids'])
 
-        point_raw_image_features = batch_dict['point_image_features']
-        point_image_features = self.image_encoder(point_raw_image_features)
-
-        point_fusion_features = torch.cat([point_voxel_features, point_per_features, point_image_features], dim=1)
+        if self.use_image_feature:
+            point_image_features = batch_dict['point_image_features']
+            point_image_features = self.image_encoder(point_image_features)
+            point_fusion_features = torch.cat([point_voxel_features, point_per_features, point_image_features], dim=1)
+        else:
+            point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
         point_fusion_features = self.ca(point_fusion_features)
         point_fusion_features = self.dropout(point_fusion_features)

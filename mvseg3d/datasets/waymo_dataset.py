@@ -10,12 +10,12 @@ from mvseg3d.datasets.transforms import transforms
 
 
 class WaymoDataset(Dataset):
-    def __init__(self, root, split='training', test_mode=False, use_image_feature=False):
+    def __init__(self, cfg, root, split='training', test_mode=False):
         assert split in ['training', 'validation', 'testing']
+        self.cfg = cfg
         self.root = root
         self.split = split
         self.test_mode = test_mode
-        self.use_image_feature = use_image_feature
 
         if self.test_mode:
             self.filenames = [self.get_filename(path) for path in
@@ -24,36 +24,34 @@ class WaymoDataset(Dataset):
             self.filenames = [self.get_filename(path) for path in
                               glob.glob(os.path.join(self.root, split, 'label', '*.npy'))]
 
-        self.voxel_generator = VoxelGenerator(voxel_size=[0.05, 0.05, 0.05],
-                                              point_cloud_range=[-75.2, -75.2, -2, 75.2, 75.2, 4],
-                                              max_num_points=5,
-                                              max_voxels=150000)
+        self.voxel_generator = VoxelGenerator(voxel_size=cfg.DATASET.VOXEL_SIZE,
+                                              point_cloud_range=cfg.DATASET.POINT_CLOUD_RANGE,
+                                              max_num_points=cfg.DATASET.MAX_NUM_POINTS,
+                                              max_voxels=cfg.DATASET.MAX_VOXELS)
 
         self.grid_size = self.voxel_generator.grid_size
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
-        self.transforms = transforms.Compose([transforms.RandomGlobalScaling([0.95, 1.05]),
-                                              transforms.RandomGlobalRotation([-0.78539816, 0.78539816]),
+        self.transforms = transforms.Compose([transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
+                                              transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
                                               transforms.PointShuffle()])
 
     @property
     def dim_point(self):
-        return 6
+        return self.cfg.DATASET.DIM_POINT
 
     @property
     def dim_image_feature(self):
-        return 66
+        return self.cfg.DATASET.DIM_IMAGE_FEATURE
 
     @property
     def num_classes(self):
-        return 22
+        return self.cfg.DATASET.NUM_CLASSES
 
     @property
     def id2label(self):
-        labels = ['Car', 'Truck', 'Bus', 'Other Vehicle', 'MotorCyclist', 'Bicyclist', 'Pedestrian', 'Sign',
-                  'Traffic Light', 'Pole', 'Construction Cone', 'Bicycle', 'MotorCycle', 'Building', 'Vegetation',
-                  'Tree Trunk', 'Curb', 'Road', 'Lane Marker', 'Other Ground', 'Walkable', 'SideWalk']
+        labels = self.cfg.DATASET.CLASS_NAMES
         id2label = dict()
         for i, label in enumerate(labels):
             id2label[i] = label
@@ -61,11 +59,11 @@ class WaymoDataset(Dataset):
 
     @property
     def class_weight(self):
-        return [2.5573495292786705, 4.674679353043209, 4.999718438900531, 5.563321749633249, 10.73673169853078,
-                8.227823688837296, 4.962283296561223, 5.237239400142882, 7.307259288590015, 4.610857239545126,
-                7.607454941285682, 9.15210312179631, 8.753426840231054, 1.1511133803065023, 1.63258363570334,
-                3.8735526105804743, 4.443068509630746, 1.6108377340079234, 5.1972959658694355, 5.3112725890845445,
-                2.626942890303363, 2.958990264327497]
+        return self.cfg.DATASET.CLASS_WEIGHT
+
+    @property
+    def use_image_feature(self):
+        return self.cfg.DATASET.USE_IMAGE_FEATURE
 
     @staticmethod
     def get_filename(path):
@@ -115,7 +113,7 @@ class WaymoDataset(Dataset):
             'points': points[:, :self.dim_point]
         }
 
-        if self.use_image_feature:
+        if self.cfg.DATASET.USE_IMAGE_FEATURE:
             point_image_features = self.get_point_image_features(points.shape[0], filename)
             input_dict['point_image_features'] = point_image_features
 
@@ -144,7 +142,7 @@ class WaymoDataset(Dataset):
                 voxel_num_points: optional (num_voxels)
                 point_voxel_ids: optional, (N)
         """
-        if self.split == 'training':
+        if self.split == 'training' and self.cfg.DATASET.AUG_DATA:
             data_dict = self.transforms(data_dict)
 
         voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
