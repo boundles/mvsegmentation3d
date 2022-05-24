@@ -1,4 +1,3 @@
-GPUS=$1
 NNODES=${NNODES:-1}
 NODE_RANK=${NODE_RANK:-0}
 PORT=${PORT:-29500}
@@ -12,4 +11,4 @@ python3 -m torch.distributed.launch \
     --nproc_per_node=$GPUS \
     --master_port=$PORT \
     $(dirname "$0")/train.py \
-    --launcher pytorch ${@:2}
+    --launcher pytorch ${@:1}

@@ -13,7 +13,7 @@ from mvseg3d.models import build_optimizer
 from mvseg3d.core.metrics import IOUMetric
 from mvseg3d.utils.logging import get_logger
 from mvseg3d.utils import distributed_utils
-from mvseg3d.utils.config import cfg_from_file
+from mvseg3d.utils.config import cfg, cfg_from_file
 
 
 def load_data_to_gpu(data_dict):
@@ -132,7 +132,7 @@ def main():
     # parse args
     args = parse_args()
 
-    cfg = cfg_from_file(args.cfg_file)
+    cfg_from_file(args.cfg_file)
 
     # whether to distributed training
     if args.launcher == 'none':

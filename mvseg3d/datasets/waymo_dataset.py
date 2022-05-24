@@ -65,6 +65,10 @@ class WaymoDataset(Dataset):
     def use_image_feature(self):
         return self.cfg.DATASET.USE_IMAGE_FEATURE
 
+    @property
+    def ignore_index(self):
+        return self.cfg.DATASET.IGNORE_INDEX
+
     @staticmethod
     def get_filename(path):
         return os.path.splitext(os.path.basename(path))[0]

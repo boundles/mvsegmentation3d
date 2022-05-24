@@ -15,8 +15,9 @@ __C.DATASET.DIM_POINT = 6
 __C.DATASET.USE_IMAGE_FEATURE = True
 __C.DATASET.DIM_IMAGE_FEATURE = 66
 __C.DATASET.NUM_CLASSES = 22
-__C.DATASET.CLASS_NAMES = None
-__C.DATASET.CLASS_WEIGHT = None
+__C.DATASET.CLASS_NAMES = []
+__C.DATASET.CLASS_WEIGHT = []
+__C.DATASET.IGNORE_INDEX = 255
 
 __C.DATASET.AUG_DATA = True
 __C.DATASET.AUG_ROT_RANGE = [-0.78539816, 0.78539816]
@@ -37,7 +38,7 @@ def cfg_from_file(filename):
     """Load a config file and merge it into the default options."""
     import yaml
     with open(filename, 'r') as f:
-        yaml_cfg = edict(yaml.load(f))
+        yaml_cfg = edict(yaml.load(f, Loader=yaml.FullLoader))
 
     _merge_a_into_b(yaml_cfg, __C)
 
