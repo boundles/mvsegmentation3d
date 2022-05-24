@@ -87,7 +87,9 @@ class WaymoDataset(Dataset):
 
     def get_lidar(self, filename):
         lidar_file = os.path.join(self.root, self.split, 'lidar', filename + '.npy')
-        lidar_points = np.load(lidar_file)  # (N, 12): [x, y, z, range, intensity, elongation, camera project]
+        # (N, 15): [x, y, z, range, intensity, elongation, 6-dim camera project, range col, row and index]
+        # when test mode, otherwise (N, 12) without range col, row and index
+        lidar_points = np.load(lidar_file)
 
         # normalize intensity
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
@@ -102,11 +104,6 @@ class WaymoDataset(Dataset):
         semantic_labels[semantic_labels == -1] = 255
         return semantic_labels
 
-    def get_points_ri(self, filename):
-        ri_file = os.path.join(self.root, self.split, 'misc', filename + '.npy')
-        points_ri = np.load(ri_file)
-        return points_ri
-
     def __len__(self):
         return len(self.filenames)
 
@@ -115,7 +112,7 @@ class WaymoDataset(Dataset):
 
         points = self.get_lidar(filename)
         input_dict = {
-            'points': points
+            'points': points[:, :self.dim_point]
         }
 
         if self.use_image_feature:
@@ -127,9 +124,8 @@ class WaymoDataset(Dataset):
             input_dict['labels'] = labels
 
         if self.test_mode:
-            points_ri = self.get_points_ri(filename)
-            input_dict['points_ri'] = points_ri
-            input_dict['filename'] = filename
+            input_dict['points_ri'] = points[:, -3:]
+            input_dict['frame_id'] = filename
 
         data_dict = self.prepare_data(data_dict=input_dict)
         return data_dict
@@ -179,7 +175,7 @@ class WaymoDataset(Dataset):
                 ret[key] = np.concatenate(coors, axis=0)
             elif key in ['points', 'points_ri', 'point_image_features', 'labels', 'voxels', 'voxel_num_points']:
                 ret[key] = np.concatenate(val, axis=0)
-            elif key in ['filename']:
+            elif key in ['frame_id']:
                 ret[key] = val
 
         offset = 0
