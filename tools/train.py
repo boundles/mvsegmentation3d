@@ -125,7 +125,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, id2label, mo
             save_checkpoint(model, optimizer, lr_scheduler, args.save_dir, cur_epoch, logger)
 
         # evaluate on validation set
-        if rank == 0 and not args.no_validate and cur_epoch % args.eval_epoch_interval == 0:
+        if not args.no_validate and cur_epoch % args.eval_epoch_interval == 0:
             evaluate(args, data_loaders['val'], model, id2label, cur_epoch, logger)
 
 def main():
