@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.distributed as dist
 
 
 class IOUMetric(object):
@@ -61,12 +62,25 @@ class IOUMetric(object):
         hist = self.fast_hist(preds, labels, len(self.id2label))
         self.hist_list.append(hist)
 
+    @staticmethod
+    def reduce_tensor(tensor):
+        rt = tensor.clone()
+        dist.all_reduce(rt, op=dist.reduce_op.SUM)
+        return rt
+
     def get_metric(self):
-        iou = self.per_class_iou(sum(self.hist_list))
-        miou = np.nanmean(iou)
+        hist = sum(self.hist_list)
+        try:
+            dist.barrier()
+            hist = torch.from_numpy(hist).cuda()
+            hist = self.reduce_tensor(hist).cpu().numpy()
+            iou = self.per_class_iou(hist)
+        except:
+            iou = self.per_class_iou(hist)
 
         # mean iou
         metric = dict()
+        miou = np.nanmean(iou)
         metric['mIOU'] = miou
 
         # iou per class
