@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Function
 from torch.cuda.amp import custom_bwd, custom_fwd
 
-from . import devoxelization_ext
+from . import voxelization_ext
 
 
 class VoxelizeFunction(Function):
@@ -22,14 +22,14 @@ class VoxelizeFunction(Function):
         coords = coords.contiguous().int()
 
         if feats.device.type == 'cuda':
-            output = devoxelization_ext.voxelize_forward_cuda(
+            output = voxelization_ext.voxelize_forward_cuda(
                 feats, coords, counts)
         elif feats.device.type == 'cpu':
-            output = devoxelization_ext.voxelize_forward_cpu(
+            output = voxelization_ext.voxelize_forward_cpu(
                 feats, coords, counts)
         else:
             device = feats.device
-            output = devoxelization_ext.voxelize_forward_cpu(
+            output = voxelization_ext.voxelize_forward_cpu(
                 feats.cpu(), coords.cpu(), counts.cpu()).to(device)
 
         ctx.for_backwards = (coords, counts, feats.shape[0])
@@ -42,14 +42,14 @@ class VoxelizeFunction(Function):
         grad_output = grad_output.contiguous()
 
         if grad_output.device.type == 'cuda':
-            grad_feats = devoxelization_ext.voxelize_backward_cuda(
+            grad_feats = voxelization_ext.voxelize_backward_cuda(
                 grad_output, coords, counts, input_size)
         elif grad_output.device.type == 'cpu':
-            grad_feats = devoxelization_ext.voxelize_backward_cpu(
+            grad_feats = voxelization_ext.voxelize_backward_cpu(
                 grad_output, coords, counts, input_size)
         else:
             device = grad_output.device
-            grad_feats = devoxelization_ext.voxelize_backward_cpu(
+            grad_feats = voxelization_ext.voxelize_backward_cpu(
                 grad_output.cpu(), coords.cpu(), counts.cpu(),
                 input_size).to(device)
 
