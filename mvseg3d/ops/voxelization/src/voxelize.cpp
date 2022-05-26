@@ -1,8 +1,3 @@
-#include <vector>
-
-#include <torch/extension.h>
-#include <torch/serialize/tensor.h>
-
 #include "voxelize.h"
 
 at::Tensor voxelize_forward_cpu(const at::Tensor inputs, const at::Tensor idx,
@@ -46,4 +41,6 @@ at::Tensor voxelize_backward_cpu(const at::Tensor top_grad,
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("voxelize_forward_cpu", &voxelize_forward_cpu);
   m.def("voxelize_backward_cpu", &voxelize_backward_cpu);
+  m.def("voxelize_forward_cuda", &voxelize_forward_cuda);
+  m.def("voxelize_backward_cuda", &voxelize_backward_cuda);
 }

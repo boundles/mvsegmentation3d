@@ -1,6 +1,13 @@
 #pragma once
 
+#include <vector>
+
+#include <pybind11/pybind11.h>
+
 #include <torch/torch.h>
+#include <torch/extension.h>
+#include <torch/serialize/tensor.h>
+
 
 at::Tensor voxelize_forward_cpu(const at::Tensor inputs, const at::Tensor idx,
                                 const at::Tensor counts);
