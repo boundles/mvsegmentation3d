@@ -1,3 +1,4 @@
-from .devoxelization import trilinear_devoxelize
+from .voxelization import voxelize
+from .devoxelization import devoxelize
 
-__all__ = ['trilinear_devoxelize']
+__all__ = ['voxelize', 'devoxelize']
