@@ -1,8 +1,9 @@
-#include "voxelize.h"
-
-#include <torch/torch.h>
-
 #include <vector>
+#include <torch/torch.h>
+#include <torch/extension.h>
+#include <torch/serialize/tensor.h>
+
+#include "voxelize.h"
 
 at::Tensor voxelize_forward_cpu(const at::Tensor inputs, const at::Tensor idx,
                                 const at::Tensor counts) {
@@ -40,4 +41,9 @@ at::Tensor voxelize_backward_cpu(const at::Tensor top_grad,
     }
   }
   return bottom_grad;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("voxelize_forward_cpu", &voxelize_forward_cpu);
+  m.def("voxelize_backward_cpu", &voxelize_backward_cpu);
 }

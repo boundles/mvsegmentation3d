@@ -1,8 +1,10 @@
-#include "devoxelize.h"
-
-#include <torch/torch.h>
-
 #include <vector>
+#include <pybind11/pybind11.h>
+#include <torch/torch.h>
+#include <torch/extension.h>
+#include <torch/serialize/tensor.h>
+
+#include "devoxelize.h"
 
 // make sure indices is int type
 // feat: (b,c,s) indices: (N, 3) batch_index: (N, ) -> out: (N, c)
@@ -56,4 +58,9 @@ at::Tensor devoxelize_backward_cpu(const at::Tensor top_grad,
   }
 
   return bottom_grad;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("devoxelize_forward_cpu", &devoxelize_forward_cpu);
+  m.def("devoxelize_backward_cpu", &devoxelize_backward_cpu);
 }

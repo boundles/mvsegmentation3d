@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <cmath>
+
+#include <pybind11/pybind11.h>
 #include <torch/torch.h>
+#include <torch/extension.h>
+#include <torch/serialize/tensor.h>
 
 #include <THC/THCAtomics.cuh>
-#include <cmath>
 
 // input N*F float tensor, pointer to output N'*F int64 tensor, N*1 count
 // tensor, N*1 index tensor
@@ -76,4 +80,9 @@ at::Tensor voxelize_backward_cuda(const at::Tensor top_grad,
       }));
 
   return bottom_grad;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("voxelize_forward_cuda", &voxelize_forward_cuda);
+  m.def("voxelize_backward_cuda", &voxelize_backward_cuda);
 }

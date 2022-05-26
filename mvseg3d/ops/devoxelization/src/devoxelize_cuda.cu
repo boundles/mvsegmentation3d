@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <thrust/device_vector.h>
+
+#include <pybind11/pybind11.h>
+#include <torch/torch.h>
 #include <torch/extension.h>
+#include <torch/serialize/tensor.h>
+#include <thrust/device_vector.h>
 
 #include <THC/THCAtomics.cuh>
 
@@ -93,4 +97,9 @@ at::Tensor devoxelize_backward_cuda(const at::Tensor top_grad,
       }));
 
   return bottom_grad;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("devoxelize_forward_cuda", &devoxelize_forward_cuda);
+  m.def("devoxelize_backward_cuda", &devoxelize_backward_cuda);
 }
