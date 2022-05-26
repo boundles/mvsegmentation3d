@@ -3,7 +3,7 @@
 #include <cmath>
 
 #include <pybind11/pybind11.h>
-#include <torch/torch.h>
+
 #include <torch/extension.h>
 #include <torch/serialize/tensor.h>
 

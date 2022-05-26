@@ -2,11 +2,11 @@
 #include <stdlib.h>
 
 #include <pybind11/pybind11.h>
-#include <torch/torch.h>
+
 #include <torch/extension.h>
 #include <torch/serialize/tensor.h>
-#include <thrust/device_vector.h>
 
+#include <thrust/device_vector.h>
 #include <THC/THCAtomics.cuh>
 
 // input features (n, c), indices (N, 8), weight (N, 8) -> output features (N, c)

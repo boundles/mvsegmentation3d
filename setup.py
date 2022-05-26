@@ -18,7 +18,7 @@ def make_cuda_ext(name,
                   extra_include_path=[]):
 
     define_macros = []
-    extra_compile_args = {'cxx': [] + extra_args}
+    extra_compile_args = {'cxx': ['-g', '-O3', '-fopenmp', '-lgomp'] + extra_args}
 
     if torch.cuda.is_available() or os.getenv('FORCE_CUDA', '0') == '1':
         define_macros += [('WITH_CUDA', None)]
