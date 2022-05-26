@@ -1,8 +1,8 @@
+#include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
-#include <thrust/device_vector.h>
-#include <torch/extension.h>
 
+#include <torch/torch.h>
 #include <THC/THCAtomics.cuh>
 
 // input features (n, c), indices (N, 8), weight (N, 8) -> output features (N, c)
@@ -53,4 +53,44 @@ __global__ void devoxelize_backward_kernel(
         atomicAdd(&bottom_grad[indices_[k] * c + j], weight_[k] * cur_top_grad);
     }
   }
+}
+
+// make sure indices is int type
+// feat: (b,c,s) indices: (N, 3) -> out: (N, c)
+at::Tensor devoxelize_forward_cuda(const at::Tensor feat,
+                                   const at::Tensor indices,
+                                   const at::Tensor weight) {
+  int c = feat.size(1);
+  int N = indices.size(0);
+
+  at::Tensor out =
+      torch::zeros({N, c}, at::device(feat.device()).dtype(feat.dtype()));
+
+  AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+      feat.type(), "devoxelize_forward_cuda", ([&] {
+        devoxelize_forward_kernel<scalar_t><<<N, c>>>(
+            N, c, indices.data_ptr<int>(), weight.data_ptr<scalar_t>(),
+            feat.data_ptr<scalar_t>(), out.data_ptr<scalar_t>());
+      }));
+
+  return out;
+}
+
+// top_grad: (N, c), indices: (N, 3) -> bottom_grad: (b,c,s), s=r^3
+at::Tensor devoxelize_backward_cuda(const at::Tensor top_grad,
+                                    const at::Tensor indices,
+                                    const at::Tensor weight, int n) {
+  int c = top_grad.size(1);
+  int N = top_grad.size(0);
+  at::Tensor bottom_grad = torch::zeros(
+      {n, c}, at::device(top_grad.device()).dtype(top_grad.dtype()));
+
+  AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+      top_grad.type(), "devoxelize_backward_cuda", ([&] {
+        devoxelize_backward_kernel<scalar_t><<<N, c>>>(
+            N, n, c, indices.data_ptr<int>(), weight.data_ptr<scalar_t>(),
+            top_grad.data_ptr<scalar_t>(), bottom_grad.data_ptr<scalar_t>());
+      }));
+
+  return bottom_grad;
 }
