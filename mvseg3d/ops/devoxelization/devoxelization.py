@@ -1,41 +1,52 @@
+import torch
 from torch.autograd import Function
+from torch.cuda.amp import custom_bwd, custom_fwd
 
 from . import devoxelization_ext
 
 
-class TrilinearDevoxelization(Function):
+class DevoxelizeFunction(Function):
     @staticmethod
-    def forward(ctx, features, coords, is_training=True):
-        """
-        :param ctx:
-        :param coords: the coordinates of points, FloatTensor[B, 3, N]
-        :param features: FloatTensor[B, C, L, W, H]
-        :param is_training: bool, training mode
-        :return:
-            FloatTensor[B, C, N]
-        """
-        B, C, L, W, H = features.shape
-        features = features.contiguous().view(B, C, -1)
-        coords = coords.contiguous()
-        outs, inds, wgts = devoxelization_ext.trilinear_devoxelize_forward(L, W, H, is_training, coords, features)
-        if is_training:
-            ctx.save_for_backward(inds, wgts)
-            ctx.l = L
-            ctx.w = W
-            ctx.h = H
-        return outs
+    @custom_fwd(cast_inputs=torch.half)
+    def forward(ctx, feats: torch.Tensor,
+                coords: torch.Tensor,
+                weights: torch.Tensor) -> torch.Tensor:
+        feats = feats.contiguous()
+        coords = coords.contiguous().int()
+        weights = weights.contiguous()
+
+        if feats.device.type == 'cuda':
+            output = devoxelization_ext.devoxelize_forward_cuda(
+                feats, coords, weights)
+        elif feats.device.type == 'cpu':
+            output = devoxelization_ext.devoxelize_forward_cpu(
+                feats, coords, weights)
+        else:
+            device = feats.device
+            output = devoxelization_ext.devoxelize_forward_cpu(
+                feats.cpu(), coords.cpu(), weights.cpu()).to(device)
+
+        ctx.for_backwards = (coords, weights, feats.shape[0])
+        return output
 
     @staticmethod
-    def backward(ctx, grad_output):
-        """
-        :param ctx:
-        :param grad_output: gradient of outputs, FloatTensor[B, C, N]
-        :return:
-            gradient of inputs, FloatTensor[B, C, L, W, H]
-        """
-        inds, wgts = ctx.saved_tensors
-        grad_inputs = devoxelization_ext.trilinear_devoxelize_backward(grad_output.contiguous(), inds, wgts, ctx.l * ctx.w * ctx.h)
-        return grad_inputs.view(grad_output.size(0), grad_output.size(1), ctx.l, ctx.w, ctx.h), None, None, None
+    @custom_bwd
+    def backward(ctx, grad_output: torch.Tensor):
+        coords, weights, input_size = ctx.for_backwards
+        grad_output = grad_output.contiguous()
 
+        if grad_output.device.type == 'cuda':
+            grad_feats = devoxelization_ext.devoxelize_backward_cuda(
+                grad_output, coords, weights, input_size)
+        elif grad_output.device.type == 'cpu':
+            grad_feats = devoxelization_ext.devoxelize_backward_cpu(
+                grad_output, coords, weights, input_size)
+        else:
+            device = grad_output.device
+            grad_feats = devoxelization_ext.devoxelize_backward_cpu(
+                grad_output.cpu(), coords.cpu(), weights.cpu(),
+                input_size).to(device)
 
-trilinear_devoxelize = TrilinearDevoxelization.apply
+        return grad_feats, None, None
+
+devoxelize = DevoxelizeFunction.apply
