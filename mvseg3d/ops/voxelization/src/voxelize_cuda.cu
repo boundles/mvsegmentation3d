@@ -1,8 +1,8 @@
+#include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
-#include <thrust/device_vector.h>
-#include <torch/extension.h>
 
+#include <torch/torch.h>
 #include <THC/THCAtomics.cuh>
 
 // input N*F float tensor, pointer to output N'*F int64 tensor, N*1 count

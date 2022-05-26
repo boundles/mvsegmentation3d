@@ -1,3 +1,5 @@
+#include <torch/torch.h>
+
 #include "voxelize.h"
 
 at::Tensor voxelize_forward_cpu(const at::Tensor inputs, const at::Tensor idx,

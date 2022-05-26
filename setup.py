@@ -65,12 +65,12 @@ setuptools.setup(
             extra_include_path=['/usr/local/cuda/include'],
             sources=['src/devoxelize.cpp'],
             sources_cuda=['src/devoxelize_cuda.cu']),
-        # make_cuda_ext(
-        #     name='voxelization_ext',
-        #     module='mvseg3d.ops.voxelization',
-        #     extra_include_path=['/usr/local/cuda/include'],
-        #     sources=['src/voxelize.cpp'],
-        #     sources_cuda=['src/voxelize_cuda.cu']),
+        make_cuda_ext(
+            name='voxelization_ext',
+            module='mvseg3d.ops.voxelization',
+            extra_include_path=['/usr/local/cuda/include'],
+            sources=['src/voxelize.cpp'],
+            sources_cuda=['src/voxelize_cuda.cu']),
     ],
     cmdclass={'build_ext': BuildExtension},
     zip_safe=False
