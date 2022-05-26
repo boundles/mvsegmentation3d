@@ -194,6 +194,7 @@ class WaymoDataset(Dataset):
 
 
 if __name__ == '__main__':
-    dataset = WaymoDataset('/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_0', 'validation')
+    from mvseg3d.utils.config import cfg
+    dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_0', 'validation')
     for step, sample in enumerate(dataset):
         print(step, sample['points'].shape, sample['labels'].shape)
