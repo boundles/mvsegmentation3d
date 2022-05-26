@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
-from mvseg3d.ops.voxelization import voxelize
+from mvseg3d.ops import voxelize
 from mvseg3d.utils.voxel_point_utils import voxel_to_point
 
 class CALayer(nn.Module):
