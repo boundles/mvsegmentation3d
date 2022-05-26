@@ -10,6 +10,14 @@ class VoxelizeFunction(Function):
     @custom_fwd(cast_inputs=torch.half)
     def forward(ctx, feats: torch.Tensor, coords: torch.Tensor,
                 counts: torch.Tensor) -> torch.Tensor:
+        """
+            :param ctx:
+            :param features: FloatTensor[N, C]
+            :param coords: the coordinates of points, FloatTensor[N,]
+            :param counts: point num of per voxel, IntTensor[M,]
+            :return:
+                FloatTensor[M, C]
+        """
         feats = feats.contiguous()
         coords = coords.contiguous().int()
 
