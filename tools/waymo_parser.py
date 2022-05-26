@@ -33,7 +33,6 @@ class WaymoParser(object):
         self.calib_save_dir = f'{self.save_dir}/calib'
         self.point_cloud_save_dir = f'{self.save_dir}/lidar'
         self.pose_save_dir = f'{self.save_dir}/pose'
-        self.misc_save_dir = f'{self.save_dir}/misc'
 
         self.create_folder()
 
@@ -81,11 +80,11 @@ class WaymoParser(object):
         return len(self.tfrecord_pathnames)
 
     @staticmethod
-    def convert_range_image_to_point_cloud_indexing(frame,
-                                                    range_images,
-                                                    ri_index=0):
+    def convert_range_image_to_point_cloud_ri(frame,
+                                              range_images,
+                                              ri_index=0):
         calibrations = sorted(frame.context.laser_calibrations, key=lambda c: c.name)
-        point_indexing = []
+        points_ri = []
         for c in calibrations:
             range_image = range_images[c.name][ri_index]
             range_image_tensor = tf.reshape(
@@ -95,13 +94,14 @@ class WaymoParser(object):
             if c.name == open_dataset.LaserName.TOP:
                 xgrid, ygrid = np.meshgrid(range(TOP_LIDAR_COL_NUM), range(TOP_LIDAR_ROW_NUM))
                 col_row_inds_top = np.stack([xgrid, ygrid], axis=-1)
-                sl_points_indexing = col_row_inds_top[np.where(range_image_mask)]
+                sl_points_ri= col_row_inds_top[np.where(range_image_mask)]
+                sl_points_ri = np.column_stack((sl_points_ri, ri_index * np.ones((sl_points_ri.shape[0], 1))))
             else:
                 num_valid_point = tf.math.reduce_sum(tf.cast(range_image_mask, tf.int32))
-                sl_points_indexing = tf.ones([num_valid_point, 2], dtype=tf.int32) * -1
+                sl_points_ri = tf.ones([num_valid_point, 3], dtype=tf.int32) * -1
 
-            point_indexing.append(sl_points_indexing)
-        return point_indexing
+            points_ri.append(sl_points_ri)
+        return points_ri
 
     @staticmethod
     def convert_range_image_to_point_cloud_labels(frame,
@@ -236,6 +236,21 @@ class WaymoParser(object):
         cp_cloud = np.concatenate([cp_points_0, cp_points_1], axis=0)
         point_cloud = np.concatenate([point_cloud, cp_cloud], axis=1)
 
+        # save misc
+        if self.test_mode:
+            # point range index of first return
+            points_ri_0 = self.convert_range_image_to_point_cloud_ri(
+                frame, range_images, ri_index=0)
+            points_ri_0 = np.concatenate(points_ri_0, axis=0)
+
+            # point range index of second return
+            points_ri_1 = self.convert_range_image_to_point_cloud_ri(
+                frame, range_images, ri_index=1)
+            points_ri_1 = np.concatenate(points_ri_1, axis=0)
+
+            points_ri = np.concatenate([points_ri_0, points_ri_1], axis=0)
+            point_cloud = np.concatenate([point_cloud, points_ri], axis=1)
+
         pc_path = f'{self.point_cloud_save_dir}/{file_id}' + \
                   f'{str(frame_idx).zfill(3)}'
         np.save(pc_path, point_cloud)
@@ -256,23 +271,6 @@ class WaymoParser(object):
             label_path = f'{self.label_save_dir}/{file_id}' + \
                          f'{str(frame_idx).zfill(3)}'
             np.save(label_path, point_labels)
-
-        # save misc
-        if self.test_mode:
-            # point indexing of first return
-            point_indexing_0 = self.convert_range_image_to_point_cloud_indexing(
-                frame, range_images, ri_index=0)
-            point_indexing_0 = np.concatenate(point_indexing_0, axis=0)
-
-            # point indexing of second return
-            point_indexing_1 = self.convert_range_image_to_point_cloud_indexing(
-                frame, range_images, ri_index=1)
-            point_indexing_1 = np.concatenate(point_indexing_1, axis=0)
-            point_indexing = np.concatenate([point_indexing_0, point_indexing_1], axis=0)
-
-            indexing_path = f'{self.misc_save_dir}/{file_id}' + \
-                            f'{str(frame_idx).zfill(3)}'
-            np.save(indexing_path, point_indexing)
 
     def save_pose(self, frame, file_id, frame_idx):
         """Parse and save the pose data.
@@ -301,8 +299,7 @@ class WaymoParser(object):
         else:
             dir_list = [
                 self.calib_save_dir, self.point_cloud_save_dir,
-                self.pose_save_dir, self.image_save_dir,
-                self.misc_save_dir
+                self.pose_save_dir, self.image_save_dir
             ]
         for d in dir_list:
             if not os.path.exists(d):

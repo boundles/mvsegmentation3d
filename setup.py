@@ -18,7 +18,7 @@ def make_cuda_ext(name,
                   extra_include_path=[]):
 
     define_macros = []
-    extra_compile_args = {'cxx': [] + extra_args}
+    extra_compile_args = {'cxx': ['-g', '-O3', '-fopenmp', '-lgomp'] + extra_args}
 
     if torch.cuda.is_available() or os.getenv('FORCE_CUDA', '0') == '1':
         define_macros += [('WITH_CUDA', None)]
@@ -63,8 +63,14 @@ setuptools.setup(
             name='devoxelization_ext',
             module='mvseg3d.ops.devoxelization',
             extra_include_path=['/usr/local/cuda/include'],
-            sources=['src/trilinear_devox.cpp'],
-            sources_cuda=['src/trilinear_devox_cuda.cu']),
+            sources=['src/devoxelize.cpp'],
+            sources_cuda=['src/devoxelize_cuda.cu']),
+        make_cuda_ext(
+            name='voxelization_ext',
+            module='mvseg3d.ops.voxelization',
+            extra_include_path=['/usr/local/cuda/include'],
+            sources=['src/voxelize.cpp'],
+            sources_cuda=['src/voxelize_cuda.cu']),
     ],
     cmdclass={'build_ext': BuildExtension},
     zip_safe=False
