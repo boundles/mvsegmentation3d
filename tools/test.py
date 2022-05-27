@@ -1,7 +1,6 @@
 import os
 import time
 import argparse
-import numpy as np
 from tqdm import tqdm
 
 import torch
@@ -12,19 +11,9 @@ from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.mvf import MVFNet
 from mvseg3d.utils.logging import get_logger
 from mvseg3d.utils import submission_utils
+from mvseg3d.utils.io_utils import load_data_to_gpu
 
 from waymo_open_dataset.protos import segmentation_metrics_pb2
-
-def load_data_to_gpu(data_dict):
-    for key, val in data_dict.items():
-        if not isinstance(val, np.ndarray) or key == 'points_ri':
-            continue
-        else:
-            if key in ['point_voxel_ids', 'labels']:
-                data_dict[key] = torch.from_numpy(val).long().cuda()
-            else:
-                data_dict[key] = torch.from_numpy(val).float().cuda()
-    return data_dict
 
 
 def parse_args():
