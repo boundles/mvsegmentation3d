@@ -22,7 +22,7 @@ def compress_array(array: np.ndarray, is_int32: bool = False):
     m.data.extend(array.reshape([-1]).tolist())
     return zlib.compress(m.SerializeToString())
 
-def construct_seg_frame(pred_labels, points_ri, frame_id):
+def construct_seg_frame(pred_labels, points_ri, filename):
     top_lidar_row_num = 64
     top_lidar_col_num = 2650
 
@@ -39,7 +39,7 @@ def construct_seg_frame(pred_labels, points_ri, frame_id):
             range_image_pred_ri2[points_ri[i, 1], points_ri[i, 0], 1] = pred_labels[i].item() + 1
 
     # construct the segmentationFrame proto.
-    context_name_timestamp = frame_id.split('-')
+    context_name_timestamp = filename.split('-')
     context_name = context_name_timestamp[0]
     timestamp_micros = int(context_name_timestamp[1])
 
