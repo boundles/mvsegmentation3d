@@ -120,8 +120,9 @@ class WaymoDataset(Dataset):
         # when test mode, otherwise (N, 12) without range col, row and index
         lidar_points = np.load(lidar_file)
 
-        # normalize intensity
+        # set range value to be zero
         lidar_points[:, 3] = 0
+        # normalize intensity
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points
 
