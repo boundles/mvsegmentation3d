@@ -35,7 +35,7 @@ def semseg_for_one_frame(model, data_dict):
     pred_labels = torch.argmax(out, dim=1).cpu()
 
     points_ri = data_dict['points_ri']
-    frame_id = data_dict['frame_id']
+    frame_id = data_dict['filename']
     seg_frame = submission_utils.construct_seg_frame(pred_labels, points_ri, frame_id)
     return seg_frame
 

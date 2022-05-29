@@ -92,14 +92,24 @@ class PointShuffle:
 
         data_dict['points'] = data_dict['points'][idx]
 
+        point_indices = data_dict.get('point_indices', None)
         point_image_features = data_dict.get('point_image_features', None)
         labels = data_dict.get('labels', None)
 
+        if point_indices is not None:
+            random_point_indices = []
+            inter_point_indices = []
+            for i, id in enumerate(idx):
+                if id <= point_indices[-1]:
+                    random_point_indices.append(i)
+                    inter_point_indices(id)
+            data_dict['point_indices'] = random_point_indices
+
         if point_image_features is not None:
-            data_dict['point_image_features'] = point_image_features[idx]
+            data_dict['point_image_features'] = point_image_features[inter_point_indices]
 
         if labels is not None:
-            data_dict['labels'] = labels[idx]
+            data_dict['labels'] = labels[inter_point_indices]
 
         return data_dict
 
