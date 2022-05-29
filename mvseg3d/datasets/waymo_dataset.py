@@ -129,7 +129,7 @@ class WaymoDataset(Dataset):
         file_idx, timestamp, frame_idx = self.parse_info_from_filename(filename)
         points = self.load_points(filename)
         points[:, 3] = 0
-        point_indices = np.arrage(points.shape[0], dtype=np.int32)
+        point_indices = np.arange(points.shape[0], dtype=np.int32)
         ts = timestamp / 1e6
         transform_matrix = self.load_pose(filename)
 
@@ -138,7 +138,7 @@ class WaymoDataset(Dataset):
         for i in range(0, max_num_sweeps):
             sweep_frame_idx = frame_idx - i - 1
             if sweep_frame_idx >= 0:
-                sweep_filename = self.idx_to_name_map[(file_idx, sweep_frame_idx)]
+                sweep_filename = self.file_idx_to_name_map[(file_idx, sweep_frame_idx)]
                 sweep_filenames.append(sweep_filename)
 
         sweep_points_list = [points]
@@ -219,7 +219,7 @@ class WaymoDataset(Dataset):
         else:
             points = self.load_points(filename)
 
-        input_dict['points'] = points[:self.dim_point]
+        input_dict['points'] = points[:, self.dim_point]
 
         if self.test_mode:
             point_indices = input_dict.get('point_indices', None)

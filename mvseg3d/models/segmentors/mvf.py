@@ -89,12 +89,16 @@ class MVFNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, batch_dict):
-        point_indices = batch_dict['point_indices']
-        points = batch_dict['points'][point_indices]
-        point_per_features = self.point_encoder(points)
+        points = batch_dict['points']
+        point_voxel_ids = batch_dict['point_voxel_ids']
+        if 'point_indices' in batch_dict:
+            point_indices = batch_dict['point_indices']
+            points = points[point_indices]
+            point_voxel_ids = point_voxel_ids[point_indices]
 
+        point_per_features = self.point_encoder(points)
         voxel_enc = self.voxel_encoder(self.vfe(batch_dict))
-        point_voxel_features = voxel_to_point(voxel_enc['voxel_features'], voxel_enc['point_voxel_ids'][point_indices])
+        point_voxel_features = voxel_to_point(voxel_enc['voxel_features'], point_voxel_ids)
 
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']

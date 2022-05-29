@@ -26,8 +26,8 @@ def parse_args():
 
     return args
 
-def evaluate(args, data_loader, model, id2label, logger):
-    iou_metric = IOUMetric(id2label)
+def evaluate(args, data_loader, model, class_names, logger):
+    iou_metric = IOUMetric(class_names)
     model.eval()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
@@ -74,7 +74,7 @@ def main():
     model.load_state_dict(checkpoint['model'])
 
     # evaluation
-    evaluate(args, val_loader, model, val_dataset.id2label, logger)
+    evaluate(args, val_loader, model, val_dataset.class_names, logger)
 
 
 if __name__ == '__main__':

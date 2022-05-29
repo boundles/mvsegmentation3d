@@ -60,8 +60,8 @@ def save_checkpoint(model, optimizer, lr_scheduler, save_dir, epoch, logger):
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
-def evaluate(args, data_loader, model, id2label, epoch, logger):
-    iou_metric = IOUMetric(id2label)
+def evaluate(args, data_loader, model, class_names, epoch, logger):
+    iou_metric = IOUMetric(class_names)
     model.eval()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
@@ -96,7 +96,7 @@ def train_epoch(args, data_loader, model, optimizer, rank, epoch, logger):
             logger.info(
                 'Train - Epoch [%d/%d] Iter [%d/%d] lr: %f, loss: %f' % (epoch, args.epochs, step, len(data_loader), cur_lr, loss.cpu().item()))
 
-def train_segmentor(args, start_epoch, data_loaders, train_sampler, id2label, model, optimizer, lr_scheduler, rank, logger):
+def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names, model, optimizer, lr_scheduler, rank, logger):
     for epoch in range(start_epoch, args.epochs):
         if train_sampler is not None:
             train_sampler.set_epoch(epoch)
@@ -115,7 +115,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, id2label, mo
 
         # evaluate on validation set
         if not args.no_validate and cur_epoch % args.eval_epoch_interval == 0:
-            evaluate(args, data_loaders['val'], model, id2label, cur_epoch, logger)
+            evaluate(args, data_loaders['val'], model, class_names, cur_epoch, logger)
 
 def main():
     # parse args
@@ -194,7 +194,7 @@ def main():
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank % torch.cuda.device_count()])
 
     # train and evaluation
-    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.id2label, model, optimizer, lr_scheduler, rank, logger)
+    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.class_names, model, optimizer, lr_scheduler, rank, logger)
 
 
 if __name__ == '__main__':
