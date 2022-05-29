@@ -87,36 +87,30 @@ class RandomGlobalRotation:
 
 class PointShuffle:
     def __call__(self, data_dict):
-        idx = np.array(range(data_dict['points'].shape[0]))
-        np.random.shuffle(idx)
+        indices = np.array(range(data_dict['points'].shape[0]))
+        np.random.shuffle(indices)
 
-        data_dict['points'] = data_dict['points'][idx]
+        data_dict['points'] = data_dict['points'][indices]
 
         point_indices = data_dict.get('point_indices', None)
         point_image_features = data_dict.get('point_image_features', None)
         labels = data_dict.get('labels', None)
 
-        inter_point_indices = None
         if point_indices is not None:
-            random_point_indices = []
+            exter_point_indices = []
             inter_point_indices = []
-            for i, index in enumerate(idx):
-                if index <= point_indices[-1]:
-                    random_point_indices.append(i)
-                    inter_point_indices.append(index)
-            random_point_indices = np.array(random_point_indices).astype(np.int64)
-            inter_point_indices = np.array(inter_point_indices).astype(np.int64)
-            data_dict['point_indices'] = random_point_indices
+            for i, idx in enumerate(indices):
+                if idx <= point_indices[-1]:
+                    exter_point_indices.append(i)
+                    inter_point_indices.append(idx)
+            data_dict['point_indices'] = np.array(exter_point_indices).astype(np.int64)
+            indices = np.array(inter_point_indices).astype(np.int64)
 
         if point_image_features is not None:
-            if inter_point_indices is not None:
-                point_image_features = point_image_features[inter_point_indices]
-            data_dict['point_image_features'] = point_image_features
+            data_dict['point_image_features'] = point_image_features[indices]
 
         if labels is not None:
-            if inter_point_indices is not None:
-                labels = labels[inter_point_indices]
-            data_dict['labels'] = labels
+            data_dict['labels'] = labels[indices]
 
         return data_dict
 
