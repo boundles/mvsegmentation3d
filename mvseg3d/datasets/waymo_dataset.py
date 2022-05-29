@@ -121,6 +121,7 @@ class WaymoDataset(Dataset):
         lidar_points = np.load(lidar_file)
 
         # normalize intensity
+        lidar_points[:, 3] = 0
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points
 
@@ -219,7 +220,7 @@ class WaymoDataset(Dataset):
         else:
             points = self.load_points(filename)
 
-        input_dict['points'] = points[:, self.dim_point]
+        input_dict['points'] = points[:, :self.dim_point]
 
         if self.test_mode:
             point_indices = input_dict.get('point_indices', None)

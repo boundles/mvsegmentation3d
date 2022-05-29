@@ -64,7 +64,7 @@ class RandomGlobalScaling:
         if self.scale_range[1] - self.scale_range[0] < 1e-3:
             return data_dict
         noise_scale = np.random.uniform(self.scale_range[0], self.scale_range[1])
-        data_dict['points'][:, :4] *= noise_scale
+        data_dict['points'][:, :3] *= noise_scale
         return data_dict
 
     def __repr__(self) -> str:
