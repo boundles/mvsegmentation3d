@@ -28,10 +28,14 @@ class WaymoDataset(Dataset):
             file_idx, timestamp, frame_idx = self.parse_info_from_filename(filename)
             self.file_idx_to_name_map[(file_idx, frame_idx)] = filename
 
+        if self.split == 'training':
+            mode = 'train'
+        else:
+            mode = 'test'
         self.voxel_generator = VoxelGenerator(voxel_size=cfg.DATASET.VOXEL_SIZE,
                                               point_cloud_range=cfg.DATASET.POINT_CLOUD_RANGE,
                                               max_num_points=cfg.DATASET.MAX_NUM_POINTS,
-                                              max_voxels=cfg.DATASET.MAX_VOXELS)
+                                              max_voxels=cfg.DATASET.MAX_VOXELS[mode])
 
         self.grid_size = self.voxel_generator.grid_size
         self.voxel_size = self.voxel_generator.voxel_size
@@ -216,12 +220,17 @@ class WaymoDataset(Dataset):
         }
 
         if self.cfg.DATASET.USE_MULTI_SWEEPS:
-            point_indices, points = self.load_points_from_multi_sweeps(filename, self.cfg.DATASET.NUM_SWEEPS)
+            point_indices, points = self.load_points_from_multi_sweeps(filename, self.cfg.DATASET.NUM_SWEEPS,
+                                                                       self.cfg.DATASET.MAX_NUM_SWEEPS)
             input_dict['point_indices'] = point_indices
         else:
             points = self.load_points(filename)
 
         input_dict['points'] = points[:, :self.dim_point]
+
+        if self.cfg.DATASET.USE_IMAGE_FEATURE:
+            point_image_features = self.load_image_features(points.shape[0], filename)
+            input_dict['point_image_features'] = point_image_features
 
         if self.test_mode:
             point_indices = input_dict.get('point_indices', None)
@@ -229,10 +238,6 @@ class WaymoDataset(Dataset):
                 input_dict['points_ri'] = points[point_indices][-3:]
             else:
                 input_dict['points_ri'] = points[-3:]
-
-        if self.cfg.DATASET.USE_IMAGE_FEATURE:
-            point_image_features = self.load_image_features(points.shape[0], filename)
-            input_dict['point_image_features'] = point_image_features
 
         if not self.test_mode:
             labels = self.load_label(filename)
@@ -293,6 +298,6 @@ class WaymoDataset(Dataset):
 if __name__ == '__main__':
     from mvseg3d.utils.config import cfg
 
-    dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_0', 'validation')
+    dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
     for step, sample in enumerate(dataset):
         print(step, sample['points'].shape, sample['labels'].shape)

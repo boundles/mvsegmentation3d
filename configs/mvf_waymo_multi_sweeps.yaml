@@ -1,0 +1,20 @@
+DATASET:
+  USE_IMAGE_FEATURE: False
+  USE_MULTI_SWEEPS: True
+  NUM_SWEEPS: 2
+  MAX_NUM_POINTS: 30
+  MAX_VOXELS: {'train': 180000, 'test': 200000}
+  CLASS_NAMES: ['Car', 'Truck', 'Bus', 'Other Vehicle', 'MotorCyclist', 'Bicyclist', 'Pedestrian', 'Sign',
+                'Traffic Light', 'Pole', 'Construction Cone', 'Bicycle', 'MotorCycle', 'Building', 'Vegetation',
+                'Tree Trunk', 'Curb', 'Road', 'Lane Marker', 'Other Ground', 'Walkable', 'SideWalk']
+  CLASS_WEIGHT: [2.5573495292786705, 4.674679353043209, 4.999718438900531, 5.563321749633249, 10.73673169853078,
+                8.227823688837296, 4.962283296561223, 5.237239400142882, 7.307259288590015, 4.610857239545126,
+                7.607454941285682, 9.15210312179631, 8.753426840231054, 1.1511133803065023, 1.63258363570334,
+                3.8735526105804743, 4.443068509630746, 1.6108377340079234, 5.1972959658694355, 5.3112725890845445,
+                2.626942890303363, 2.958990264327497]
+
+TRAIN:
+  LR: 0.1
+  OPTIMIZER: 'sgd'
+  WEIGHT_DECAY: 0.0001
+  MOMENTUM: 0.9
