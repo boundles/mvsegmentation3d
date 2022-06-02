@@ -48,7 +48,7 @@ def flatten_probs(probs, labels, ignore_index=None):
     if ignore_index is None:
         return probs, labels
     valid = (labels != ignore_index)
-    vprobs = probs[valid.nonzero().squeeze()]
+    vprobs = probs[torch.nonzero(valid, as_tuple=False).squeeze()]
     vlabels = labels[valid]
     return vprobs, vlabels
 
