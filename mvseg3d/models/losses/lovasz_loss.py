@@ -204,7 +204,7 @@ def lovasz_softmax(probs,
             torch.stack(loss), None, reduction, avg_factor)
     else:
         loss = lovasz_softmax_flat(
-            *flatten_probs(probs.unsqueeze(0).unsqueeze(0), labels, ignore_index),
+            *flatten_probs(probs, labels, ignore_index),
             classes=classes,
             class_weight=class_weight)
     return loss
@@ -238,7 +238,7 @@ class LovaszLoss(nn.Module):
                  loss_type='multi_class',
                  classes='present',
                  per_image=False,
-                 reduction='mean',
+                 reduction='none',
                  class_weight=None,
                  loss_weight=1.0,
                  ignore_index=255,
@@ -282,7 +282,7 @@ class LovaszLoss(nn.Module):
             cls_score = F.softmax(cls_score, dim=1)
 
         loss_cls = self.loss_weight * self.cls_criterion(
-            cls_score,
+            cls_score.unsqueeze(0).unsqueeze(0),
             label,
             self.classes,
             self.per_image,
