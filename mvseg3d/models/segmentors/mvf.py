@@ -73,12 +73,6 @@ class MVFNet(nn.Module):
                                         nn.ReLU(inplace=True),
                                         nn.Linear(self.fusion_out_channel, dataset.num_classes, bias=False))
 
-        if dataset.class_weight:
-            self.ce_loss = nn.CrossEntropyLoss(weight=torch.FloatTensor(dataset.class_weight),
-                                               ignore_index=dataset.ignore_index)
-        else:
-            self.ce_loss = nn.CrossEntropyLoss(ignore_index=dataset.ignore_index)
-
         self.weight_initialization()
         self.dropout = nn.Dropout(0.3, True)
 
@@ -111,10 +105,4 @@ class MVFNet(nn.Module):
         point_fusion_features = self.dropout(point_fusion_features)
 
         out = self.cls_layers(point_fusion_features)
-
-        if 'labels' in batch_dict:
-            labels = batch_dict['labels']
-            loss = self.ce_loss(out, labels)
-            return out, loss
-        else:
-            return out
+        return out

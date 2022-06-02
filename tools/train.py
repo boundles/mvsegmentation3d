@@ -1,7 +1,6 @@
 import os
 import time
 import argparse
-import numpy as np
 
 import torch
 import torch.optim
@@ -9,7 +8,7 @@ import torch.optim
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.mvf import MVFNet
-from mvseg3d.models import build_optimizer
+from mvseg3d.models import build_criterion, build_optimizer
 from mvseg3d.core.metrics import IOUMetric
 from mvseg3d.utils.logging import get_logger
 from mvseg3d.utils import distributed_utils
@@ -22,6 +21,7 @@ def parse_args():
     parser.add_argument('--cfg_file', type=str, default=None, help='specify the config for training')
     parser.add_argument('--data_dir', type=str, help='the data directory')
     parser.add_argument('--save_dir', type=str, help='the saved directory')
+    parser.add_argument('--pretrained_path', type=str, default=None, help='pretrained_path')
     parser.add_argument('--batch_size', default=4, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
@@ -78,11 +78,14 @@ def evaluate(args, data_loader, model, class_names, epoch, logger):
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
-def train_epoch(args, data_loader, model, optimizer, rank, epoch, logger):
+def train_epoch(args, data_loader, model, criterion, optimizer, rank, epoch, logger):
     model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
-        out, loss = model(data_dict)
+        out = model(data_dict)
+
+        labels = data_dict['labels']
+        loss = criterion(out, labels)
 
         optimizer.zero_grad()
         loss.backward()
@@ -96,7 +99,7 @@ def train_epoch(args, data_loader, model, optimizer, rank, epoch, logger):
             logger.info(
                 'Train - Epoch [%d/%d] Iter [%d/%d] lr: %f, loss: %f' % (epoch, args.epochs, step, len(data_loader), cur_lr, loss.cpu().item()))
 
-def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names, model, optimizer, lr_scheduler, rank, logger):
+def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names, model, criterion, optimizer, lr_scheduler, rank, logger):
     for epoch in range(start_epoch, args.epochs):
         if train_sampler is not None:
             train_sampler.set_epoch(epoch)
@@ -105,7 +108,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names,
         cur_epoch = epoch + 1
 
         # train for one epoch
-        train_epoch(args, data_loaders['train'], model, optimizer, rank, cur_epoch, logger)
+        train_epoch(args, data_loaders['train'], model, criterion, optimizer, rank, cur_epoch, logger)
 
         lr_scheduler.step()
 
@@ -173,9 +176,17 @@ def main():
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()
 
+    # load pretrained model
+    if args.pretrained_path:
+        loc_type = torch.device('cpu') if distributed else None
+        pretrained = torch.load(args.pretrained_path, map_location=loc_type)
+        model.load_state_dict(pretrained['model'])
+
+    # optimizer and learning rate scheduler
     optimizer = build_optimizer(cfg, model)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
+    # resume from checkpoint
     start_epoch = 0
     latest_checkpoint = os.path.join(args.save_dir, 'latest.pth')
     if args.auto_resume and os.path.isfile(latest_checkpoint):
@@ -193,8 +204,11 @@ def main():
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank % torch.cuda.device_count()])
 
+    # loss function
+    criterion = build_criterion(cfg, train_dataset)
+
     # train and evaluation
-    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.class_names, model, optimizer, lr_scheduler, rank, logger)
+    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.class_names, model, criterion, optimizer, lr_scheduler, rank, logger)
 
 
 if __name__ == '__main__':

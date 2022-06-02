@@ -1,7 +1,10 @@
+import torch
+import torch.nn as nn
 import torch.optim as optim
 
 from .voxel_encoders import MeanVFE
 from .backbones import SparseUnet
+from .losses import LovaszLoss
 
 
 def build_optimizer(cfg, model):
@@ -18,4 +21,20 @@ def build_optimizer(cfg, model):
     return optimizer
 
 
-__all__ = ['MeanVFE', 'SparseUnet', build_optimizer]
+def build_criterion(cfg, dataset):
+    if dataset.class_weight:
+        weight = torch.FloatTensor(dataset.class_weight)
+    else:
+        weight = None
+
+    if cfg.MODEL.LOSS == 'ce':
+        criterion = nn.CrossEntropyLoss(weight=weight, ignore_index=dataset.ignore_index)
+    elif cfg.MODEL.LOSS == 'lovasz':
+        criterion = LovaszLoss(ignore_index=dataset.ignore_index)
+    else:
+        raise NotImplementedError
+
+    return criterion
+
+
+__all__ = ['MeanVFE', 'SparseUnet', build_optimizer, build_criterion]

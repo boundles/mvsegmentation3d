@@ -87,30 +87,32 @@ class RandomGlobalRotation:
 
 class PointShuffle:
     def __call__(self, data_dict):
-        indices = np.array(range(data_dict['points'].shape[0]))
-        np.random.shuffle(indices)
+        point_indices = np.array(range(data_dict['points'].shape[0]))
+        np.random.shuffle(point_indices)
 
-        data_dict['points'] = data_dict['points'][indices]
+        data_dict['points'] = data_dict['points'][point_indices]
 
-        point_indices = data_dict.get('point_indices', None)
+        cur_indices = data_dict.get('point_indices', None)
         point_image_features = data_dict.get('point_image_features', None)
         labels = data_dict.get('labels', None)
 
-        if point_indices is not None:
-            exter_point_indices = []
-            inter_point_indices = []
-            for i, idx in enumerate(indices):
-                if idx <= point_indices[-1]:
-                    exter_point_indices.append(i)
-                    inter_point_indices.append(idx)
-            data_dict['point_indices'] = np.array(exter_point_indices).astype(np.int64)
-            indices = np.array(inter_point_indices).astype(np.int64)
+        if cur_indices is not None:
+            cur_ext_indices = []
+            cur_int_indices = []
+            for i, idx in enumerate(point_indices):
+                if idx <= cur_indices[-1]:
+                    cur_ext_indices.append(i)
+                    cur_int_indices.append(idx)
+            data_dict['point_indices'] = np.array(cur_ext_indices)
+            cur_indices = np.array(cur_int_indices)
+        else:
+            cur_indices = point_indices
 
         if point_image_features is not None:
-            data_dict['point_image_features'] = point_image_features[indices]
+            data_dict['point_image_features'] = point_image_features[cur_indices]
 
         if labels is not None:
-            data_dict['labels'] = labels[indices]
+            data_dict['labels'] = labels[cur_indices]
 
         return data_dict
 

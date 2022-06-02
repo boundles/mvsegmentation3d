@@ -135,7 +135,7 @@ class WaymoDataset(Dataset):
         file_idx, timestamp, frame_idx = self.parse_info_from_filename(filename)
         points = self.load_points(filename)
         points[:, 3] = 0
-        point_indices = np.arange(points.shape[0], dtype=np.int32)
+        point_indices = np.arange(points.shape[0])
         ts = timestamp / 1e6
         transform_matrix = self.load_pose(filename)
 
