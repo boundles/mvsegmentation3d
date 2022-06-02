@@ -23,7 +23,7 @@ def build_optimizer(cfg, model):
 
 def build_criterion(cfg, dataset):
     if dataset.class_weight:
-        weight = torch.FloatTensor(dataset.class_weight)
+        weight = torch.FloatTensor(dataset.class_weight).cuda()
     else:
         weight = None
 

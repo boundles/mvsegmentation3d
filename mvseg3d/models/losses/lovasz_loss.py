@@ -38,8 +38,13 @@ def flatten_binary_logits(logits, labels, ignore_index=None):
 
 def flatten_probs(probs, labels, ignore_index=None):
     """Flattens predictions in the batch."""
-    assert probs.dim() == 2  # (N, C)
-    assert labels.dim() == 1  # (N,)
+    if probs.dim() == 3:
+        # assumes output of a sigmoid layer
+        B, H, W = probs.size()
+        probs = probs.view(B, 1, H, W)
+    B, C, H, W = probs.size()
+    probs = probs.permute(0, 2, 3, 1).contiguous().view(-1, C)  # B*H*W, C=P,C
+    labels = labels.view(-1)
     if ignore_index is None:
         return probs, labels
     valid = (labels != ignore_index)
@@ -135,7 +140,7 @@ def lovasz_softmax_flat(probs, labels, classes='present', class_weight=None):
     class_to_sum = list(range(C)) if classes in ['all', 'present'] else classes
     for c in class_to_sum:
         fg = (labels == c).float()  # foreground for class c
-        if (classes == 'present' and fg.sum() == 0):
+        if classes == 'present' and fg.sum() == 0:
             continue
         if C == 1:
             if len(classes) > 1:
@@ -164,9 +169,9 @@ def lovasz_softmax(probs,
                    ignore_index=255):
     """Multi-class Lovasz-Softmax loss.
     Args:
-        probs (torch.Tensor | List[torch.Tensor]): [B, C] or [[B, C]], class probabilities at each
+        probs (torch.Tensor): [B, C, H, W], class probabilities at each
             prediction (between 0 and 1).
-        labels (torch.Tensor | List[torch.Tensor]): [B] or [[B], ground truth labels (between 0 and
+        labels (torch.Tensor): [B, H, W], ground truth labels (between 0 and
             C - 1).
         classes (str | list[int], optional): Classes chosen to calculate loss.
             'all' for all classes, 'present' for classes present in labels, or
@@ -189,7 +194,8 @@ def lovasz_softmax(probs,
     if per_image:
         loss = [
             lovasz_softmax_flat(
-                *flatten_probs(prob, label, ignore_index),
+                *flatten_probs(
+                    prob.unsqueeze(0), label.unsqueeze(0), ignore_index),
                 classes=classes,
                 class_weight=class_weight)
             for prob, label in zip(probs, labels)
@@ -198,7 +204,7 @@ def lovasz_softmax(probs,
             torch.stack(loss), None, reduction, avg_factor)
     else:
         loss = lovasz_softmax_flat(
-            *flatten_probs(probs, labels, ignore_index),
+            *flatten_probs(probs.unsqueeze(0).unsqueeze(0), labels, ignore_index),
             classes=classes,
             class_weight=class_weight)
     return loss
@@ -235,6 +241,7 @@ class LovaszLoss(nn.Module):
                  reduction='mean',
                  class_weight=None,
                  loss_weight=1.0,
+                 ignore_index=255,
                  loss_name='loss_lovasz'):
         super(LovaszLoss, self).__init__()
         assert loss_type in ('binary', 'multi_class'), "loss_type should be \
@@ -253,14 +260,14 @@ class LovaszLoss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
         self.class_weight = get_class_weight(class_weight)
+        self.ignore_index = ignore_index
         self._loss_name = loss_name
 
     def forward(self,
                 cls_score,
                 label,
                 avg_factor=None,
-                reduction_override=None,
-                **kwargs):
+                reduction_override=None):
         """Forward function."""
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (
@@ -282,7 +289,7 @@ class LovaszLoss(nn.Module):
             class_weight=class_weight,
             reduction=reduction,
             avg_factor=avg_factor,
-            **kwargs)
+            ignore_index=self.ignore_index)
         return loss_cls
 
     @property

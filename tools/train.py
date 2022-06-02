@@ -97,9 +97,11 @@ def train_epoch(args, data_loader, model, criterion, optimizer, rank, epoch, log
             except:
                 cur_lr = optimizer.param_groups[0]['lr']
             logger.info(
-                'Train - Epoch [%d/%d] Iter [%d/%d] lr: %f, loss: %f' % (epoch, args.epochs, step, len(data_loader), cur_lr, loss.cpu().item()))
+                'Train - Epoch [%d/%d] Iter [%d/%d] lr: %f, loss: %f' % (epoch, args.epochs, step, len(data_loader),
+                                                                         cur_lr, loss.cpu().item()))
 
-def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names, model, criterion, optimizer, lr_scheduler, rank, logger):
+def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names, model,
+                    criterion,optimizer, lr_scheduler, rank, logger):
     for epoch in range(start_epoch, args.epochs):
         if train_sampler is not None:
             train_sampler.set_epoch(epoch)
@@ -178,9 +180,10 @@ def main():
 
     # load pretrained model
     if args.pretrained_path:
+        logger.info('Load pretrained model from %s' % args.pretrained_path)
         loc_type = torch.device('cpu') if distributed else None
         pretrained = torch.load(args.pretrained_path, map_location=loc_type)
-        model.load_state_dict(pretrained['model'])
+        model.load_state_dict(pretrained['model'], strict=False)
 
     # optimizer and learning rate scheduler
     optimizer = build_optimizer(cfg, model)
@@ -208,7 +211,8 @@ def main():
     criterion = build_criterion(cfg, train_dataset)
 
     # train and evaluation
-    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.class_names, model, criterion, optimizer, lr_scheduler, rank, logger)
+    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.class_names,
+                    model, criterion, optimizer, lr_scheduler, rank, logger)
 
 
 if __name__ == '__main__':
