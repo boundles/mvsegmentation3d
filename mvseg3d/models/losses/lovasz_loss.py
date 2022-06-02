@@ -282,8 +282,8 @@ class LovaszLoss(nn.Module):
             cls_score = F.softmax(cls_score, dim=1)
 
         loss_cls = self.loss_weight * self.cls_criterion(
-            cls_score.unsqueeze(0).unsqueeze(0),
-            label,
+            cls_score.unsqueeze(2).unsqueeze(3),
+            label.unsqueeze(1).unsqueeze(2),
             self.classes,
             self.per_image,
             class_weight=class_weight,
