@@ -60,19 +60,23 @@ def save_checkpoint(model, optimizer, lr_scheduler, save_dir, epoch, logger):
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
-def evaluate(args, data_loader, model, class_names, epoch, logger):
+def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     iou_metric = IOUMetric(class_names)
     model.eval()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
         with torch.no_grad():
-            out, loss = model(data_dict)
+            out = model(data_dict)
+
+        gt_labels = data_dict['labels']
+        loss = criterion(out, gt_labels)
+
         if step % args.log_iter_interval == 0:
             logger.info(
                 'Evaluate on epoch %d - Iter [%d/%d] loss: %f' % (epoch, step, len(data_loader), loss.cpu().item()))
 
         pred_labels = torch.argmax(out, dim=1).cpu()
-        gt_labels = data_dict['labels'].cpu()
+        gt_labels = gt_labels.cpu()
         iou_metric.add(pred_labels, gt_labels)
 
     metric_result = iou_metric.get_metric()
@@ -101,7 +105,7 @@ def train_epoch(args, data_loader, model, criterion, optimizer, rank, epoch, log
                                                                          cur_lr, loss.cpu().item()))
 
 def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names, model,
-                    criterion,optimizer, lr_scheduler, rank, logger):
+                    criterion, optimizer, lr_scheduler, rank, logger):
     for epoch in range(start_epoch, args.epochs):
         if train_sampler is not None:
             train_sampler.set_epoch(epoch)
@@ -120,7 +124,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names,
 
         # evaluate on validation set
         if not args.no_validate and cur_epoch % args.eval_epoch_interval == 0:
-            evaluate(args, data_loaders['val'], model, class_names, cur_epoch, logger)
+            evaluate(args, data_loaders['val'], model, criterion, class_names, cur_epoch, logger)
 
 def main():
     # parse args
