@@ -28,7 +28,7 @@ def build_criterion(cfg, dataset):
         weight = None
 
     if cfg.MODEL.LOSS == 'ce':
-        criterion = OHEMCrossEntropyLoss(weight=weight, keep_ratio=cfg.MODEL.LOSS_KEEP_RATIO,
+        criterion = OHEMCrossEntropyLoss(class_weight=weight, keep_ratio=cfg.MODEL.LOSS_KEEP_RATIO,
                                          ignore_index=dataset.ignore_index)
     elif cfg.MODEL.LOSS == 'lovasz':
         criterion = LovaszLoss(ignore_index=dataset.ignore_index)
