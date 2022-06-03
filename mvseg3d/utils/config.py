@@ -29,6 +29,7 @@ __C.DATASET.AUG_SCALE_RANGE = [0.95, 1.05]
 # model config
 __C.MODEL = edict()
 __C.MODEL.LOSS = 'ce'
+__C.MODEL.LOSS_KEEP_RATIO = 0.3
 
 # training config
 __C.TRAIN = edict()

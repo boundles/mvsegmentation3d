@@ -4,7 +4,7 @@ import torch.optim as optim
 
 from .voxel_encoders import MeanVFE
 from .backbones import SparseUnet
-from .losses import LovaszLoss
+from .losses import LovaszLoss, OHEMCrossEntropyLoss
 
 
 def build_optimizer(cfg, model):
@@ -28,7 +28,8 @@ def build_criterion(cfg, dataset):
         weight = None
 
     if cfg.MODEL.LOSS == 'ce':
-        criterion = nn.CrossEntropyLoss(weight=weight, ignore_index=dataset.ignore_index)
+        criterion = OHEMCrossEntropyLoss(weight=weight, keep_ratio=cfg.MODEL.LOSS_KEEP_RATIO,
+                                         ignore_index=dataset.ignore_index)
     elif cfg.MODEL.LOSS == 'lovasz':
         criterion = LovaszLoss(ignore_index=dataset.ignore_index)
     else:
