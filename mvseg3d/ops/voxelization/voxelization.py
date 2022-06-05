@@ -13,7 +13,7 @@ class VoxelizeFunction(Function):
         """
             :param ctx:
             :param features: FloatTensor[N, C]
-            :param coords: the coordinates of points, FloatTensor[N,]
+            :param coords: the coordinates of points, IntTensor[N,]
             :param counts: point num of per voxel, IntTensor[M,]
             :return:
                 FloatTensor[M, C]
