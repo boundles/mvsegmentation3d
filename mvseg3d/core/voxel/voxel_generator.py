@@ -149,7 +149,7 @@ def _points_to_voxel_reverse_kernel(points,
         coors_range (list[float | tuple[float] | ndarray]): Range of voxels.
             format: xyzxyz, minmax
         num_points_per_voxel (int): Number of points per voxel.
-        coor_to_voxel_idx (np.ndarray): A voxel grid of shape (D, H, W),
+        coor_to_voxelidx (np.ndarray): A voxel grid of shape (D, H, W),
             which has the same shape as the complete voxel map. It indicates
             the index of each corresponding voxel.
         voxels (np.ndarray): Created empty voxels.

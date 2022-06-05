@@ -48,7 +48,7 @@ def flatten_probs(probs, labels, ignore_index=None):
     if ignore_index is None:
         return probs, labels
     valid = (labels != ignore_index)
-    vprobs = probs[valid.nonzero().squeeze()]
+    vprobs = probs[torch.nonzero(valid, as_tuple=False).squeeze()]
     vlabels = labels[valid]
     return vprobs, vlabels
 
@@ -140,7 +140,7 @@ def lovasz_softmax_flat(probs, labels, classes='present', class_weight=None):
     class_to_sum = list(range(C)) if classes in ['all', 'present'] else classes
     for c in class_to_sum:
         fg = (labels == c).float()  # foreground for class c
-        if (classes == 'present' and fg.sum() == 0):
+        if classes == 'present' and fg.sum() == 0:
             continue
         if C == 1:
             if len(classes) > 1:
@@ -238,9 +238,10 @@ class LovaszLoss(nn.Module):
                  loss_type='multi_class',
                  classes='present',
                  per_image=False,
-                 reduction='mean',
+                 reduction='none',
                  class_weight=None,
                  loss_weight=1.0,
+                 ignore_index=255,
                  loss_name='loss_lovasz'):
         super(LovaszLoss, self).__init__()
         assert loss_type in ('binary', 'multi_class'), "loss_type should be \
@@ -259,14 +260,14 @@ class LovaszLoss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
         self.class_weight = get_class_weight(class_weight)
+        self.ignore_index = ignore_index
         self._loss_name = loss_name
 
     def forward(self,
                 cls_score,
                 label,
                 avg_factor=None,
-                reduction_override=None,
-                **kwargs):
+                reduction_override=None):
         """Forward function."""
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (
@@ -281,14 +282,14 @@ class LovaszLoss(nn.Module):
             cls_score = F.softmax(cls_score, dim=1)
 
         loss_cls = self.loss_weight * self.cls_criterion(
-            cls_score,
-            label,
+            cls_score.unsqueeze(2).unsqueeze(3),
+            label.unsqueeze(1).unsqueeze(2),
             self.classes,
             self.per_image,
             class_weight=class_weight,
             reduction=reduction,
             avg_factor=avg_factor,
-            **kwargs)
+            ignore_index=self.ignore_index)
         return loss_cls
 
     @property

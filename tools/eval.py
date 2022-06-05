@@ -11,20 +11,7 @@ from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.mvf import MVFNet
 from mvseg3d.core.metrics import IOUMetric
 from mvseg3d.utils.logging import get_logger
-
-
-def load_data_to_gpu(data_dict):
-    for key, val in data_dict.items():
-        if not isinstance(val, np.ndarray):
-            continue
-        else:
-            if key in ['voxel_num_points']:
-                data_dict[key] = torch.from_numpy(val).cuda()
-            elif key in ['point_voxel_ids', 'labels']:
-                data_dict[key] = torch.from_numpy(val).long().cuda()
-            else:
-                data_dict[key] = torch.from_numpy(val).float().cuda()
-    return data_dict
+from mvseg3d.utils.io_utils import load_data_to_gpu
 
 
 def parse_args():
@@ -39,8 +26,8 @@ def parse_args():
 
     return args
 
-def evaluate(args, data_loader, model, id2label, logger):
-    iou_metric = IOUMetric(id2label)
+def evaluate(args, data_loader, model, class_names, logger):
+    iou_metric = IOUMetric(class_names)
     model.eval()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
@@ -87,7 +74,7 @@ def main():
     model.load_state_dict(checkpoint['model'])
 
     # evaluation
-    evaluate(args, val_loader, model, val_dataset.id2label, logger)
+    evaluate(args, val_loader, model, val_dataset.class_names, logger)
 
 
 if __name__ == '__main__':

@@ -74,12 +74,6 @@ class MVFNet(nn.Module):
                                         nn.ReLU(inplace=True),
                                         nn.Linear(self.fusion_out_channel, dataset.num_classes, bias=False))
 
-        if dataset.class_weight:
-            self.ce_loss = nn.CrossEntropyLoss(weight=torch.FloatTensor(dataset.class_weight),
-                                               ignore_index=dataset.ignore_index)
-        else:
-            self.ce_loss = nn.CrossEntropyLoss(ignore_index=dataset.ignore_index)
-
         self.weight_initialization()
         self.dropout = nn.Dropout(0.3, True)
 
@@ -90,12 +84,16 @@ class MVFNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, batch_dict):
-        point_per_features = self.point_encoder(batch_dict['points'])
-        batch_dict['voxel_features'] = voxelize(point_per_features,
-                                                batch_dict['point_voxel_ids'],
-                                                batch_dict['voxel_num_points'])
-        batch_dict = self.voxel_encoder(batch_dict)
-        point_voxel_features = voxel_to_point(batch_dict['voxel_features'], batch_dict['point_voxel_ids'])
+        points = batch_dict['points']
+        point_voxel_ids = batch_dict['point_voxel_ids']
+        if 'point_indices' in batch_dict:
+            point_indices = batch_dict['point_indices']
+            points = points[point_indices]
+            point_voxel_ids = point_voxel_ids[point_indices]
+
+        point_per_features = self.point_encoder(points)
+        voxel_enc = self.voxel_encoder(self.vfe(batch_dict))
+        point_voxel_features = voxel_to_point(voxel_enc['voxel_features'], point_voxel_ids)
 
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
@@ -108,10 +106,4 @@ class MVFNet(nn.Module):
         point_fusion_features = self.dropout(point_fusion_features)
 
         out = self.cls_layers(point_fusion_features)
-
-        if 'labels' in batch_dict:
-            labels = batch_dict['labels']
-            loss = self.ce_loss(out, labels)
-            return out, loss
-        else:
-            return out
+        return out

@@ -1,7 +1,6 @@
 import os
 import time
 import argparse
-import numpy as np
 
 import torch
 import torch.optim
@@ -9,25 +8,12 @@ import torch.optim
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.mvf import MVFNet
-from mvseg3d.models import build_optimizer
+from mvseg3d.models import build_criterion, build_optimizer
 from mvseg3d.core.metrics import IOUMetric
 from mvseg3d.utils.logging import get_logger
 from mvseg3d.utils import distributed_utils
 from mvseg3d.utils.config import cfg, cfg_from_file
-
-
-def load_data_to_gpu(data_dict):
-    for key, val in data_dict.items():
-        if not isinstance(val, np.ndarray):
-            continue
-        else:
-            if key in ['voxel_num_points']:
-                data_dict[key] = torch.from_numpy(val).cuda()
-            elif key in ['point_voxel_ids', 'labels']:
-                data_dict[key] = torch.from_numpy(val).long().cuda()
-            else:
-                data_dict[key] = torch.from_numpy(val).float().cuda()
-    return data_dict
+from mvseg3d.utils.io_utils import load_data_to_gpu
 
 
 def parse_args():
@@ -35,6 +21,7 @@ def parse_args():
     parser.add_argument('--cfg_file', type=str, default=None, help='specify the config for training')
     parser.add_argument('--data_dir', type=str, help='the data directory')
     parser.add_argument('--save_dir', type=str, help='the saved directory')
+    parser.add_argument('--pretrained_path', type=str, default=None, help='pretrained_path')
     parser.add_argument('--batch_size', default=4, type=int)
     parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
@@ -73,29 +60,36 @@ def save_checkpoint(model, optimizer, lr_scheduler, save_dir, epoch, logger):
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
-def evaluate(args, data_loader, model, id2label, epoch, logger):
-    iou_metric = IOUMetric(id2label)
+def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
+    iou_metric = IOUMetric(class_names)
     model.eval()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
         with torch.no_grad():
-            out, loss = model(data_dict)
+            out = model(data_dict)
+
+        gt_labels = data_dict['labels']
+        loss = criterion(out, gt_labels)
+
         if step % args.log_iter_interval == 0:
             logger.info(
                 'Evaluate on epoch %d - Iter [%d/%d] loss: %f' % (epoch, step, len(data_loader), loss.cpu().item()))
 
         pred_labels = torch.argmax(out, dim=1).cpu()
-        gt_labels = data_dict['labels'].cpu()
+        gt_labels = gt_labels.cpu()
         iou_metric.add(pred_labels, gt_labels)
 
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
-def train_epoch(args, data_loader, model, optimizer, rank, epoch, logger):
+def train_epoch(args, data_loader, model, criterion, optimizer, rank, epoch, logger):
     model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
-        out, loss = model(data_dict)
+        out = model(data_dict)
+
+        labels = data_dict['labels']
+        loss = criterion(out, labels)
 
         optimizer.zero_grad()
         loss.backward()
@@ -107,9 +101,11 @@ def train_epoch(args, data_loader, model, optimizer, rank, epoch, logger):
             except:
                 cur_lr = optimizer.param_groups[0]['lr']
             logger.info(
-                'Train - Epoch [%d/%d] Iter [%d/%d] lr: %f, loss: %f' % (epoch, args.epochs, step, len(data_loader), cur_lr, loss.cpu().item()))
+                'Train - Epoch [%d/%d] Iter [%d/%d] lr: %f, loss: %f' % (epoch, args.epochs, step, len(data_loader),
+                                                                         cur_lr, loss.cpu().item()))
 
-def train_segmentor(args, start_epoch, data_loaders, train_sampler, id2label, model, optimizer, lr_scheduler, rank, logger):
+def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names, model,
+                    criterion, optimizer, lr_scheduler, rank, logger):
     for epoch in range(start_epoch, args.epochs):
         if train_sampler is not None:
             train_sampler.set_epoch(epoch)
@@ -118,7 +114,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, id2label, mo
         cur_epoch = epoch + 1
 
         # train for one epoch
-        train_epoch(args, data_loaders['train'], model, optimizer, rank, cur_epoch, logger)
+        train_epoch(args, data_loaders['train'], model, criterion, optimizer, rank, cur_epoch, logger)
 
         lr_scheduler.step()
 
@@ -128,7 +124,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, id2label, mo
 
         # evaluate on validation set
         if not args.no_validate and cur_epoch % args.eval_epoch_interval == 0:
-            evaluate(args, data_loaders['val'], model, id2label, cur_epoch, logger)
+            evaluate(args, data_loaders['val'], model, criterion, class_names, cur_epoch, logger)
 
 def main():
     # parse args
@@ -186,9 +182,18 @@ def main():
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()
 
+    # load pretrained model
+    if args.pretrained_path:
+        logger.info('Load pretrained model from %s' % args.pretrained_path)
+        loc_type = torch.device('cpu') if distributed else None
+        pretrained = torch.load(args.pretrained_path, map_location=loc_type)
+        model.load_state_dict(pretrained['model'], strict=False)
+
+    # optimizer and learning rate scheduler
     optimizer = build_optimizer(cfg, model)
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
+    # resume from checkpoint
     start_epoch = 0
     latest_checkpoint = os.path.join(args.save_dir, 'latest.pth')
     if args.auto_resume and os.path.isfile(latest_checkpoint):
@@ -206,8 +211,12 @@ def main():
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank % torch.cuda.device_count()])
 
+    # loss function
+    criterion = build_criterion(cfg, train_dataset)
+
     # train and evaluation
-    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.id2label, model, optimizer, lr_scheduler, rank, logger)
+    train_segmentor(args, start_epoch, data_loaders, train_sampler, train_dataset.class_names,
+                    model, criterion, optimizer, lr_scheduler, rank, logger)
 
 
 if __name__ == '__main__':

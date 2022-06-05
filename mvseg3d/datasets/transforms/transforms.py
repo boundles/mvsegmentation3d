@@ -64,7 +64,7 @@ class RandomGlobalScaling:
         if self.scale_range[1] - self.scale_range[0] < 1e-3:
             return data_dict
         noise_scale = np.random.uniform(self.scale_range[0], self.scale_range[1])
-        data_dict['points'][:, :4] *= noise_scale
+        data_dict['points'][:, :3] *= noise_scale
         return data_dict
 
     def __repr__(self) -> str:
@@ -87,19 +87,32 @@ class RandomGlobalRotation:
 
 class PointShuffle:
     def __call__(self, data_dict):
-        idx = np.array(range(data_dict['points'].shape[0]))
-        np.random.shuffle(idx)
+        point_indices = np.array(range(data_dict['points'].shape[0]))
+        np.random.shuffle(point_indices)
 
-        data_dict['points'] = data_dict['points'][idx]
+        data_dict['points'] = data_dict['points'][point_indices]
 
+        cur_indices = data_dict.get('point_indices', None)
         point_image_features = data_dict.get('point_image_features', None)
         labels = data_dict.get('labels', None)
 
+        if cur_indices is not None:
+            cur_ext_indices = []
+            cur_int_indices = []
+            for i, idx in enumerate(point_indices):
+                if idx <= cur_indices[-1]:
+                    cur_ext_indices.append(i)
+                    cur_int_indices.append(idx)
+            data_dict['point_indices'] = np.array(cur_ext_indices)
+            cur_indices = np.array(cur_int_indices)
+        else:
+            cur_indices = point_indices
+
         if point_image_features is not None:
-            data_dict['point_image_features'] = point_image_features[idx]
+            data_dict['point_image_features'] = point_image_features[cur_indices]
 
         if labels is not None:
-            data_dict['labels'] = labels[idx]
+            data_dict['labels'] = labels[cur_indices]
 
         return data_dict
 

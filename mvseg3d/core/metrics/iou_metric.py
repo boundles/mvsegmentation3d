@@ -9,12 +9,12 @@ class IOUMetric(object):
     Evaluate the result of the Semantic Segmentation.
 
     Args:
-        id2label (dict): Map from label id to category name.
+        class_names (List[str]): class names
         ignore_index (int): Index that will be ignored in evaluation.
     """
 
-    def __init__(self, id2label, ignore_index=255):
-        self.id2label = id2label
+    def __init__(self, class_names, ignore_index=255):
+        self.class_names = class_names
         self.ignore_index = ignore_index
 
         self.hist_list = []
@@ -59,7 +59,7 @@ class IOUMetric(object):
         labels[labels == self.ignore_index] = -1
 
         # calculate one instance result'
-        hist = self.fast_hist(preds, labels, len(self.id2label))
+        hist = self.fast_hist(preds, labels, len(self.class_names))
         self.hist_list.append(hist)
 
     @staticmethod
@@ -85,15 +85,15 @@ class IOUMetric(object):
 
         # iou per class
         iou_dict = dict()
-        for i in range(len(self.id2label)):
-            iou_dict[self.id2label[i]] = float(iou[i])
+        for i in range(len(self.class_names)):
+            iou_dict[self.class_names[i]] = float(iou[i])
         metric['IOU'] = iou_dict
         return metric
 
 
 if __name__ == '__main__':
-    id2label = {0: 'bg', 1: 'fg'}
-    iou_metric = IOUMetric(id2label, 255)
+    class_names = {'bg', 'fg'}
+    iou_metric = IOUMetric(class_names, 255)
 
     pred_labels = torch.ones(3)
     gt_labels = torch.ones(3)
