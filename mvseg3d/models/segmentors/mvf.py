@@ -3,7 +3,6 @@ import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
-from mvseg3d.ops import voxelize
 from mvseg3d.utils.voxel_point_utils import voxel_to_point
 
 class CALayer(nn.Module):
@@ -55,7 +54,7 @@ class MVFNet(nn.Module):
             self.image_feature_channel = 0
 
         self.vfe = MeanVFE(dataset.dim_point)
-        self.voxel_encoder = SparseUnet(self.point_feature_channel,
+        self.voxel_encoder = SparseUnet(dataset.dim_point,
                                         dataset.grid_size,
                                         dataset.voxel_size,
                                         dataset.point_cloud_range)
