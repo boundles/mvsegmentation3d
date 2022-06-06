@@ -80,21 +80,21 @@ class SparseUnet(nn.Module):
         )
 
         self.conv2 = spconv.SparseSequential(
-            # [1600, 1408, 41] <- [800, 704, 21]
+            # [1600, 1408, 41] -> [800, 704, 21]
             block(32, 64, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv2'),
             block(64, 64, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm2'),
             SparseBottleneck(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
         )
 
         self.conv3 = spconv.SparseSequential(
-            # [800, 704, 21] <- [400, 352, 11]
+            # [800, 704, 21] -> [400, 352, 11]
             block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
             block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm3'),
             SparseBottleneck(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
-            # [400, 352, 11] <- [200, 176, 5]
+            # [400, 352, 11] -> [200, 176, 5]
             block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
             block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm4'),
             SparseBottleneck(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
