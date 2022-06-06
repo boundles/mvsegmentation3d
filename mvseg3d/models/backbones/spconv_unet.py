@@ -7,7 +7,7 @@ import spconv.pytorch as spconv
 from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
 
 class SparseBottleneck(spconv.SparseModule):
-    def __init__(self, inplanes, planes, stride=1, expansion = 4, downsample=None, indice_key=None, norm_fn=None, act_fn=None):
+    def __init__(self, inplanes, planes, stride=1, expansion=2, downsample=None, indice_key=None, norm_fn=None, act_fn=None):
         super(SparseBottleneck, self).__init__()
 
         self.conv1 = spconv.SubMConv3d(
@@ -88,14 +88,14 @@ class SparseUnet(nn.Module):
 
         self.conv3 = spconv.SparseSequential(
             # [800, 704, 21] <- [400, 352, 11]
-            block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=(2, 2, 1), padding=1, conv_type='spconv', indice_key='spconv3'),
+            block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
             block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm3'),
             SparseBottleneck(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
             # [400, 352, 11] <- [200, 176, 5]
-            block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=(2, 2, 1), padding=1, conv_type='spconv', indice_key='spconv4'),
+            block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
             block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm4'),
             SparseBottleneck(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
         )
