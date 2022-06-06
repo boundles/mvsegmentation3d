@@ -7,6 +7,41 @@ import spconv.pytorch as spconv
 from mvseg3d.utils.spconv_utils import replace_feature, post_act_block
 
 
+def conv3x3(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=3, stride=stride,
+                             padding=1, bias=False, indice_key=indice_key)
+
+
+def conv1x3(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(1, 3, 3), stride=stride,
+                             padding=(0, 1, 1), bias=False, indice_key=indice_key)
+
+
+def conv1x1x3(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(1, 1, 3), stride=stride,
+                             padding=(0, 0, 1), bias=False, indice_key=indice_key)
+
+
+def conv1x3x1(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(1, 3, 1), stride=stride,
+                             padding=(0, 1, 0), bias=False, indice_key=indice_key)
+
+
+def conv3x1x1(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(3, 1, 1), stride=stride,
+                             padding=(1, 0, 0), bias=False, indice_key=indice_key)
+
+
+def conv3x1(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=(3, 1, 3), stride=stride,
+                             padding=(1, 0, 1), bias=False, indice_key=indice_key)
+
+
+def conv1x1(in_planes, out_planes, stride=1, indice_key=None):
+    return spconv.SubMConv3d(in_planes, out_planes, kernel_size=1, stride=stride,
+                             padding=1, bias=False, indice_key=indice_key)
+
+
 class SparseBasicBlock(spconv.SparseModule):
     expansion = 1
 
@@ -45,6 +80,46 @@ class SparseBasicBlock(spconv.SparseModule):
         return out
 
 
+class ResContextBlock(nn.Module):
+    def __init__(self, in_filters, out_filters, indice_key=None):
+        super(ResContextBlock, self).__init__()
+        self.conv1 = conv1x3(in_filters, out_filters, indice_key=indice_key)
+        self.bn1 = nn.BatchNorm1d(out_filters)
+        self.act1 = nn.ReLU(inplace=True)
+
+        self.conv1_2 = conv3x1(out_filters, out_filters, indice_key=indice_key)
+        self.bn1_2 = nn.BatchNorm1d(out_filters)
+        self.act1_2 = nn.ReLU(inplace=True)
+
+        self.conv2 = conv3x1(in_filters, out_filters, indice_key=indice_key)
+        self.act2 = nn.ReLU(inplace=True)
+        self.bn2 = nn.BatchNorm1d(out_filters)
+
+        self.conv3 = conv1x3(out_filters, out_filters, indice_key=indice_key)
+        self.act3 = nn.ReLU(inplace=True)
+        self.bn3 = nn.BatchNorm1d(out_filters)
+
+    def forward(self, x):
+        shortcut = self.conv1(x)
+        shortcut.features = self.bn1(shortcut.features)
+        shortcut.features = self.act1(shortcut.features)
+
+        shortcut = self.conv1_2(shortcut)
+        shortcut.features = self.bn1_2(shortcut.features)
+        shortcut.features = self.act1_2(shortcut.features)
+
+        out = self.conv2(x)
+        out.features = self.bn2(out.features)
+        out.features = self.act2(out.features)
+
+        out = self.conv3(out)
+        out.features = self.bn3(out.features)
+        out.features = self.act3(out.features)
+        out.features = out.features + shortcut.features
+
+        return out
+
+
 class SparseUnet(nn.Module):
     """
     Sparse Convolution based UNet for point-wise feature learning.
@@ -53,18 +128,15 @@ class SparseUnet(nn.Module):
     """
 
     def __init__(self, input_channels, grid_size, voxel_size, point_cloud_range):
-        super().__init__()
+        super(SparseUnet).__init__()
         self.sparse_shape = grid_size[::-1] + [1, 0, 0]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
 
         norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
 
-        self.conv_input = spconv.SparseSequential(
-            spconv.SubMConv3d(input_channels, 32, 3, padding=1, bias=False, indice_key='subm1'),
-            norm_fn(32),
-            nn.ReLU(inplace=True),
-        )
+        self.conv_input = ResContextBlock(input_channels, 32, indice_key='subm1')
+
         block = post_act_block
 
         self.conv1 = spconv.SparseSequential(
@@ -116,6 +188,14 @@ class SparseUnet(nn.Module):
         self.conv5 = spconv.SparseSequential(
             block(32, self.voxel_feature_channel, 3, norm_fn=norm_fn, padding=1, indice_key='subm1')
         )
+
+        self.weight_initialization()
+
+    def weight_initialization(self):
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
     def UR_block_forward(self, x_lateral, x_bottom, conv_t, conv_m, conv_inv):
         x_trans = conv_t(x_lateral)
