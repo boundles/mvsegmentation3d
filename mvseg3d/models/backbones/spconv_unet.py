@@ -92,30 +92,30 @@ class ResContextBlock(nn.Module):
         self.act1_2 = nn.ReLU(inplace=True)
 
         self.conv2 = conv3x1(in_filters, out_filters, indice_key=indice_key)
-        self.act2 = nn.ReLU(inplace=True)
         self.bn2 = nn.BatchNorm1d(out_filters)
+        self.act2 = nn.ReLU(inplace=True)
 
         self.conv3 = conv1x3(out_filters, out_filters, indice_key=indice_key)
-        self.act3 = nn.ReLU(inplace=True)
         self.bn3 = nn.BatchNorm1d(out_filters)
+        self.act3 = nn.ReLU(inplace=True)
 
     def forward(self, x):
         shortcut = self.conv1(x)
-        shortcut.features = self.bn1(shortcut.features)
-        shortcut.features = self.act1(shortcut.features)
+        shortcut = replace_feature(shortcut, self.bn1(shortcut.features))
+        shortcut = replace_feature(shortcut, self.act1(shortcut.features))
 
         shortcut = self.conv1_2(shortcut)
-        shortcut.features = self.bn1_2(shortcut.features)
-        shortcut.features = self.act1_2(shortcut.features)
+        shortcut = replace_feature(shortcut, self.bn1_2(shortcut.features))
+        shortcut = replace_feature(shortcut, self.act1_2(shortcut.features))
 
         out = self.conv2(x)
-        out.features = self.bn2(out.features)
-        out.features = self.act2(out.features)
+        out = replace_feature(out, self.bn2(out.features))
+        out = replace_feature(out, self.act2(out.features))
 
         out = self.conv3(out)
-        out.features = self.bn3(out.features)
-        out.features = self.act3(out.features)
-        out.features = out.features + shortcut.features
+        out = replace_feature(out, self.bn3(out.features))
+        out = replace_feature(out, self.act3(out.features))
+        out = replace_feature(out, out.features + shortcut.features)
 
         return out
 
@@ -128,7 +128,7 @@ class SparseUnet(nn.Module):
     """
 
     def __init__(self, input_channels, grid_size, voxel_size, point_cloud_range):
-        super(SparseUnet).__init__()
+        super().__init__()
         self.sparse_shape = grid_size[::-1] + [1, 0, 0]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
