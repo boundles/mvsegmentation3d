@@ -65,7 +65,7 @@ class SparseUnet(nn.Module):
         self.point_cloud_range = point_cloud_range
 
         norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
-        act_fn = partial(nn.ReLU, inplace=True)
+        act_fn = nn.ReLU(inplace=True)
         block = conv_norm_act
 
         self.conv_input = spconv.SparseSequential(
@@ -88,36 +88,36 @@ class SparseUnet(nn.Module):
 
         self.conv3 = spconv.SparseSequential(
             # [800, 704, 21] <- [400, 352, 11]
-            block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=(2, 2, 1), padding=1, indice_key='spconv3', conv_type='spconv'),
+            block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=(2, 2, 1), padding=1, conv_type='spconv', indice_key='spconv3'),
             block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm3'),
             SparseBottleneck(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
             # [400, 352, 11] <- [200, 176, 5]
-            block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=(2, 2, 1), padding=1, indice_key='spconv4', conv_type='spconv'),
+            block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=(2, 2, 1), padding=1, conv_type='spconv', indice_key='spconv4'),
             block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm4'),
             SparseBottleneck(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
         )
 
         # decoder
         # [400, 352, 11] <- [200, 176, 5]
-        self.conv_up_t4 = SparseBottleneck(128, 128, indice_key='subm4', norm_fn=norm_fn)
+        self.conv_up_t4 = SparseBottleneck(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
         self.conv_up_m4 = block(256, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm4')
-        self.inv_conv4 = block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, indice_key='spconv4', conv_type='inverseconv')
+        self.inv_conv4 = block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv4')
 
         # [800, 704, 21] <- [400, 352, 11]
-        self.conv_up_t3 = SparseBottleneck(128, 128, indice_key='subm3', norm_fn=norm_fn)
+        self.conv_up_t3 = SparseBottleneck(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3')
         self.conv_up_m3 = block(256, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm3')
-        self.inv_conv3 = block(128, 64, 3, norm_fn=norm_fn, act_fn=act_fn, indice_key='spconv3', conv_type='inverseconv')
+        self.inv_conv3 = block(128, 64, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv3')
 
         # [1600, 1408, 41] <- [800, 704, 21]
-        self.conv_up_t2 = SparseBottleneck(64, 64, indice_key='subm2', norm_fn=norm_fn)
+        self.conv_up_t2 = SparseBottleneck(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
         self.conv_up_m2 = block(128, 64, 3, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
-        self.inv_conv2 = block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, indice_key='spconv2', conv_type='inverseconv')
+        self.inv_conv2 = block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv2')
 
         # [1600, 1408, 41] <- [1600, 1408, 41]
-        self.conv_up_t1 = SparseBottleneck(32, 32, indice_key='subm1', norm_fn=norm_fn)
+        self.conv_up_t1 = SparseBottleneck(32, 32, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm1')
         self.conv_up_m1 = block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm1')
 
         self.voxel_feature_channel = 32

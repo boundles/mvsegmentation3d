@@ -1,5 +1,4 @@
 import spconv.pytorch as spconv
-import torch.nn as nn
 
 
 def replace_feature(out, new_features):
