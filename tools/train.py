@@ -7,7 +7,7 @@ import torch.optim
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
-from mvseg3d.models.segmentors.mvf import MVFNet
+from mvseg3d.models.segmentors.spnet import SPNet
 from mvseg3d.models import build_criterion, build_optimizer
 from mvseg3d.core.metrics import IOUMetric
 from mvseg3d.utils.logging import get_logger
@@ -177,7 +177,7 @@ def main():
     data_loaders = {'train': train_loader, 'val': val_loader}
 
     # define model
-    model = MVFNet(train_dataset)
+    model = SPNet(train_dataset)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()

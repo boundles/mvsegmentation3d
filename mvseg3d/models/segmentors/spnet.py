@@ -3,31 +3,10 @@ import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
+from mvseg3d.models.layers import SELayer
 from mvseg3d.utils.voxel_point_utils import voxel_to_point
 
-class CALayer(nn.Module):
-    def __init__(self, channel, reduction=4):
-        super(CALayer, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Sequential(
-            nn.Linear(channel, channel // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(channel // reduction, channel, bias=False),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        x = x.unsqueeze(2).unsqueeze(3).permute(2, 1, 0, 3)
-        b, c, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1)
-        y = x * y.expand_as(x)
-
-        x = x.permute(2, 1, 0, 3).squeeze().squeeze()
-        y = y.permute(2, 1, 0, 3).squeeze().squeeze()
-        return x + y
-
-class MVFNet(nn.Module):
+class SPNet(nn.Module):
     def __init__(self, dataset):
         super().__init__()
 
@@ -66,7 +45,7 @@ class MVFNet(nn.Module):
                                             nn.BatchNorm1d(self.fusion_out_channel),
                                             nn.ReLU(inplace=True))
 
-        self.ca = CALayer(self.fusion_out_channel)
+        self.ca = SELayer(self.fusion_out_channel)
 
         self.cls_layers = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_out_channel),
