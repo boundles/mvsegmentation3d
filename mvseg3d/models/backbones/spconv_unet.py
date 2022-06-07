@@ -91,15 +91,15 @@ class SparseUnet(nn.Module):
         self.conv3 = spconv.SparseSequential(
             # [800, 704, 21] -> [400, 352, 11]
             block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
             # [400, 352, 11] -> [200, 176, 5]
             block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
         )
 
         # decoder
