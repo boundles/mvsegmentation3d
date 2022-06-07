@@ -37,7 +37,7 @@ class SparseBasicBlock(spconv.SparseModule):
 
         out = self.conv1(x)
         out = replace_feature(out, self.bn1(out.features))
-        out = replace_feature(out, self.relu(out.features))
+        out = replace_feature(out, self.act(out.features))
 
         out = self.conv2(out)
         out = replace_feature(out, self.bn2(out.features))
