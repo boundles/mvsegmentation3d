@@ -10,7 +10,7 @@ from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.spnet import SPNet
 from mvseg3d.models import build_criterion, build_optimizer
 from mvseg3d.core.metrics import IOUMetric
-from mvseg3d.utils.logging import get_logger
+from mvseg3d.utils.logging import get_root_logger
 from mvseg3d.utils import distributed_utils
 from mvseg3d.utils.config import cfg, cfg_from_file
 from mvseg3d.utils.io_utils import load_data_to_gpu
@@ -151,7 +151,7 @@ def main():
     # create logger
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = os.path.join(args.save_dir, f'{timestamp}.log')
-    logger = get_logger("mvseg3d", log_file)
+    logger = get_root_logger(name="mvseg3d", log_file=log_file)
 
     # load data
     train_dataset = WaymoDataset(cfg, args.data_dir, 'training')
