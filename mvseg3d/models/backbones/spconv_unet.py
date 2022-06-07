@@ -105,22 +105,22 @@ class SparseUnet(nn.Module):
         # decoder
         # [400, 352, 11] <- [200, 176, 5]
         self.conv_up_t4 = SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
-        self.conv_up_m4 = block(256, 128, 3, norm_fn=norm_fn, padding=1, indice_key='subm4')
+        self.conv_up_m4 = block(256, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm4')
         self.inv_conv4 = block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv4')
 
         # [800, 704, 21] <- [400, 352, 11]
         self.conv_up_t3 = SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3')
-        self.conv_up_m3 = block(256, 128, 3, norm_fn=norm_fn, padding=1, indice_key='subm3')
+        self.conv_up_m3 = block(256, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm3')
         self.inv_conv3 = block(128, 64, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv3')
 
         # [1600, 1408, 41] <- [800, 704, 21]
         self.conv_up_t2 = SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
-        self.conv_up_m2 = block(128, 64, 3, norm_fn=norm_fn, indice_key='subm2')
+        self.conv_up_m2 = block(128, 64, 3, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
         self.inv_conv2 = block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv2')
 
         # [1600, 1408, 41] <- [1600, 1408, 41]
         self.conv_up_t1 = SparseBasicBlock(32, 32, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm1')
-        self.conv_up_m1 = block(64, 32, 3, norm_fn=norm_fn, indice_key='subm1')
+        self.conv_up_m1 = block(64, 32, 3, norm_fn=norm_fn,act_fn=act_fn,  indice_key='subm1')
 
         self.voxel_feature_channel = 32
         self.conv5 = spconv.SparseSequential(
