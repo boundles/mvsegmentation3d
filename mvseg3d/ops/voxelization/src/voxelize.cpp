@@ -11,7 +11,7 @@ at::Tensor voxelize_forward_cpu(const at::Tensor inputs, const at::Tensor idx,
       {N1, c}, at::device(idx.device()).dtype(at::ScalarType::Float));
   for (int i = 0; i < N; i++) {
     int pos = *(idx.data_ptr<int>() + i);
-    if (*(counts.data_ptr<int>() + pos) == 0) continue;
+    if (pos < 0 || pos >= N1) continue;
 #pragma omp parallel for
     for (int j = 0; j < c; j++) {
       *(out.data_ptr<float>() + pos * c + j) +=
@@ -25,16 +25,18 @@ at::Tensor voxelize_forward_cpu(const at::Tensor inputs, const at::Tensor idx,
 at::Tensor voxelize_backward_cpu(const at::Tensor top_grad,
                                  const at::Tensor idx, const at::Tensor counts,
                                  const int N) {
+  int N1 = top_grad.size(0);
   int c = top_grad.size(1);
   at::Tensor bottom_grad = torch::zeros(
       {N, c}, at::device(idx.device()).dtype(at::ScalarType::Float));
   for (int i = 0; i < N; i++) {
-    if (*(counts.data_ptr<int>() + *(idx.data_ptr<int>() + i)) == 0) continue;
+    int pos = *(idx.data_ptr<int>() + i);
+    if (pos < 0 || pos >= N1) continue;
 #pragma omp parallel for
     for (int j = 0; j < c; j++) {
       *(bottom_grad.data_ptr<float>() + i * c + j) =
-          *(top_grad.data_ptr<float>() + *(idx.data_ptr<int>() + i) * c + j) /
-          (float)(*(counts.data_ptr<int>() + *(idx.data_ptr<int>() + i)));
+          *(top_grad.data_ptr<float>() + pos * c + j) /
+          (float)(*(counts.data_ptr<int>() + pos));
     }
   }
   return bottom_grad;

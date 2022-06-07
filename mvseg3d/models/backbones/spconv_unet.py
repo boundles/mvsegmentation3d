@@ -92,21 +92,21 @@ class SparseUnet(nn.Module):
             # [800, 704, 21] -> [400, 352, 11]
             block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3')
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
             # [400, 352, 11] -> [200, 176, 5]
-            block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
+            block(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
+            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
+            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
         )
 
         # decoder
         # [400, 352, 11] <- [200, 176, 5]
-        self.conv_up_t4 = SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
-        self.conv_up_m4 = block(256, 128, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm4')
-        self.inv_conv4 = block(128, 128, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv4')
+        self.conv_up_t4 = SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4')
+        self.conv_up_m4 = block(512, 256, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm4')
+        self.inv_conv4 = block(256, 128, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv4')
 
         # [800, 704, 21] <- [400, 352, 11]
         self.conv_up_t3 = SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3')

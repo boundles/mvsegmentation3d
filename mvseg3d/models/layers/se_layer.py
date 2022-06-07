@@ -19,12 +19,11 @@ class SELayer(nn.Module):
         Returns:
             torch.Tensor: The output with shape (N, C)
         """
-        x = x.unsqueeze(2).unsqueeze(3).permute(2, 1, 0, 3)
-        b, c, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1)
-        y = x * y.expand_as(x)
+        xin = x.unsqueeze(2).unsqueeze(3).permute(2, 1, 0, 3)
+        b, c, _, _ = xin.size()
+        out = self.avg_pool(xin).view(b, c)
+        out = self.fc(out).view(b, c, 1, 1)
+        out = xin * out.expand_as(xin)
 
-        x = x.permute(2, 1, 0, 3).squeeze().squeeze()
-        y = y.permute(2, 1, 0, 3).squeeze().squeeze()
-        return x + y
+        out = out.permute(2, 1, 0, 3).squeeze().squeeze()
+        return out

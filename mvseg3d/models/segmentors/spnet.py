@@ -45,7 +45,7 @@ class SPNet(nn.Module):
                                             nn.BatchNorm1d(self.fusion_out_channel),
                                             nn.ReLU(inplace=True))
 
-        self.ca = SELayer(self.fusion_out_channel)
+        self.se = SELayer(self.fusion_out_channel)
 
         self.cls_layers = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_out_channel),
@@ -80,7 +80,7 @@ class SPNet(nn.Module):
         else:
             point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
-        point_fusion_features = self.ca(point_fusion_features)
+        point_fusion_features = point_fusion_features + self.se(point_fusion_features)
         point_fusion_features = self.dropout(point_fusion_features)
 
         out = self.cls_layers(point_fusion_features)
