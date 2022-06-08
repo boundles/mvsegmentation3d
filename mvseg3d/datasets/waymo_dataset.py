@@ -271,11 +271,12 @@ class WaymoDataset(Dataset):
                 ret[key] = val
 
         voxel_offset = 0
-        if 'point_voxel_ids' in data_dict:
+        if 'point_voxel_ids' in data_dict and 'voxel_coords' in data_dict:
             point_voxel_ids_list = data_dict['point_voxel_ids']
+            voxel_coords_list = data_dict['voxel_coords']
             for i, point_voxel_ids in enumerate(point_voxel_ids_list):
                 point_voxel_ids[point_voxel_ids != -1] += voxel_offset
-                voxel_offset += np.sum(coors[:, 0] == i)
+                voxel_offset += voxel_coords_list[i].shape[0]
             ret['point_voxel_ids'] = np.concatenate(point_voxel_ids_list, axis=0)
 
         batch_size = len(batch_list)
