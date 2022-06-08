@@ -22,14 +22,14 @@ class VoxelPoolingFunction(Function):
         coords = coords.contiguous().int()
 
         if feats.device.type == 'cuda':
-            output = voxel_pooling_ext.voxelize_forward_cuda(
+            output = voxel_pooling_ext.voxel_pooling_forward_cuda(
                 feats, coords, counts)
         elif feats.device.type == 'cpu':
-            output = voxel_pooling_ext.voxelize_forward_cpu(
+            output = voxel_pooling_ext.voxel_pooling_forward_cpu(
                 feats, coords, counts)
         else:
             device = feats.device
-            output = voxel_pooling_ext.voxelize_forward_cpu(
+            output = voxel_pooling_ext.voxel_pooling_forward_cpu(
                 feats.cpu(), coords.cpu(), counts.cpu()).to(device)
 
         ctx.for_backwards = (coords, counts, feats.shape[0])
@@ -42,14 +42,14 @@ class VoxelPoolingFunction(Function):
         grad_output = grad_output.contiguous()
 
         if grad_output.device.type == 'cuda':
-            grad_feats = voxel_pooling_ext.voxelize_backward_cuda(
+            grad_feats = voxel_pooling_ext.voxel_pooling_backward_cuda(
                 grad_output, coords, counts, input_size)
         elif grad_output.device.type == 'cpu':
-            grad_feats = voxel_pooling_ext.voxelize_backward_cpu(
+            grad_feats = voxel_pooling_ext.voxel_pooling_backward_cpu(
                 grad_output, coords, counts, input_size)
         else:
             device = grad_output.device
-            grad_feats = voxel_pooling_ext.voxelize_backward_cpu(
+            grad_feats = voxel_pooling_ext.voxel_pooling_backward_cpu(
                 grad_output.cpu(), coords.cpu(), counts.cpu(),
                 input_size).to(device)
 
