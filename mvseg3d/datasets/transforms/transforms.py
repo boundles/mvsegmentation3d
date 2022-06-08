@@ -29,7 +29,7 @@ def rotate_points_along_z(points, angle):
     points_rot = torch.cat((points_rot, points[:, :, 3:]), dim=-1)
     return points_rot.numpy() if is_numpy else points_rot
 
-class Compose:
+class Compose(object):
     """Composes several transforms together.
     Args:
         transforms (list of ``Transform`` objects): list of transforms to compose.
@@ -56,7 +56,7 @@ class Compose:
         format_string += "\n)"
         return format_string
 
-class RandomGlobalScaling:
+class RandomGlobalScaling(object):
     def __init__(self, scale_range) -> None:
         self.scale_range = scale_range
 
@@ -71,7 +71,7 @@ class RandomGlobalScaling:
         return f"{self.__class__.__name__}()"
 
 
-class RandomGlobalRotation:
+class RandomGlobalRotation(object):
     def __init__(self, rot_range) -> None:
         self.rot_range = rot_range
 
@@ -85,7 +85,7 @@ class RandomGlobalRotation:
         return f"{self.__class__.__name__}()"
 
 
-class PointShuffle:
+class PointShuffle(object):
     def __call__(self, data_dict):
         point_indices = np.array(range(data_dict['points'].shape[0]))
         np.random.shuffle(point_indices)
@@ -97,14 +97,15 @@ class PointShuffle:
         labels = data_dict.get('labels', None)
 
         if cur_indices is not None:
-            cur_ext_indices = []
-            cur_int_indices = []
+            cur_global_indices = []
+            cur_local_indices = []
             for i, idx in enumerate(point_indices):
+                # TODO: hard code here
                 if idx <= cur_indices[-1]:
-                    cur_ext_indices.append(i)
-                    cur_int_indices.append(idx)
-            data_dict['point_indices'] = np.array(cur_ext_indices)
-            cur_indices = np.array(cur_int_indices)
+                    cur_global_indices.append(i)
+                    cur_local_indices.append(idx)
+            data_dict['point_indices'] = np.array(cur_global_indices)
+            cur_indices = np.array(cur_local_indices)
         else:
             cur_indices = point_indices
 

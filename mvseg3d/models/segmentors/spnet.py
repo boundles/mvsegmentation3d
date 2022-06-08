@@ -62,12 +62,8 @@ class SPNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, batch_dict):
-        points = batch_dict['points']
+        points = batch_dict['points'][:, 1:]
         point_voxel_ids = batch_dict['point_voxel_ids']
-        if 'point_indices' in batch_dict:
-            point_indices = batch_dict['point_indices']
-            points = points[point_indices]
-            point_voxel_ids = point_voxel_ids[point_indices]
 
         point_per_features = self.point_encoder(points)
         voxel_enc = self.voxel_encoder(self.vfe(batch_dict))
@@ -83,7 +79,7 @@ class SPNet(nn.Module):
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # channel attention
-        batch_indices = batch_dict['voxel_coords'][:, 0][point_voxel_ids]
+        batch_indices = batch_dict['points'][:, 0]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, batch_indices)
 
         point_fusion_features = self.dropout(point_fusion_features)
