@@ -20,6 +20,7 @@ class VoxelPoolingFunction(Function):
         """
         feats = feats.contiguous()
         coords = coords.contiguous().int()
+        counts = counts.int()
 
         if feats.device.type == 'cuda':
             output = voxel_pooling_ext.voxel_pooling_forward_cuda(

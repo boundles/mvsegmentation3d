@@ -23,6 +23,6 @@ class FlattenELayer(nn.Module):
         unique_ids, counts = indices.unique(return_counts=True)
         out = voxel_pooling(x, indices, counts)
         out = self.fc(out)
-        out = out[indices]
+        out = out[indices.long()]
         out = x * out
         return out

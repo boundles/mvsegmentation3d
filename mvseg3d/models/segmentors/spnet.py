@@ -83,7 +83,7 @@ class SPNet(nn.Module):
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # channel attention
-        batch_indices = batch_dict['voxel_coords'][0, :][point_voxel_ids]
+        batch_indices = batch_dict['voxel_coords'][:, 0][point_voxel_ids]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, batch_indices)
 
         point_fusion_features = self.dropout(point_fusion_features)
