@@ -1,3 +1,3 @@
-from .se_layer import SELayer
+from .se_layer import FlattenELayer
 
-__all__ = ['SELayer']
+__all__ = ['FlattenELayer']

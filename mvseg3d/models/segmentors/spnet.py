@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
-from mvseg3d.models.layers import SELayer
+from mvseg3d.models.layers import FlattenELayer
 from mvseg3d.ops import voxel_to_point
 
 class SPNet(nn.Module):
@@ -45,7 +45,7 @@ class SPNet(nn.Module):
                                             nn.BatchNorm1d(self.fusion_out_channel),
                                             nn.ReLU(inplace=True))
 
-        self.se = SELayer(self.fusion_out_channel)
+        self.se = FlattenELayer(self.fusion_out_channel)
 
         self.cls_layers = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_out_channel),
@@ -73,6 +73,7 @@ class SPNet(nn.Module):
         voxel_enc = self.voxel_encoder(self.vfe(batch_dict))
         point_voxel_features = voxel_to_point(voxel_enc['voxel_features'], point_voxel_ids)
 
+        # fusion multi-view features
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
             point_image_features = self.image_encoder(point_image_features)
@@ -80,9 +81,11 @@ class SPNet(nn.Module):
         else:
             point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
+
+        # channel attention
         batch_indices = batch_dict['voxel_coords'][0, :][point_voxel_ids]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, batch_indices)
-        point_fusion_features = self.dropout(point_fusion_features)
 
+        point_fusion_features = self.dropout(point_fusion_features)
         out = self.cls_layers(point_fusion_features)
         return out

@@ -6,7 +6,7 @@ import torch.nn as nn
 import spconv.pytorch as spconv
 
 from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
-from mvseg3d.models.layers import SELayer
+from mvseg3d.models.layers import FlattenELayer
 
 
 class SparseBasicBlock(spconv.SparseModule):
@@ -30,7 +30,7 @@ class SparseBasicBlock(spconv.SparseModule):
         self.stride = stride
         self.with_se = with_se
         if self.with_se:
-            self.se = SELayer(planes)
+            self.se = FlattenELayer(planes)
 
     def forward(self, x):
         identity = x
