@@ -4,7 +4,7 @@ import torch.nn as nn
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import SELayer
-from mvseg3d.utils.voxel_point_utils import voxel_to_point
+from mvseg3d.ops import voxel_to_point
 
 class SPNet(nn.Module):
     def __init__(self, dataset):
@@ -80,7 +80,8 @@ class SPNet(nn.Module):
         else:
             point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
-        point_fusion_features = point_fusion_features + self.se(point_fusion_features)
+        batch_indices = batch_dict['voxel_coords'][0, :][point_voxel_ids]
+        point_fusion_features = point_fusion_features + self.se(point_fusion_features, batch_indices)
         point_fusion_features = self.dropout(point_fusion_features)
 
         out = self.cls_layers(point_fusion_features)

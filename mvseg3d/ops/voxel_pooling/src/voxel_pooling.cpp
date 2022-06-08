@@ -1,9 +1,9 @@
 #include <torch/torch.h>
 
-#include "voxelize.h"
+#include "voxel_pooling.h"
 
-at::Tensor voxelize_forward_cpu(const at::Tensor inputs, const at::Tensor idx,
-                                const at::Tensor counts) {
+at::Tensor voxel_pooling_forward_cpu(const at::Tensor inputs, const at::Tensor idx,
+                                     const at::Tensor counts) {
   int N = inputs.size(0);
   int c = inputs.size(1);
   int N1 = counts.size(0);
@@ -22,9 +22,9 @@ at::Tensor voxelize_forward_cpu(const at::Tensor inputs, const at::Tensor idx,
   return out;
 }
 
-at::Tensor voxelize_backward_cpu(const at::Tensor top_grad,
-                                 const at::Tensor idx, const at::Tensor counts,
-                                 const int N) {
+at::Tensor voxel_pooling_backward_cpu(const at::Tensor top_grad,
+                                      const at::Tensor idx, const at::Tensor counts,
+                                      const int N) {
   int N1 = top_grad.size(0);
   int c = top_grad.size(1);
   at::Tensor bottom_grad = torch::zeros(
@@ -43,8 +43,8 @@ at::Tensor voxelize_backward_cpu(const at::Tensor top_grad,
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("voxelize_forward_cpu", &voxelize_forward_cpu);
-  m.def("voxelize_backward_cpu", &voxelize_backward_cpu);
-  m.def("voxelize_forward_cuda", &voxelize_forward_cuda);
-  m.def("voxelize_backward_cuda", &voxelize_backward_cuda);
+  m.def("voxel_pooling_forward_cpu", &voxel_pooling_forward_cpu);
+  m.def("voxel_pooling_backward_cpu", &voxel_pooling_backward_cpu);
+  m.def("voxel_pooling_forward_cuda", &voxel_pooling_forward_cuda);
+  m.def("voxel_pooling_backward_cuda", &voxel_pooling_backward_cuda);
 }

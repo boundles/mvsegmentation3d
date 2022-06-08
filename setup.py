@@ -60,17 +60,11 @@ setuptools.setup(
     python_requires=">=3.6",
     ext_modules=[
         make_cuda_ext(
-            name='devoxelization_ext',
-            module='mvseg3d.ops.devoxelization',
+            name='voxel_pooling_ext',
+            module='mvseg3d.ops.voxel_pooling',
             extra_include_path=['/usr/local/cuda/include'],
-            sources=['src/devoxelize.cpp'],
-            sources_cuda=['src/devoxelize_cuda.cu']),
-        make_cuda_ext(
-            name='voxelization_ext',
-            module='mvseg3d.ops.voxelization',
-            extra_include_path=['/usr/local/cuda/include'],
-            sources=['src/voxelize.cpp'],
-            sources_cuda=['src/voxelize_cuda.cu']),
+            sources=['src/voxel_pooling.cpp'],
+            sources_cuda=['src/voxel_pooling_cuda.cu']),
     ],
     cmdclass={'build_ext': BuildExtension},
     zip_safe=False
