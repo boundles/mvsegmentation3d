@@ -8,12 +8,12 @@ import torch.optim
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.spnet import SPNet
-from mvseg3d.models import build_criterion, build_optimizer
 from mvseg3d.core.metrics import IOUMetric
 from mvseg3d.utils.logging import get_root_logger
 from mvseg3d.utils import distributed_utils
 from mvseg3d.utils.config import cfg, cfg_from_file
 from mvseg3d.utils.io_utils import load_data_to_gpu
+from mvseg3d.utils.train_utils import build_criterion, build_optimizer, build_scheduler
 
 
 def parse_args():
@@ -82,7 +82,7 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
-def train_epoch(args, data_loader, model, criterion, optimizer, rank, epoch, logger):
+def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, rank, epoch, logger):
     model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
@@ -94,6 +94,8 @@ def train_epoch(args, data_loader, model, criterion, optimizer, rank, epoch, log
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        lr_scheduler.step()
 
         if rank == 0 and step % args.log_iter_interval == 0:
             try:
@@ -114,9 +116,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names,
         cur_epoch = epoch + 1
 
         # train for one epoch
-        train_epoch(args, data_loaders['train'], model, criterion, optimizer, rank, cur_epoch, logger)
-
-        lr_scheduler.step()
+        train_epoch(args, data_loaders['train'], model, criterion, optimizer, lr_scheduler, rank, cur_epoch, logger)
 
         # save checkpoint
         if rank == 0 and args.auto_resume:
@@ -191,7 +191,7 @@ def main():
 
     # optimizer and learning rate scheduler
     optimizer = build_optimizer(cfg, model)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+    lr_scheduler = build_scheduler(cfg, optimizer, args.epochs, len(train_loader))
 
     # resume from checkpoint
     start_epoch = 0

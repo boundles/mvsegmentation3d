@@ -29,7 +29,7 @@ __C.DATASET.AUG_SCALE_RANGE = [0.95, 1.05]
 # model config
 __C.MODEL = edict()
 __C.MODEL.LOSS = 'ce'
-__C.MODEL.LOSS_KEEP_RATIO = 0.3
+__C.MODEL.OHEM_KEEP_RATIO = 0.3
 
 # training config
 __C.TRAIN = edict()
@@ -37,6 +37,9 @@ __C.TRAIN.LR = 0.002
 __C.TRAIN.OPTIMIZER = 'adam'
 __C.TRAIN.WEIGHT_DECAY = 0.0  # "L2 regularization coeff [default: 0.0]"
 __C.TRAIN.MOMENTUM = 0.9
+__C.TRAIN.LR_SCHEDULER = 'warmup_poly_lr'
+__C.TRAIN.CYCLIC_BASE_LR = 0.001
+__C.TRAIN.CYCLIC_MAX_LR = 0.1
 
 
 def cfg_from_file(filename):
