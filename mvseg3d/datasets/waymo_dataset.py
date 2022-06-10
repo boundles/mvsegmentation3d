@@ -41,17 +41,14 @@ class WaymoDataset(Dataset):
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
-        self.transforms = transforms.Compose([transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
+        self.transforms = transforms.Compose([transforms.RandomFlip(),
+                                              transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
                                               transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
                                               transforms.PointShuffle()])
 
     @property
     def dim_point(self):
         return self.cfg.DATASET.DIM_POINT
-
-    @property
-    def dim_image_feature(self):
-        return self.cfg.DATASET.DIM_IMAGE_FEATURE
 
     @property
     def num_classes(self):
@@ -69,6 +66,10 @@ class WaymoDataset(Dataset):
     @property
     def use_image_feature(self):
         return self.cfg.DATASET.USE_IMAGE_FEATURE
+
+    @property
+    def dim_image_feature(self):
+        return self.cfg.DATASET.DIM_IMAGE_FEATURE
 
     @property
     def ignore_index(self):

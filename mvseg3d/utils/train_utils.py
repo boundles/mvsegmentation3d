@@ -1,11 +1,20 @@
 import math
+import random
 from typing import List
+import numpy as np
 
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import _LRScheduler
 
 from mvseg3d.models import LovaszLoss, OHEMCrossEntropyLoss
+
+def set_random_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def _get_warmup_factor_at_iter(
     method: str, iter: int, warmup_iters: int, warmup_factor: float

@@ -29,6 +29,63 @@ def rotate_points_along_z(points, angle):
     points_rot = torch.cat((points_rot, points[:, :, 3:]), dim=-1)
     return points_rot.numpy() if is_numpy else points_rot
 
+def random_flip_along_x(points):
+    """
+    Args:
+        points: (M, 3 + C)
+    Returns:
+    """
+    enable = np.random.choice([False, True], replace=False, p=[0.5, 0.5])
+    if enable:
+        points[:, 1] = -points[:, 1]
+
+    return points
+
+def random_flip_along_y(points):
+    """
+    Args:
+        points: (M, 3 + C)
+    Returns:
+    """
+    enable = np.random.choice([False, True], replace=False, p=[0.5, 0.5])
+    if enable:
+        points[:, 0] = -points[:, 0]
+
+    return points
+
+def random_translation_along_x(points, offset_std):
+    """
+    Args:
+        points: (M, 3 + C),
+        offset_std: float
+    Returns:
+    """
+    offset = np.random.normal(0, offset_std, 1)
+    points[:, 0] += offset
+    return points
+
+def random_translation_along_y(points, offset_std):
+    """
+    Args:
+        points: (M, 3 + C),
+        offset_std: float
+    Returns:
+    """
+    offset = np.random.normal(0, offset_std, 1)
+    points[:, 1] += offset
+    return points
+
+def random_translation_along_z(points, offset_std):
+    """
+    Args:
+        points: (M, 3 + C),
+        offset_std: float
+    Returns:
+    """
+    offset = np.random.normal(0, offset_std, 1)
+    points[:, 2] += offset
+    return points
+
 class Compose(object):
     """Composes several transforms together.
     Args:
@@ -79,6 +136,36 @@ class RandomGlobalRotation(object):
         noise_rotation = np.random.uniform(self.rot_range[0], self.rot_range[1])
         data_dict['points'] = rotate_points_along_z(data_dict['points'][np.newaxis, :, :], np.array([noise_rotation]))[0]
 
+        return data_dict
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+
+class RandomGlobalTranslation(object):
+    def __init__(self, translate_std) -> None:
+        self.translate_std = translate_std
+
+    def __call__(self, data_dict):
+        points = data_dict['points']
+
+        for cur_axis in ['x', 'y', 'z']:
+            points = getattr('random_translation_along_%s' % cur_axis)(points, self.translate_std)
+
+        data_dict['points'] = points
+        return data_dict
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+class RandomFlip(object):
+    def __call__(self, data_dict):
+        points = data_dict['points']
+
+        for cur_axis in ['x', 'y']:
+            points = getattr('random_flip_along_%s' % cur_axis)(points)
+
+        data_dict['points'] = points
         return data_dict
 
     def __repr__(self) -> str:
