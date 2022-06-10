@@ -1,10 +1,12 @@
 import torch
 import numpy as np
 
+
 def check_numpy_to_torch(x):
     if isinstance(x, np.ndarray):
         return torch.from_numpy(x).float(), True
     return x, False
+
 
 def rotate_points_along_z(points, angle):
     """
@@ -29,6 +31,7 @@ def rotate_points_along_z(points, angle):
     points_rot = torch.cat((points_rot, points[:, :, 3:]), dim=-1)
     return points_rot.numpy() if is_numpy else points_rot
 
+
 def random_flip_along_x(points):
     """
     Args:
@@ -40,6 +43,7 @@ def random_flip_along_x(points):
         points[:, 1] = -points[:, 1]
 
     return points
+
 
 def random_flip_along_y(points):
     """
@@ -53,6 +57,7 @@ def random_flip_along_y(points):
 
     return points
 
+
 def random_translation_along_x(points, offset_std):
     """
     Args:
@@ -63,6 +68,7 @@ def random_translation_along_x(points, offset_std):
     offset = np.random.normal(0, offset_std, 1)
     points[:, 0] += offset
     return points
+
 
 def random_translation_along_y(points, offset_std):
     """
@@ -75,6 +81,7 @@ def random_translation_along_y(points, offset_std):
     points[:, 1] += offset
     return points
 
+
 def random_translation_along_z(points, offset_std):
     """
     Args:
@@ -85,3 +92,50 @@ def random_translation_along_z(points, offset_std):
     offset = np.random.normal(0, offset_std, 1)
     points[:, 2] += offset
     return points
+
+
+def points_random_sampling(points,
+                           sample_ratio,
+                           sample_range=None,
+                           replace=False,
+                           return_choices=False):
+    """Points random sampling.
+
+    Sample points to a certain number.
+
+    Args:
+        points (np.ndarray): 3D Points.
+        sample_ratio (float): Ratio of samples to be sampled.
+        sample_range (float, optional): Indicating the range where the
+            points will be sampled. Defaults to None.
+        replace (bool, optional): Sampling with or without replacement.
+            Defaults to False.
+        return_choices (bool, optional): Whether return choice.
+            Defaults to False.
+    Returns:
+        tuple[np.ndarray] | np.ndarray:
+            - points (np.ndarray): 3D Points.
+            - choices (np.ndarray, optional): The generated random samples.
+    """
+    num_samples = int(points.shape[0] * sample_ratio)
+    point_range = range(len(points))
+    if sample_range is not None and not replace:
+        # Only sampling the near points when len(points) >= num_samples
+        dist = np.linalg.norm(points[:, :2], axis=1)
+        far_inds = np.where(dist >= sample_range)[0]
+        near_inds = np.where(dist < sample_range)[0]
+        # in case there are too many far points
+        if len(far_inds) > num_samples:
+            far_inds = np.random.choice(
+                far_inds, num_samples, replace=False)
+        point_range = near_inds
+        num_samples -= len(far_inds)
+    choices = np.random.choice(point_range, num_samples, replace=replace)
+    if sample_range is not None and not replace:
+        choices = np.concatenate((far_inds, choices))
+        # Shuffle points after sampling
+        np.random.shuffle(choices)
+    if return_choices:
+        return points[choices], choices
+    else:
+        return points[choices]

@@ -102,11 +102,14 @@ class PointShuffle(object):
         labels = data_dict.get('labels', None)
 
         if cur_indices is not None:
+            cur_indices_map = {}
+            for index in cur_indices:
+                cur_indices_map[index] = True
+
             cur_global_indices = []
             cur_local_indices = []
             for i, idx in enumerate(point_indices):
-                # TODO: hard code here
-                if idx <= cur_indices[-1]:
+                if idx in cur_indices_map:
                     cur_global_indices.append(i)
                     cur_local_indices.append(idx)
             data_dict['point_indices'] = np.array(cur_global_indices)
@@ -124,6 +127,80 @@ class PointShuffle(object):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
+
+class PointSample(object):
+    """Point sample.
+
+    Sampling data to a certain number.
+
+    Args:
+        sample_ratio (float): Ratio of points to be sampled.
+        sample_range (float, optional): The range where to sample points.
+            If not None, the points with depth larger than `sample_range` are
+            prior to be sampled. Defaults to None.
+        replace (bool, optional): Whether the sampling is with or without
+            replacement. Defaults to False.
+    """
+
+    def __init__(self, sample_ratio, sample_range=None, replace=False):
+        self.sample_ratio = sample_ratio
+        self.sample_range = sample_range
+        self.replace = replace
+
+    def __call__(self, data_dict):
+        """Call function to sample points to in indoor scenes.
+
+        Args:
+            data_dict (dict): Result dict from loading pipeline.
+        Returns:
+            dict: Results after sampling, 'points', 'point_image_features', 'point_indices',
+                and 'labels' keys are updated in the result dict.
+        """
+        points = data_dict['points']
+        points, point_indices = transform_utils.points_random_sampling(
+            points,
+            self.sample_ratio,
+            self.sample_range,
+            self.replace,
+            return_choices=True)
+        data_dict['points'] = points
+
+        cur_indices = data_dict.get('point_indices', None)
+        point_image_features = data_dict.get('point_image_features', None)
+        labels = data_dict.get('labels', None)
+
+        if cur_indices is not None:
+            cur_indices_map = {}
+            for index in cur_indices:
+                cur_indices_map[index] = True
+
+            cur_global_indices = []
+            cur_local_indices = []
+            for i, idx in enumerate(point_indices):
+                if idx in cur_indices_map:
+                    cur_global_indices.append(i)
+                    cur_local_indices.append(idx)
+            data_dict['point_indices'] = np.array(cur_global_indices)
+            cur_indices = np.array(cur_local_indices)
+        else:
+            cur_indices = point_indices
+
+        if point_image_features is not None:
+            data_dict['point_image_features'] = point_image_features[cur_indices]
+
+        if labels is not None:
+            data_dict['labels'] = labels[cur_indices]
+
+        return data_dict
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__
+        repr_str += f'(sample_ratio={self.sample_ratio},'
+        repr_str += f' sample_range={self.sample_range},'
+        repr_str += f' replace={self.replace})'
+
+        return repr_str
 
 if __name__ == '__main__':
     batch_dict = {'points': np.ones((100, 3))}
