@@ -14,15 +14,15 @@ def load_data_to_gpu(data_dict):
     return data_dict
 
 
-def get_shuffled_sub_indices(sub_indices, shuffled_all_indices):
+def get_sub_indices_pos(sub_indices, all_indices):
     sub_indices_dic = {}
-    for index in sub_indices:
-        sub_indices_dic[index] = True
+    for i, idx in enumerate(sub_indices):
+        sub_indices_dic[idx] = i
 
     pos_in_all_indices = []
-    shuffled_sub_indices = []
-    for i, idx in enumerate(shuffled_all_indices):
+    pos_in_sub_indices = []
+    for i, idx in enumerate(all_indices):
         if idx in sub_indices_dic:
             pos_in_all_indices.append(i)
-            shuffled_sub_indices.append(idx)
-    return pos_in_all_indices, shuffled_sub_indices
+            pos_in_sub_indices.append(sub_indices_dic[idx])
+    return pos_in_all_indices, pos_in_sub_indices

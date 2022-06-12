@@ -2,7 +2,7 @@ import numpy as np
 
 from . import transform_utils
 
-from mvseg3d.utils.data_utils import get_shuffled_sub_indices
+from mvseg3d.utils.data_utils import get_sub_indices_pos
 
 class Compose(object):
     """Composes several transforms together.
@@ -104,8 +104,8 @@ class PointShuffle(object):
         labels = data_dict.get('labels', None)
 
         if cur_indices is not None:
-            pos_in_all_indices, shuffled_sub_indices = get_shuffled_sub_indices(cur_indices, point_indices)
-            cur_indices = np.array(shuffled_sub_indices)
+            pos_in_all_indices, pos_in_sub_indices = get_sub_indices_pos(cur_indices, point_indices)
+            cur_indices = np.array(pos_in_sub_indices)
             data_dict['point_indices'] = np.array(pos_in_all_indices)
         else:
             cur_indices = point_indices
@@ -163,8 +163,8 @@ class PointSample(object):
         labels = data_dict.get('labels', None)
 
         if cur_indices is not None:
-            pos_in_all_indices, shuffled_sub_indices = get_shuffled_sub_indices(cur_indices, point_indices)
-            cur_indices = np.array(shuffled_sub_indices)
+            pos_in_all_indices, pos_in_sub_indices = get_sub_indices_pos(cur_indices, point_indices)
+            cur_indices = np.array(pos_in_sub_indices)
             data_dict['point_indices'] = np.array(pos_in_all_indices)
         else:
             cur_indices = point_indices
