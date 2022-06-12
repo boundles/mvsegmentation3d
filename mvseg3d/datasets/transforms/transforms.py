@@ -2,6 +2,8 @@ import numpy as np
 
 from . import transform_utils
 
+from mvseg3d.utils.data_utils import get_shuffled_sub_indices
+
 class Compose(object):
     """Composes several transforms together.
     Args:
@@ -102,18 +104,9 @@ class PointShuffle(object):
         labels = data_dict.get('labels', None)
 
         if cur_indices is not None:
-            cur_indices_map = {}
-            for index in cur_indices:
-                cur_indices_map[index] = True
-
-            cur_global_indices = []
-            cur_local_indices = []
-            for i, idx in enumerate(point_indices):
-                if idx in cur_indices_map:
-                    cur_global_indices.append(i)
-                    cur_local_indices.append(idx)
-            data_dict['point_indices'] = np.array(cur_global_indices)
-            cur_indices = np.array(cur_local_indices)
+            pos_in_all_indices, shuffled_sub_indices = get_shuffled_sub_indices(cur_indices, point_indices)
+            cur_indices = np.array(shuffled_sub_indices)
+            data_dict['point_indices'] = np.array(pos_in_all_indices)
         else:
             cur_indices = point_indices
 
@@ -170,18 +163,9 @@ class PointSample(object):
         labels = data_dict.get('labels', None)
 
         if cur_indices is not None:
-            cur_indices_map = {}
-            for index in cur_indices:
-                cur_indices_map[index] = True
-
-            cur_global_indices = []
-            cur_local_indices = []
-            for i, idx in enumerate(point_indices):
-                if idx in cur_indices_map:
-                    cur_global_indices.append(i)
-                    cur_local_indices.append(idx)
-            data_dict['point_indices'] = np.array(cur_global_indices)
-            cur_indices = np.array(cur_local_indices)
+            pos_in_all_indices, shuffled_sub_indices = get_shuffled_sub_indices(cur_indices, point_indices)
+            cur_indices = np.array(shuffled_sub_indices)
+            data_dict['point_indices'] = np.array(pos_in_all_indices)
         else:
             cur_indices = point_indices
 

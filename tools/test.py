@@ -11,7 +11,7 @@ from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.spnet import SPNet
 from mvseg3d.utils.logging import get_logger
 from mvseg3d.utils import submission_utils
-from mvseg3d.utils.io_utils import load_data_to_gpu
+from mvseg3d.utils.data_utils import load_data_to_gpu
 
 from waymo_open_dataset.protos import segmentation_metrics_pb2
 

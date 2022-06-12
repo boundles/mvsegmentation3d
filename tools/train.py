@@ -12,7 +12,7 @@ from mvseg3d.core.metrics import IOUMetric
 from mvseg3d.utils.logging import get_root_logger
 from mvseg3d.utils import distributed_utils
 from mvseg3d.utils.config import cfg, cfg_from_file
-from mvseg3d.utils.io_utils import load_data_to_gpu
+from mvseg3d.utils.data_utils import load_data_to_gpu
 from mvseg3d.utils.train_utils import build_criterion, build_optimizer, build_scheduler, set_random_seed
 
 

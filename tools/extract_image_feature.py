@@ -43,7 +43,7 @@ def get_image_list(work_dir, split, pathnames_file):
             infos = filename.split('-')
             if (infos[0], infos[1]) in test_set_frames:
                 image_pathnames.append(pathname)
-        print('Total %d frames: , %d image frames' % (len(test_set_frames), len(image_pathnames)))
+        print('Total %d frames, %d image frames' % (len(test_set_frames), len(image_pathnames)))
     else:
         image_pathnames = pathnames
     return image_pathnames
