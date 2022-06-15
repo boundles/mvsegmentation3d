@@ -98,7 +98,7 @@ def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, ra
 
         lr_scheduler.step()
 
-        if rank == 0 and step % args.log_iter_interval == 0:
+        if step % args.log_iter_interval == 0:
             try:
                 cur_lr = float(optimizer.lr)
             except:
@@ -136,6 +136,7 @@ def main():
     # whether to distributed training
     if args.launcher == 'none':
         distributed = False
+        rank = 0
     else:
         distributed = True
         distributed_utils.init_dist(args.launcher)

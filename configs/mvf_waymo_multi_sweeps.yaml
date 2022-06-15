@@ -2,8 +2,9 @@ DATASET:
   USE_IMAGE_FEATURE: False
   USE_MULTI_SWEEPS: True
   NUM_SWEEPS: 2
+  MAX_NUM_SWEEPS: 5
   MAX_NUM_POINTS: 30
-  MAX_VOXELS: {'train': 180000, 'test': 220000}
+  MAX_VOXELS: {'train': 190000, 'test': 220000}
   CLASS_NAMES: ['Car', 'Truck', 'Bus', 'Other Vehicle', 'MotorCyclist', 'Bicyclist', 'Pedestrian', 'Sign',
                 'Traffic Light', 'Pole', 'Construction Cone', 'Bicycle', 'MotorCycle', 'Building', 'Vegetation',
                 'Tree Trunk', 'Curb', 'Road', 'Lane Marker', 'Other Ground', 'Walkable', 'SideWalk']
