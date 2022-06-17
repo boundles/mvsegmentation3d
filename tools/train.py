@@ -61,6 +61,15 @@ def save_checkpoint(model, optimizer, lr_scheduler, save_dir, epoch, logger):
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
+def compute_loss(pred_result, data_dict, criterion):
+    gt_labels = data_dict['labels']
+    loss = criterion(pred_result['out'], gt_labels)
+
+    if 'aux_out' in pred_result:
+        voxel_labels = data_dict['voxel_labels']
+        loss += 0.4 * criterion(pred_result['aux_out'], voxel_labels)
+    return loss
+
 def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     iou_metric = IOUMetric(class_names)
     model.eval()
@@ -69,19 +78,14 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
         with torch.no_grad():
             result = model(data_dict)
 
-        gt_labels = data_dict['labels']
-        loss = criterion(result['out'], gt_labels)
-
-        if 'aux_out' in result:
-            voxel_labels = data_dict['voxel_labels']
-            loss += 0.4 * criterion(result['aux_out'], voxel_labels)
+        loss = compute_loss(result, data_dict, criterion)
 
         if step % args.log_iter_interval == 0:
             logger.info(
                 'Evaluate on epoch %d - Iter [%d/%d] loss: %f' % (epoch, step, len(data_loader), loss.cpu().item()))
 
         pred_labels = torch.argmax(result['out'], dim=1).cpu()
-        gt_labels = gt_labels.cpu()
+        gt_labels = data_dict['labels'].cpu()
         iou_metric.add(pred_labels, gt_labels)
 
     metric_result = iou_metric.get_metric()
@@ -93,12 +97,7 @@ def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, ep
         load_data_to_gpu(data_dict)
         result = model(data_dict)
 
-        labels = data_dict['labels']
-        loss = criterion(result['out'], labels)
-
-        if 'aux_out' in result:
-            voxel_labels = data_dict['voxel_labels']
-            loss += 0.4 * criterion(result['aux_out'], voxel_labels)
+        loss = compute_loss(result, data_dict, criterion)
 
         optimizer.zero_grad()
         loss.backward()
