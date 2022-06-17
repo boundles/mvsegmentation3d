@@ -1,35 +1,10 @@
-import torch
 import numpy as np
 
-def check_numpy_to_torch(x):
-    if isinstance(x, np.ndarray):
-        return torch.from_numpy(x).float(), True
-    return x, False
+from . import transform_utils
 
-def rotate_points_along_z(points, angle):
-    """
-    Args:
-        points: (B, N, 3 + C)
-        angle: (B), angle along z-axis, angle increases x ==> y
-    Returns:
-    """
-    points, is_numpy = check_numpy_to_torch(points)
-    angle, _ = check_numpy_to_torch(angle)
+from mvseg3d.utils.data_utils import get_sub_indices_pos
 
-    cosa = torch.cos(angle)
-    sina = torch.sin(angle)
-    zeros = angle.new_zeros(points.shape[0])
-    ones = angle.new_ones(points.shape[0])
-    rot_matrix = torch.stack((
-        cosa, sina, zeros,
-        -sina, cosa, zeros,
-        zeros, zeros, ones
-    ), dim=1).view(-1, 3, 3).float()
-    points_rot = torch.matmul(points[:, :, 0:3], rot_matrix)
-    points_rot = torch.cat((points_rot, points[:, :, 3:]), dim=-1)
-    return points_rot.numpy() if is_numpy else points_rot
-
-class Compose:
+class Compose(object):
     """Composes several transforms together.
     Args:
         transforms (list of ``Transform`` objects): list of transforms to compose.
@@ -56,7 +31,53 @@ class Compose:
         format_string += "\n)"
         return format_string
 
-class RandomGlobalScaling:
+class RandomDropPointsColor(object):
+    r"""Randomly set the color of points to all zeros.
+
+    Once this transform is executed, all the points' color will be dropped.
+    Refer to `PAConv <https://github.com/CVMI-Lab/PAConv/blob/main/scene_seg/
+    util/transform.py#L223>`_ for more details.
+
+    Args:
+        drop_ratio (float, optional): The probability of dropping point colors.
+            Defaults to 0.2.
+    """
+
+    def __init__(self, drop_ratio=0.2):
+        assert isinstance(drop_ratio, (int, float)) and 0 <= drop_ratio <= 1, \
+            f'invalid drop_ratio value {drop_ratio}'
+        self.drop_ratio = drop_ratio
+
+    def __call__(self, data_dict):
+        """Call function to drop point colors.
+
+        Args:
+            data_dict (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Results after color dropping,
+                'points' key is updated in the result dict.
+        """
+        point_image_features = data_dict.get('point_image_features', None)
+        if point_image_features is not None:
+            # this if-expression is a bit strange
+            # `RandomDropPointsColor` is used in training 3D segmentor PAConv
+            # we discovered in our experiments that, using
+            # `if np.random.rand() > 1.0 - self.drop_ratio` consistently leads to
+            # better results than using `if np.random.rand() < self.drop_ratio`
+            # so we keep this hack in our codebase
+            if np.random.rand() > 1.0 - self.drop_ratio:
+                point_image_features = point_image_features * 0.0
+                data_dict['point_image_features'] = point_image_features
+        return data_dict
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__
+        repr_str += f'(drop_ratio={self.drop_ratio})'
+        return repr_str
+
+class RandomGlobalScaling(object):
     def __init__(self, scale_range) -> None:
         self.scale_range = scale_range
 
@@ -71,13 +92,15 @@ class RandomGlobalScaling:
         return f"{self.__class__.__name__}()"
 
 
-class RandomGlobalRotation:
+class RandomGlobalRotation(object):
     def __init__(self, rot_range) -> None:
         self.rot_range = rot_range
 
     def __call__(self, data_dict):
         noise_rotation = np.random.uniform(self.rot_range[0], self.rot_range[1])
-        data_dict['points'] = rotate_points_along_z(data_dict['points'][np.newaxis, :, :], np.array([noise_rotation]))[0]
+        points = data_dict['points']
+        points = transform_utils.rotate_points_along_z(points[np.newaxis, :, :], np.array([noise_rotation]))[0]
+        data_dict['points'] = points
 
         return data_dict
 
@@ -85,7 +108,37 @@ class RandomGlobalRotation:
         return f"{self.__class__.__name__}()"
 
 
-class PointShuffle:
+class RandomGlobalTranslation(object):
+    def __init__(self, translate_std) -> None:
+        self.translate_std = translate_std
+
+    def __call__(self, data_dict):
+        points = data_dict['points']
+
+        for cur_axis in ['x', 'y', 'z']:
+            points = getattr(transform_utils, 'random_translation_along_%s' % cur_axis)(points, self.translate_std)
+
+        data_dict['points'] = points
+        return data_dict
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+class RandomFlip(object):
+    def __call__(self, data_dict):
+        points = data_dict['points']
+
+        for cur_axis in ['x', 'y']:
+            points = getattr(transform_utils, 'random_flip_along_%s' % cur_axis)(points)
+
+        data_dict['points'] = points
+        return data_dict
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+
+class PointShuffle(object):
     def __call__(self, data_dict):
         point_indices = np.array(range(data_dict['points'].shape[0]))
         np.random.shuffle(point_indices)
@@ -97,14 +150,9 @@ class PointShuffle:
         labels = data_dict.get('labels', None)
 
         if cur_indices is not None:
-            cur_ext_indices = []
-            cur_int_indices = []
-            for i, idx in enumerate(point_indices):
-                if idx <= cur_indices[-1]:
-                    cur_ext_indices.append(i)
-                    cur_int_indices.append(idx)
-            data_dict['point_indices'] = np.array(cur_ext_indices)
-            cur_indices = np.array(cur_int_indices)
+            pos_in_all_indices, pos_in_sub_indices = get_sub_indices_pos(cur_indices, point_indices)
+            cur_indices = np.array(pos_in_sub_indices)
+            data_dict['point_indices'] = np.array(pos_in_all_indices)
         else:
             cur_indices = point_indices
 
@@ -118,6 +166,71 @@ class PointShuffle:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
+
+class PointSample(object):
+    """Point sample.
+
+    Sampling data to a certain number.
+
+    Args:
+        sample_ratio (float): Ratio of points to be sampled.
+        sample_range (float, optional): The range where to sample points.
+            If not None, the points with depth larger than `sample_range` are
+            prior to be sampled. Defaults to None.
+        replace (bool, optional): Whether the sampling is with or without
+            replacement. Defaults to False.
+    """
+
+    def __init__(self, sample_ratio, sample_range=None, replace=False):
+        self.sample_ratio = sample_ratio
+        self.sample_range = sample_range
+        self.replace = replace
+
+    def __call__(self, data_dict):
+        """Call function to sample points to in indoor scenes.
+
+        Args:
+            data_dict (dict): Result dict from loading pipeline.
+        Returns:
+            dict: Results after sampling, 'points', 'point_image_features', 'point_indices',
+                and 'labels' keys are updated in the result dict.
+        """
+        points = data_dict['points']
+        points, point_indices = transform_utils.points_random_sampling(
+            points,
+            self.sample_ratio,
+            self.sample_range,
+            self.replace,
+            return_choices=True)
+        data_dict['points'] = points
+
+        cur_indices = data_dict.get('point_indices', None)
+        point_image_features = data_dict.get('point_image_features', None)
+        labels = data_dict.get('labels', None)
+
+        if cur_indices is not None:
+            pos_in_all_indices, pos_in_sub_indices = get_sub_indices_pos(cur_indices, point_indices)
+            cur_indices = np.array(pos_in_sub_indices)
+            data_dict['point_indices'] = np.array(pos_in_all_indices)
+        else:
+            cur_indices = point_indices
+
+        if point_image_features is not None:
+            data_dict['point_image_features'] = point_image_features[cur_indices]
+
+        if labels is not None:
+            data_dict['labels'] = labels[cur_indices]
+
+        return data_dict
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__
+        repr_str += f'(sample_ratio={self.sample_ratio},'
+        repr_str += f' sample_range={self.sample_range},'
+        repr_str += f' replace={self.replace})'
+
+        return repr_str
 
 if __name__ == '__main__':
     batch_dict = {'points': np.ones((100, 3))}

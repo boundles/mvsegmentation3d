@@ -41,17 +41,16 @@ class WaymoDataset(Dataset):
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
-        self.transforms = transforms.Compose([transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
+        self.transforms = transforms.Compose([transforms.RandomFlip(),
+                                              transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
                                               transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
-                                              transforms.PointShuffle()])
+                                              transforms.PointShuffle(),
+                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO, cfg.DATASET.AUG_SAMPLE_RANGE),
+                                              transforms.RandomDropPointsColor(cfg.DATASET.AUG_DROP_RATIO)])
 
     @property
     def dim_point(self):
         return self.cfg.DATASET.DIM_POINT
-
-    @property
-    def dim_image_feature(self):
-        return self.cfg.DATASET.DIM_IMAGE_FEATURE
 
     @property
     def num_classes(self):
@@ -69,6 +68,10 @@ class WaymoDataset(Dataset):
     @property
     def use_image_feature(self):
         return self.cfg.DATASET.USE_IMAGE_FEATURE
+
+    @property
+    def dim_image_feature(self):
+        return self.cfg.DATASET.DIM_IMAGE_FEATURE
 
     @property
     def ignore_index(self):
@@ -210,6 +213,11 @@ class WaymoDataset(Dataset):
         data_dict['voxel_num_points'] = num_points_per_voxel
         data_dict['point_voxel_ids'] = point_voxel_ids
 
+        point_indices = data_dict.get('point_indices', None)
+        if point_indices is not None:
+            data_dict['points'] = data_dict['points'][point_indices]
+            data_dict['point_voxel_ids'] = data_dict['point_voxel_ids'][point_indices]
+
         return data_dict
 
     def __getitem__(self, index):
@@ -238,8 +246,7 @@ class WaymoDataset(Dataset):
                 input_dict['points_ri'] = points[point_indices][-3:]
             else:
                 input_dict['points_ri'] = points[-3:]
-
-        if not self.test_mode:
+        else:
             labels = self.load_label(filename)
             input_dict['labels'] = labels
 
@@ -254,39 +261,26 @@ class WaymoDataset(Dataset):
                 data_dict[key].append(val)
 
         ret = {}
-        voxel_nums = None
         for key, val in data_dict.items():
-            if key in ['voxel_coords']:
+            if key in ['points', 'voxel_coords']:
                 coors = []
-                voxel_nums = []
                 for i, coor in enumerate(val):
                     coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
                     coors.append(coor_pad)
-                    voxel_nums.append(coor.shape[0])
                 ret[key] = np.concatenate(coors, axis=0)
-            elif key in ['points', 'points_ri', 'point_image_features', 'voxels', 'voxel_num_points', 'labels']:
+            elif key in ['voxels', 'voxel_num_points', 'points_ri', 'point_image_features', 'labels']:
                 ret[key] = np.concatenate(val, axis=0)
             elif key in ['filename']:
                 ret[key] = val
 
         voxel_offset = 0
-        point_nums = None
-        if voxel_nums and 'point_voxel_ids' in data_dict:
-            point_nums = []
+        if 'point_voxel_ids' in data_dict and 'voxel_coords' in data_dict:
             point_voxel_ids_list = data_dict['point_voxel_ids']
+            voxel_coords_list = data_dict['voxel_coords']
             for i, point_voxel_ids in enumerate(point_voxel_ids_list):
-                point_nums.append(point_voxel_ids.shape[0])
                 point_voxel_ids[point_voxel_ids != -1] += voxel_offset
-                voxel_offset += voxel_nums[i]
+                voxel_offset += voxel_coords_list[i].shape[0]
             ret['point_voxel_ids'] = np.concatenate(point_voxel_ids_list, axis=0)
-
-        idx_offset = 0
-        if point_nums and 'point_indices' in data_dict:
-            point_indices_list = data_dict['point_indices']
-            for i, point_indices in enumerate(point_indices_list):
-                point_indices += idx_offset
-                idx_offset += point_nums[i]
-            ret['point_indices'] = np.concatenate(point_indices_list, axis=0)
 
         batch_size = len(batch_list)
         ret['batch_size'] = batch_size

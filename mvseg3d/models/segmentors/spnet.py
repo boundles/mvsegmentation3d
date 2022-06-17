@@ -3,31 +3,10 @@ import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
-from mvseg3d.utils.voxel_point_utils import voxel_to_point
+from mvseg3d.models.layers import FlattenELayer
+from mvseg3d.ops import voxel_to_point
 
-class CALayer(nn.Module):
-    def __init__(self, channel, reduction=4):
-        super(CALayer, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Sequential(
-            nn.Linear(channel, channel // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(channel // reduction, channel, bias=False),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        x = x.unsqueeze(2).unsqueeze(3).permute(2, 1, 0, 3)
-        b, c, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1)
-        y = x * y.expand_as(x)
-
-        x = x.permute(2, 1, 0, 3).squeeze().squeeze()
-        y = y.permute(2, 1, 0, 3).squeeze().squeeze()
-        return x + y
-
-class MVFNet(nn.Module):
+class SPNet(nn.Module):
     def __init__(self, dataset):
         super().__init__()
 
@@ -66,7 +45,7 @@ class MVFNet(nn.Module):
                                             nn.BatchNorm1d(self.fusion_out_channel),
                                             nn.ReLU(inplace=True))
 
-        self.ca = CALayer(self.fusion_out_channel)
+        self.se = FlattenELayer(self.fusion_out_channel)
 
         self.cls_layers = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_out_channel),
@@ -80,20 +59,22 @@ class MVFNet(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.BatchNorm1d):
                 nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
 
     def forward(self, batch_dict):
-        points = batch_dict['points']
+        points = batch_dict['points'][:, 1:]
         point_voxel_ids = batch_dict['point_voxel_ids']
-        if 'point_indices' in batch_dict:
-            point_indices = batch_dict['point_indices']
-            points = points[point_indices]
-            point_voxel_ids = point_voxel_ids[point_indices]
 
         point_per_features = self.point_encoder(points)
         voxel_enc = self.voxel_encoder(self.vfe(batch_dict))
         point_voxel_features = voxel_to_point(voxel_enc['voxel_features'], point_voxel_ids)
 
+        # fusion multi-view features
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
             point_image_features = self.image_encoder(point_image_features)
@@ -101,8 +82,11 @@ class MVFNet(nn.Module):
         else:
             point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
-        point_fusion_features = self.ca(point_fusion_features)
-        point_fusion_features = self.dropout(point_fusion_features)
 
+        # channel attention
+        batch_indices = batch_dict['points'][:, 0]
+        point_fusion_features = point_fusion_features + self.se(point_fusion_features, batch_indices)
+
+        point_fusion_features = self.dropout(point_fusion_features)
         out = self.cls_layers(point_fusion_features)
         return out

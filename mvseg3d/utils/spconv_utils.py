@@ -1,5 +1,4 @@
 import spconv.pytorch as spconv
-import torch.nn as nn
 
 
 def replace_feature(out, new_features):
@@ -11,8 +10,8 @@ def replace_feature(out, new_features):
         return
 
 
-def post_act_block(in_channels, out_channels, kernel_size, indice_key=None, stride=1, padding=0,
-                   conv_type='subm', norm_fn=None):
+def conv_norm_act(in_channels, out_channels, kernel_size, indice_key=None, stride=1, padding=0,
+                  conv_type='subm', norm_fn=None, act_fn=None):
     if conv_type == 'subm':
         conv = spconv.SubMConv3d(in_channels, out_channels, kernel_size, bias=False, indice_key=indice_key)
     elif conv_type == 'spconv':
@@ -26,7 +25,7 @@ def post_act_block(in_channels, out_channels, kernel_size, indice_key=None, stri
     m = spconv.SparseSequential(
         conv,
         norm_fn(out_channels),
-        nn.ReLU(inplace=True),
+        act_fn
     )
 
     return m

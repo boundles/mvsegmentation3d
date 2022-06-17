@@ -7,13 +7,13 @@ import torch.optim
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
-from mvseg3d.models.segmentors.mvf import MVFNet
-from mvseg3d.models import build_criterion, build_optimizer
+from mvseg3d.models.segmentors.spnet import SPNet
 from mvseg3d.core.metrics import IOUMetric
-from mvseg3d.utils.logging import get_logger
+from mvseg3d.utils.logging import get_root_logger
 from mvseg3d.utils import distributed_utils
 from mvseg3d.utils.config import cfg, cfg_from_file
-from mvseg3d.utils.io_utils import load_data_to_gpu
+from mvseg3d.utils.data_utils import load_data_to_gpu
+from mvseg3d.utils.train_utils import build_criterion, build_optimizer, build_scheduler, set_random_seed
 
 
 def parse_args():
@@ -28,10 +28,11 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')
     parser.add_argument('--epochs', default=30, type=int)
     parser.add_argument('--cudnn_benchmark', action='store_true', default=False, help='whether to use cudnn')
+    parser.add_argument('--fix_random_seed', action='store_true', default=False, help='set random seed for reproducibility')
     parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')
     parser.add_argument('--no_validate', action='store_true', help='whether not to evaluate the checkpoint during training')
     parser.add_argument('--eval_epoch_interval', default=2, type=int)
-    parser.add_argument('--log_iter_interval', default=5, type=int)
+    parser.add_argument('--log_iter_interval', default=10, type=int)
     parser.add_argument('--auto_resume', action='store_true', help='resume from the latest checkpoint automatically')
     args = parser.parse_args()
 
@@ -82,7 +83,7 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
-def train_epoch(args, data_loader, model, criterion, optimizer, rank, epoch, logger):
+def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, rank, epoch, logger):
     model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
@@ -95,7 +96,9 @@ def train_epoch(args, data_loader, model, criterion, optimizer, rank, epoch, log
         loss.backward()
         optimizer.step()
 
-        if rank == 0 and step % args.log_iter_interval == 0:
+        lr_scheduler.step()
+
+        if step % args.log_iter_interval == 0:
             try:
                 cur_lr = float(optimizer.lr)
             except:
@@ -114,9 +117,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names,
         cur_epoch = epoch + 1
 
         # train for one epoch
-        train_epoch(args, data_loaders['train'], model, criterion, optimizer, rank, cur_epoch, logger)
-
-        lr_scheduler.step()
+        train_epoch(args, data_loaders['train'], model, criterion, optimizer, lr_scheduler, rank, cur_epoch, logger)
 
         # save checkpoint
         if rank == 0 and args.auto_resume:
@@ -135,6 +136,7 @@ def main():
     # whether to distributed training
     if args.launcher == 'none':
         distributed = False
+        rank = 0
     else:
         distributed = True
         distributed_utils.init_dist(args.launcher)
@@ -145,13 +147,16 @@ def main():
     if args.cudnn_benchmark:
         torch.backends.cudnn.benchmark = True
 
+    if args.fix_random_seed:
+        set_random_seed(666)
+
     # create saved directory
     os.makedirs(args.save_dir, exist_ok=True)
 
     # create logger
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = os.path.join(args.save_dir, f'{timestamp}.log')
-    logger = get_logger("mvseg3d", log_file)
+    logger = get_root_logger(name="mvseg3d", log_file=log_file)
 
     # load data
     train_dataset = WaymoDataset(cfg, args.data_dir, 'training')
@@ -177,7 +182,7 @@ def main():
     data_loaders = {'train': train_loader, 'val': val_loader}
 
     # define model
-    model = MVFNet(train_dataset)
+    model = SPNet(train_dataset)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()
@@ -191,7 +196,7 @@ def main():
 
     # optimizer and learning rate scheduler
     optimizer = build_optimizer(cfg, model)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+    lr_scheduler = build_scheduler(cfg, optimizer, args.epochs, len(train_loader))
 
     # resume from checkpoint
     start_epoch = 0

@@ -2,17 +2,17 @@ import torch
 from torch.autograd import Function
 from torch.cuda.amp import custom_bwd, custom_fwd
 
-from . import voxelization_ext
+from . import voxel_pooling_ext
 
 
-class VoxelizeFunction(Function):
+class VoxelPoolingFunction(Function):
     @staticmethod
     @custom_fwd(cast_inputs=torch.half)
     def forward(ctx, feats: torch.Tensor, coords: torch.Tensor,
                 counts: torch.Tensor) -> torch.Tensor:
         """
             :param ctx:
-            :param features: FloatTensor[N, C]
+            :param feats: FloatTensor[N, C]
             :param coords: the coordinates of points, IntTensor[N,]
             :param counts: point num of per voxel, IntTensor[M,]
             :return:
@@ -20,16 +20,17 @@ class VoxelizeFunction(Function):
         """
         feats = feats.contiguous()
         coords = coords.contiguous().int()
+        counts = counts.int()
 
         if feats.device.type == 'cuda':
-            output = voxelization_ext.voxelize_forward_cuda(
+            output = voxel_pooling_ext.voxel_pooling_forward_cuda(
                 feats, coords, counts)
         elif feats.device.type == 'cpu':
-            output = voxelization_ext.voxelize_forward_cpu(
+            output = voxel_pooling_ext.voxel_pooling_forward_cpu(
                 feats, coords, counts)
         else:
             device = feats.device
-            output = voxelization_ext.voxelize_forward_cpu(
+            output = voxel_pooling_ext.voxel_pooling_forward_cpu(
                 feats.cpu(), coords.cpu(), counts.cpu()).to(device)
 
         ctx.for_backwards = (coords, counts, feats.shape[0])
@@ -42,17 +43,17 @@ class VoxelizeFunction(Function):
         grad_output = grad_output.contiguous()
 
         if grad_output.device.type == 'cuda':
-            grad_feats = voxelization_ext.voxelize_backward_cuda(
+            grad_feats = voxel_pooling_ext.voxel_pooling_backward_cuda(
                 grad_output, coords, counts, input_size)
         elif grad_output.device.type == 'cpu':
-            grad_feats = voxelization_ext.voxelize_backward_cpu(
+            grad_feats = voxel_pooling_ext.voxel_pooling_backward_cpu(
                 grad_output, coords, counts, input_size)
         else:
             device = grad_output.device
-            grad_feats = voxelization_ext.voxelize_backward_cpu(
+            grad_feats = voxel_pooling_ext.voxel_pooling_backward_cpu(
                 grad_output.cpu(), coords.cpu(), counts.cpu(),
                 input_size).to(device)
 
         return grad_feats, None, None
 
-voxelize = VoxelizeFunction.apply
+voxel_pooling = VoxelPoolingFunction.apply

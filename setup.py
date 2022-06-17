@@ -21,6 +21,7 @@ def make_cuda_ext(name,
     extra_compile_args = {'cxx': ['-g', '-O3', '-fopenmp', '-lgomp'] + extra_args}
 
     if torch.cuda.is_available() or os.getenv('FORCE_CUDA', '0') == '1':
+        os.environ["TORCH_CUDA_ARCH_LIST"] = "6.0;6.1;6.2;7.0;7.2;7.5"
         define_macros += [('WITH_CUDA', None)]
         extension = CUDAExtension
         extra_compile_args['nvcc'] = extra_args + [
@@ -32,7 +33,7 @@ def make_cuda_ext(name,
     else:
         print('Compiling {} without CUDA'.format(name))
         extension = CppExtension
-        # raise EnvironmentError('CUDA is required to compile MMDetection!')
+        # raise EnvironmentError('CUDA is required to compile mvsegmentation3d!')
 
     return extension(
         name='{}.{}'.format(module, name),
@@ -60,17 +61,11 @@ setuptools.setup(
     python_requires=">=3.6",
     ext_modules=[
         make_cuda_ext(
-            name='devoxelization_ext',
-            module='mvseg3d.ops.devoxelization',
+            name='voxel_pooling_ext',
+            module='mvseg3d.ops.voxel_pooling',
             extra_include_path=['/usr/local/cuda/include'],
-            sources=['src/devoxelize.cpp'],
-            sources_cuda=['src/devoxelize_cuda.cu']),
-        make_cuda_ext(
-            name='voxelization_ext',
-            module='mvseg3d.ops.voxelization',
-            extra_include_path=['/usr/local/cuda/include'],
-            sources=['src/voxelize.cpp'],
-            sources_cuda=['src/voxelize_cuda.cu']),
+            sources=['src/voxel_pooling.cpp'],
+            sources_cuda=['src/voxel_pooling_cuda.cu']),
     ],
     cmdclass={'build_ext': BuildExtension},
     zip_safe=False
