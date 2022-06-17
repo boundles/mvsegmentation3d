@@ -190,6 +190,34 @@ class WaymoDataset(Dataset):
         semantic_labels[semantic_labels == -1] = 255
         return semantic_labels
 
+    def prepare_voxel_labels(self, data_dict):
+        assert self.ignore_index == 255
+        label_size = 256
+        voxel_label_counter = dict()
+        voxels = data_dict.get('voxels', None)
+        point_voxel_ids = data_dict.get('point_voxel_ids', None)
+        labels = data_dict.get('labels', None)
+        if voxels is not None and point_voxel_ids is not None and labels is not None:
+            for i in range(point_voxel_ids.shape[0]):
+                voxel_id = point_voxel_ids[i]
+                label = labels[i]
+                if voxel_id != -1:
+                    if voxel_id not in voxel_label_counter:
+                        counter = np.zeros((label_size,), dtype=np.uint16)
+                        counter[label] += 1
+                        voxel_label_counter[voxel_id] = counter
+                    else:
+                        counter = voxel_label_counter[voxel_id]
+                        counter[label] += 1
+                        voxel_label_counter[voxel_id] = counter
+
+            voxel_labels = np.ones(voxels.shape[0], dtype=np.uint8) * self.ignore_index
+            for voxel_id in voxel_label_counter:
+                counter = voxel_label_counter[voxel_id]
+                voxel_labels[voxel_id] = np.argmax(counter)
+
+            data_dict['voxel_labels'] = voxel_labels
+
     def prepare_data(self, data_dict):
         """
         Args:
@@ -217,6 +245,8 @@ class WaymoDataset(Dataset):
         if point_indices is not None:
             data_dict['points'] = data_dict['points'][point_indices]
             data_dict['point_voxel_ids'] = data_dict['point_voxel_ids'][point_indices]
+
+        self.prepare_voxel_labels(data_dict)
 
         return data_dict
 
