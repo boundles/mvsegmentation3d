@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 
@@ -47,13 +49,13 @@ class SPNet(nn.Module):
 
         self.se = FlattenELayer(self.fusion_out_channel)
 
-        self.aux_voxel_cls_layers = nn.Sequential(nn.Linear(self.voxel_encoder.voxel_feature_channel, 16, bias=False),
-                                                  nn.BatchNorm1d(16),
-                                                  nn.ReLU(inplace=True),
-                                                  nn.Dropout(0.1),
-                                                  nn.Linear(16, dataset.num_classes, bias=False))
+        self.aux_classifier = nn.Sequential(nn.Linear(self.voxel_encoder.voxel_feature_channel, 16, bias=False),
+                                            nn.BatchNorm1d(16),
+                                            nn.ReLU(inplace=True),
+                                            nn.Dropout(0.1),
+                                            nn.Linear(16, dataset.num_classes, bias=False))
 
-        self.cls_layers = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
+        self.classifier = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_out_channel),
                                         nn.ReLU(inplace=True),
                                         nn.Linear(self.fusion_out_channel, dataset.num_classes, bias=False))
@@ -93,9 +95,12 @@ class SPNet(nn.Module):
         batch_indices = batch_dict['points'][:, 0]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, batch_indices)
 
+        result = OrderedDict()
         point_fusion_features = self.dropout(point_fusion_features)
-        out = self.cls_layers(point_fusion_features)
+        out = self.classifier(point_fusion_features)
+        result['out'] = out
 
-        aux_out = self.aux_voxel_cls_layers(voxel_enc['voxel_features'])
+        aux_out = self.aux_classifier(voxel_enc['voxel_features'])
+        result['aux_out'] = aux_out
 
-        return out, aux_out
+        return result

@@ -83,17 +83,18 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
-def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, rank, epoch, logger):
+def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, epoch, logger):
     model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
-        out, aux_out = model(data_dict)
+        result = model(data_dict)
 
         labels = data_dict['labels']
-        loss = criterion(out, labels)
+        loss = criterion(result['out'], labels)
 
-        voxel_labels = data_dict['voxel_labels']
-        loss += 0.4 * criterion(aux_out, voxel_labels)
+        if 'aux_out' in result:
+            voxel_labels = data_dict['voxel_labels']
+            loss += 0.4 * criterion(result['aux_out'], voxel_labels)
 
         optimizer.zero_grad()
         loss.backward()
@@ -120,7 +121,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names,
         cur_epoch = epoch + 1
 
         # train for one epoch
-        train_epoch(args, data_loaders['train'], model, criterion, optimizer, lr_scheduler, rank, cur_epoch, logger)
+        train_epoch(args, data_loaders['train'], model, criterion, optimizer, lr_scheduler, cur_epoch, logger)
 
         # save checkpoint
         if rank == 0 and args.auto_resume:
