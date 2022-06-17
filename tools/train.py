@@ -87,10 +87,13 @@ def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, ra
     model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
-        out = model(data_dict)
+        out, aux_out = model(data_dict)
 
         labels = data_dict['labels']
         loss = criterion(out, labels)
+
+        voxel_labels = data_dict['voxel_labels']
+        loss += 0.4 * criterion(aux_out, voxel_labels)
 
         optimizer.zero_grad()
         loss.backward()

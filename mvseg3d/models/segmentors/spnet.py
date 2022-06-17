@@ -47,6 +47,12 @@ class SPNet(nn.Module):
 
         self.se = FlattenELayer(self.fusion_out_channel)
 
+        self.aux_voxel_cls_layers = nn.Sequential(nn.Linear(self.voxel_encoder.voxel_feature_channel, 16, bias=False),
+                                                  nn.BatchNorm1d(16),
+                                                  nn.ReLU(inplace=True),
+                                                  nn.Dropout(0.1),
+                                                  nn.Linear(16, dataset.num_classes, bias=False))
+
         self.cls_layers = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_out_channel),
                                         nn.ReLU(inplace=True),
@@ -89,4 +95,7 @@ class SPNet(nn.Module):
 
         point_fusion_features = self.dropout(point_fusion_features)
         out = self.cls_layers(point_fusion_features)
-        return out
+
+        aux_out = self.aux_voxel_cls_layers(voxel_enc['voxel_features'])
+
+        return out, aux_out
