@@ -67,16 +67,20 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
         with torch.no_grad():
-            out = model(data_dict)
+            result = model(data_dict)
 
         gt_labels = data_dict['labels']
-        loss = criterion(out, gt_labels)
+        loss = criterion(result['out'], gt_labels)
+
+        if 'aux_out' in result:
+            voxel_labels = data_dict['voxel_labels']
+            loss += 0.4 * criterion(result['aux_out'], voxel_labels)
 
         if step % args.log_iter_interval == 0:
             logger.info(
                 'Evaluate on epoch %d - Iter [%d/%d] loss: %f' % (epoch, step, len(data_loader), loss.cpu().item()))
 
-        pred_labels = torch.argmax(out, dim=1).cpu()
+        pred_labels = torch.argmax(result['out'], dim=1).cpu()
         gt_labels = gt_labels.cpu()
         iou_metric.add(pred_labels, gt_labels)
 
