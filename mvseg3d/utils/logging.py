@@ -76,6 +76,8 @@ def get_logger(name, log_file=None, log_level=logging.INFO, file_mode='w'):
     else:
         logger.setLevel(logging.ERROR)
 
+    logger.propagate = False
+
     logger_initialized[name] = True
 
     return logger
