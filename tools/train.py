@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')
     parser.add_argument('--epochs', default=30, type=int)
+    parser.add_argument('--seed', type=int, default=None, help='random seed')
     parser.add_argument('--cudnn_benchmark', action='store_true', default=False, help='whether to use cudnn')
     parser.add_argument('--deterministic', action='store_true', default=False, help='whether to use deterministic')
     parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')

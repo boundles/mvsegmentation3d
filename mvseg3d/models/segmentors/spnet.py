@@ -58,6 +58,7 @@ class SPNet(nn.Module):
         self.classifier = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_out_channel),
                                         nn.ReLU(inplace=True),
+                                        nn.Dropout(0.1),
                                         nn.Linear(self.fusion_out_channel, dataset.num_classes, bias=False))
 
         self.weight_initialization()
@@ -96,7 +97,6 @@ class SPNet(nn.Module):
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, batch_indices)
 
         result = OrderedDict()
-        point_fusion_features = self.dropout(point_fusion_features)
         out = self.classifier(point_fusion_features)
         result['out'] = out
 
