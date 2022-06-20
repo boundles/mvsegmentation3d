@@ -4,6 +4,7 @@ import argparse
 
 import torch
 import torch.optim
+import torch.distributed as dist
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
@@ -13,7 +14,8 @@ from mvseg3d.utils.logging import get_root_logger
 from mvseg3d.utils import distributed_utils
 from mvseg3d.utils.config import cfg, cfg_from_file
 from mvseg3d.utils.data_utils import load_data_to_gpu
-from mvseg3d.utils.train_utils import build_criterion, build_optimizer, build_scheduler, set_random_seed
+from mvseg3d.utils.train_utils import build_criterion, build_optimizer, build_scheduler, set_random_seed, \
+    init_random_seed
 
 
 def parse_args():
@@ -28,7 +30,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')
     parser.add_argument('--epochs', default=30, type=int)
     parser.add_argument('--cudnn_benchmark', action='store_true', default=False, help='whether to use cudnn')
-    parser.add_argument('--fix_random_seed', action='store_true', default=False, help='set random seed for reproducibility')
+    parser.add_argument('--deterministic', action='store_true', default=False, help='whether to use deterministic')
     parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')
     parser.add_argument('--no_validate', action='store_true', help='whether not to evaluate the checkpoint during training')
     parser.add_argument('--eval_epoch_interval', default=2, type=int)
@@ -154,9 +156,6 @@ def main():
     if args.cudnn_benchmark:
         torch.backends.cudnn.benchmark = True
 
-    if args.fix_random_seed:
-        set_random_seed(666)
-
     # create saved directory
     os.makedirs(args.save_dir, exist_ok=True)
 
@@ -164,6 +163,13 @@ def main():
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = os.path.join(args.save_dir, f'{timestamp}.log')
     logger = get_root_logger(name="mvseg3d", log_file=log_file)
+
+    # set random seed
+    seed = init_random_seed(args.seed)
+    seed = seed + dist.get_rank()
+    logger.info(f'Set random seed to {seed}, '
+                f'deterministic: {args.deterministic}')
+    set_random_seed(seed, deterministic=args.deterministic)
 
     # load data
     train_dataset = WaymoDataset(cfg, args.data_dir, 'training')
@@ -177,6 +183,7 @@ def main():
         batch_size=args.batch_size,
         dist=distributed,
         num_workers=args.num_workers,
+        seed=seed,
         training=True)
 
     val_set, val_loader, sampler = build_dataloader(
@@ -184,6 +191,7 @@ def main():
         batch_size=args.batch_size,
         dist=distributed,
         num_workers=args.num_workers,
+        seed=seed,
         training=False)
 
     data_loaders = {'train': train_loader, 'val': val_loader}
