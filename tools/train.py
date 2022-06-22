@@ -141,8 +141,6 @@ def main():
     # parse args
     args = parse_args()
 
-    cfg_from_file(args.cfg_file)
-
     # whether to distributed training
     if args.launcher == 'none':
         distributed = False
@@ -171,6 +169,10 @@ def main():
     logger.info(f'Set random seed to {seed}, '
                 f'deterministic: {args.deterministic}')
     set_random_seed(seed, deterministic=args.deterministic)
+
+    # config
+    cfg_from_file(args.cfg_file)
+    logger.info(cfg)
 
     # load data
     train_dataset = WaymoDataset(cfg, args.data_dir, 'training')
