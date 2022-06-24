@@ -2,9 +2,9 @@ import torch.nn as nn
 from mvseg3d.ops import voxel_pooling
 
 
-class FlattenELayer(nn.Module):
+class FlattenSELayer(nn.Module):
     def __init__(self, channel, reduction=4):
-        super(FlattenELayer, self).__init__()
+        super(FlattenSELayer, self).__init__()
         self.fc = nn.Sequential(
             nn.Linear(channel, channel // reduction, bias=False),
             nn.ReLU(inplace=True),

@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
-from mvseg3d.models.layers import FlattenELayer
+from mvseg3d.models.layers import FlattenSELayer
 from mvseg3d.ops import voxel_to_point
 
 class SPNet(nn.Module):
@@ -47,7 +47,7 @@ class SPNet(nn.Module):
                                             nn.BatchNorm1d(self.fusion_out_channel),
                                             nn.ReLU(inplace=True))
 
-        self.se = FlattenELayer(self.fusion_out_channel)
+        self.se = FlattenSELayer(self.fusion_out_channel)
 
         self.aux_classifier = nn.Sequential(nn.Linear(self.voxel_encoder.voxel_feature_channel, 16, bias=False),
                                             nn.BatchNorm1d(16),

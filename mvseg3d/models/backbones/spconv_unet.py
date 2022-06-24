@@ -6,13 +6,14 @@ import torch.nn as nn
 import spconv.pytorch as spconv
 
 from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
-from mvseg3d.models.layers import FlattenELayer
+from mvseg3d.models.layers import FlattenSELayer, SALayer
 
 
 class SparseBasicBlock(spconv.SparseModule):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, norm_fn=None, act_fn=None, with_se=False, indice_key=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, norm_fn=None, act_fn=None, with_se=False,
+                 with_sa=False, indice_key=None):
         super(SparseBasicBlock, self).__init__()
 
         assert norm_fn is not None
@@ -28,9 +29,14 @@ class SparseBasicBlock(spconv.SparseModule):
         self.bn2 = norm_fn(planes)
         self.downsample = downsample
         self.stride = stride
+
         self.with_se = with_se
         if self.with_se:
-            self.se = FlattenELayer(planes)
+            self.se = FlattenSELayer(planes)
+
+        self.with_sa = with_sa
+        if self.with_sa:
+            self.sa = SALayer(planes, planes, indice_key)
 
     def forward(self, x):
         identity = x
@@ -44,6 +50,9 @@ class SparseBasicBlock(spconv.SparseModule):
 
         if self.with_se:
             out = replace_feature(out, self.se(out.features, out.indices[:, 0]))
+
+        if self.with_sa:
+            out = self.sa(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -92,14 +101,14 @@ class SparseUnet(nn.Module):
             # [800, 704, 21] -> [400, 352, 11]
             block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, with_sa=True, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
             # [400, 352, 11] -> [200, 176, 5]
             block(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
-            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
+            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, with_sa=True, indice_key='subm4')
         )
 
         # decoder
