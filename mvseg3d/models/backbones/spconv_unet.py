@@ -36,7 +36,7 @@ class SparseBasicBlock(spconv.SparseModule):
 
         self.with_sa = with_sa
         if self.with_sa:
-            self.sa = SALayer(planes, planes, indice_key)
+            self.sa = SALayer(indice_key)
 
     def forward(self, x):
         identity = x
