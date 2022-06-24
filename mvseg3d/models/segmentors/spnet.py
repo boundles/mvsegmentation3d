@@ -62,7 +62,6 @@ class SPNet(nn.Module):
                                         nn.Linear(self.fusion_out_channel, dataset.num_classes, bias=False))
 
         self.weight_initialization()
-        self.dropout = nn.Dropout(0.3, True)
 
     def weight_initialization(self):
         for m in self.modules():

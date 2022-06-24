@@ -127,14 +127,6 @@ class SparseUnet(nn.Module):
             block(32, self.voxel_feature_channel, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, indice_key='subm1')
         )
 
-        self.weight_initialization()
-
-    def weight_initialization(self):
-        for m in self.modules():
-            if isinstance(m, nn.BatchNorm1d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-
     def UR_block_forward(self, x_lateral, x_bottom, conv_t, conv_m, conv_inv):
         x_trans = conv_t(x_lateral)
         x = x_trans
