@@ -20,13 +20,12 @@ def build_dataloader(dataset, batch_size, dist, num_workers=4, seed=None, traini
         else:
             sampler = DistributedSampler(
                 dataset, world_size, rank, shuffle=False, seed=seed)
-
-        init_fn = partial(
-            worker_init_fn, num_workers=num_workers, rank=rank,
-            seed=seed) if seed is not None else None
     else:
         sampler = None
-        init_fn = None
+
+    init_fn = partial(
+        worker_init_fn, num_workers=num_workers, rank=rank,
+        seed=seed) if seed is not None else None
 
     dataloader = DataLoader(
         dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True,
