@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import _LRScheduler
 import torch.distributed as dist
 
-from mvseg3d.models import LovaszLoss, OHEMCrossEntropyLoss
+from mvseg3d.models import LovaszLoss, OHEMCrossEntropyLoss, DiceLoss
 from mvseg3d.utils.distributed_utils import get_dist_info
 
 
@@ -142,15 +142,20 @@ def build_criterion(cfg, dataset):
     else:
         weight = None
 
-    if cfg.MODEL.LOSS == 'ce':
-        criterion = OHEMCrossEntropyLoss(class_weight=weight, keep_ratio=cfg.MODEL.OHEM_KEEP_RATIO,
-                                         ignore_index=dataset.ignore_index)
-    elif cfg.MODEL.LOSS == 'lovasz':
-        criterion = LovaszLoss(ignore_index=dataset.ignore_index)
-    else:
-        raise NotImplementedError
+    losses = []
+    for loss_name in cfg.MODEL.LOSSES:
+        if loss_name == 'ce':
+            criterion = OHEMCrossEntropyLoss(class_weight=weight, keep_ratio=cfg.MODEL.OHEM_KEEP_RATIO,
+                                             ignore_index=dataset.ignore_index)
+        elif loss_name == 'dice':
+            criterion = DiceLoss(class_weight=weight, ignore_index=dataset.ignore_index)
+        elif loss_name == 'lovasz':
+            criterion = LovaszLoss(class_weight=weight, ignore_index=dataset.ignore_index)
+        else:
+            raise NotImplementedError
+        losses.append((criterion, cfg.MODEL.LOSSES[loss_name]))
 
-    return criterion
+    return losses
 
 def build_optimizer(cfg, model):
     if cfg.TRAIN.OPTIMIZER == 'adam':
