@@ -90,7 +90,7 @@ class DiceLoss(nn.Module):
         reduction = (
             reduction_override if reduction_override else self.reduction)
         if self.class_weight is not None:
-            class_weight = pred.new_tensor(self.class_weight)
+            class_weight = self.class_weight
         else:
             class_weight = None
 
