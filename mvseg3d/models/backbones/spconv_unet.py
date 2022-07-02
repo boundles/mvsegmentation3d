@@ -70,16 +70,13 @@ class UpBlock(spconv.SparseModule):
         super().__init__()
         self.conv_t = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
                                        indice_key='subm' + layer_id)
-        self.conv_rc = nn.Sequential(nn.Linear(2 * inplanes, inplanes, bias=False),
-                                     nn.BatchNorm1d(inplanes),
-                                     nn.ReLU(inplace=True))
         if conv_type == 'inverseconv':
-            self.conv_m = conv_norm_act(inplanes, inplanes, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1,
+            self.conv_m = conv_norm_act(2 * inplanes, inplanes, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1,
                                         indice_key='subm' + layer_id)
             self.conv_out = conv_norm_act(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type=conv_type,
                                           indice_key='spconv' + layer_id)
         elif conv_type == 'subm':
-            self.conv_m = conv_norm_act(inplanes, inplanes, 3, norm_fn=norm_fn, act_fn=act_fn,
+            self.conv_m = conv_norm_act(2 * inplanes, inplanes, 3, norm_fn=norm_fn, act_fn=act_fn,
                                         indice_key='subm' + layer_id)
             self.conv_out = SparseBasicBlock(inplanes, planes, norm_fn=norm_fn, act_fn=act_fn, with_se=True,
                                              with_sa=True, indice_key='subm' + layer_id)
@@ -88,7 +85,7 @@ class UpBlock(spconv.SparseModule):
 
     def forward(self, x_bottom, x_lateral):
         x = self.conv_t(x_bottom)
-        x = replace_feature(x, self.conv_rc(torch.cat([x_lateral.features, x.features], dim=1)))
+        x = replace_feature(x, torch.cat([x_lateral.features, x.features], dim=1))
         x = self.conv_m(x)
         x = self.conv_out(x)
         return x
