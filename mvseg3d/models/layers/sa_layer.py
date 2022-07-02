@@ -1,28 +1,25 @@
-import torch
 import torch.nn as nn
 
-import spconv.pytorch as spconv
-from mvseg3d.utils.spconv_utils import replace_feature
+from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
 
 
 class SALayer(nn.Module):
-    def __init__(self, indice_key):
+    def __init__(self, inplanes, planes, norm_fn, act_fn, indice_key):
         super(SALayer, self).__init__()
-        self.conv = spconv.SubMConv3d(2, 1, kernel_size=7, padding=3, bias=False, indice_key=indice_key + 'sa')
+        self.conv = conv_norm_act(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, conv_type='subm',
+                                  indice_key=indice_key)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         """Forward function.
         Args:
-            x (SparseTensor): The input with features: shape (N, C) and indices: shape (N, 4)
+            x (SparseTensor): The input with features: shape (N, C)
         Returns:
-            SparseTensor: The output with features: shape (N, C) and indices: shape (N, 4)
+            SparseTensor: The output with features: shape (N, C)
         """
         identity = x
-        avg_out = torch.mean(x.features, dim=1, keepdim=True)
-        max_out, _ = torch.max(x.features, dim=1, keepdim=True)
-        out = replace_feature(x, torch.cat([avg_out, max_out], dim=1))
-        out = self.conv(out)
+
+        out = self.conv(x)
         out = replace_feature(out, self.sigmoid(out.features))
         out = replace_feature(out, identity.features * out.features)
 
