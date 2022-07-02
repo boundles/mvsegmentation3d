@@ -17,10 +17,8 @@ class SALayer(nn.Module):
         Returns:
             SparseTensor: The output with features: shape (N, C)
         """
-        identity = x
-
         out = self.conv(x)
         out = replace_feature(out, self.sigmoid(out.features))
-        out = replace_feature(out, identity.features * out.features)
+        out = replace_feature(out, x.features * out.features)
 
         return out
