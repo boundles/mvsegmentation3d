@@ -71,7 +71,7 @@ class UpBlock(spconv.SparseModule):
         self.conv_t = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
                                        indice_key='subm' + layer_id)
         self.conv_rc = nn.Sequential(nn.Linear(2 * inplanes, inplanes, bias=False),
-                                     nn.BatchNorm1d(32),
+                                     nn.BatchNorm1d(inplanes),
                                      nn.ReLU(inplace=True))
         if conv_type == 'inverseconv':
             self.conv_m = conv_norm_act(inplanes, inplanes, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1,
