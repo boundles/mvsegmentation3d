@@ -32,7 +32,7 @@ class SparseBasicBlock(spconv.SparseModule):
 
         # spatial and channel attention
         if with_se:
-            self.se = FlattenSELayer(self.voxel_feature_channel)
+            self.se = FlattenSELayer(planes)
         else:
             self.se = None
 
@@ -67,6 +67,7 @@ class SparseBasicBlock(spconv.SparseModule):
 
 class UpBlock(spconv.SparseModule):
     def __init__(self, inplanes, planes, norm_fn, act_fn, layer_id, conv_type='subm'):
+        super().__init__()
         self.conv_t = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
                                        indice_key='subm' + layer_id)
         if conv_type == 'inverseconv':
@@ -143,7 +144,7 @@ class SparseUnet(nn.Module):
         self.up4 = UpBlock(256, 128, norm_fn, act_fn, layer_id='4', conv_type='inverseconv')
         self.up3 = UpBlock(128, 64, norm_fn, act_fn, layer_id='3', conv_type='inverseconv')
         self.up2 = UpBlock(64, 32, norm_fn, act_fn, layer_id='2', conv_type='inverseconv')
-        self.up1 = UpBlock(32, self.voxel_feature_channel, layer_id='1', conv_type='subm')
+        self.up1 = UpBlock(32, self.voxel_feature_channel, norm_fn, act_fn, layer_id='1', conv_type='subm')
 
     def forward(self, batch_dict):
         """
