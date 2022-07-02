@@ -62,18 +62,17 @@ class UpBlock(spconv.SparseModule):
         super().__init__()
         block = conv_norm_act
 
-        self.conv_t = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
-                                       indice_key='subm' + layer_id)
-        self.conv_m = block(2 * inplanes, inplanes, 3, norm_fn=norm_fn, act_fn=act_fn,
-                            indice_key='subm' + layer_id)
         if conv_type == 'inverseconv':
-            self.conv_out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type=conv_type,
-                                  indice_key='spconv' + layer_id)
+            indice_key = 'spconv' + layer_id
         elif conv_type == 'subm':
-            self.conv_out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type=conv_type,
-                                  indice_key='subm' + layer_id)
+            indice_key = 'subm' + layer_id
         else:
             raise NotImplementedError
+
+        self.conv_t = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn, indice_key=indice_key)
+        self.conv_m = block(2 * inplanes, inplanes, 3, norm_fn=norm_fn, act_fn=act_fn, indice_key=indice_key)
+        self.conv_out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type=conv_type,
+                              indice_key=indice_key)
 
     def forward(self, x_bottom, x_lateral):
         x = self.conv_t(x_bottom)
