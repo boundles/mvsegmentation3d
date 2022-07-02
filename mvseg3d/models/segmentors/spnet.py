@@ -34,14 +34,15 @@ class SPNet(nn.Module):
         else:
             self.image_feature_channel = 0
 
+        self.voxel_feature_channel = 32
         self.vfe = MeanVFE(dataset.dim_point)
         self.voxel_encoder = SparseUnet(dataset.dim_point,
+                                        self.voxel_feature_channel,
                                         dataset.grid_size,
                                         dataset.voxel_size,
                                         dataset.point_cloud_range)
 
-        self.fusion_in_channel = self.point_feature_channel + self.voxel_encoder.voxel_feature_channel + \
-                                 self.image_feature_channel
+        self.fusion_in_channel = self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel
         self.fusion_out_channel = 64
         self.fusion_encoder = nn.Sequential(nn.Linear(self.fusion_in_channel, self.fusion_out_channel, bias=False),
                                             nn.BatchNorm1d(self.fusion_out_channel),
@@ -49,7 +50,7 @@ class SPNet(nn.Module):
 
         self.se = FlattenSELayer(self.fusion_out_channel)
 
-        self.aux_classifier = nn.Sequential(nn.Linear(self.voxel_encoder.voxel_feature_channel, 16, bias=False),
+        self.aux_classifier = nn.Sequential(nn.Linear(self.voxel_feature_channel, 16, bias=False),
                                             nn.BatchNorm1d(16),
                                             nn.ReLU(inplace=True),
                                             nn.Dropout(0.1),

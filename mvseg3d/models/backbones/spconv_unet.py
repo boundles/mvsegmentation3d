@@ -89,7 +89,7 @@ class SparseUnet(nn.Module):
     From Points to Parts: 3D Object Detection from Point Cloud with Part-aware and Part-aggregation Network
     """
 
-    def __init__(self, input_channels, grid_size, voxel_size, point_cloud_range):
+    def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range):
         super().__init__()
         self.sparse_shape = grid_size[::-1] + [1, 0, 0]
         self.voxel_size = voxel_size
@@ -132,14 +132,13 @@ class SparseUnet(nn.Module):
         )
 
         # decoder
-        self.voxel_feature_channel = 32
         self.up4 = UpBlock(256, 128, norm_fn, act_fn, layer_id='4', conv_type='inverseconv')
         self.up3 = UpBlock(128, 64, norm_fn, act_fn, layer_id='3', conv_type='inverseconv')
         self.up2 = UpBlock(64, 32, norm_fn, act_fn, layer_id='2', conv_type='inverseconv')
-        self.up1 = UpBlock(32, self.voxel_feature_channel, norm_fn, act_fn, layer_id='1', conv_type='subm')
+        self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, layer_id='1', conv_type='subm')
 
         # attention
-        self.sa = SALayer(self.voxel_feature_channel, self.voxel_feature_channel, norm_fn, act_fn, indice_key='sa')
+        self.sa = SALayer(output_channels, output_channels, norm_fn, act_fn, indice_key='sa')
 
     def forward(self, batch_dict):
         """
