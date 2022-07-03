@@ -1,13 +1,14 @@
 import torch.nn as nn
 
-from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
+import spconv.pytorch as spconv
+
+from mvseg3d.utils.spconv_utils import replace_feature
 
 
 class SALayer(nn.Module):
-    def __init__(self, planes, norm_fn, act_fn, indice_key):
+    def __init__(self, planes, indice_key):
         super(SALayer, self).__init__()
-        self.conv = conv_norm_act(planes, 1, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, conv_type='subm',
-                                  indice_key=indice_key)
+        self.conv = spconv.SubMConv3d(planes, 1, 3, padding=1, bias=False, indice_key=indice_key)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):

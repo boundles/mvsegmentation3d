@@ -37,7 +37,7 @@ class SparseBasicBlock(spconv.SparseModule):
             self.se = None
 
         if with_sa:
-            self.sa = SALayer(planes, norm_fn, act_fn, indice_key=indice_key)
+            self.sa = SALayer(planes, indice_key=indice_key)
         else:
             self.sa = None
 
