@@ -4,9 +4,9 @@ from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
 
 
 class SALayer(nn.Module):
-    def __init__(self, inplanes, planes, norm_fn, act_fn, indice_key):
+    def __init__(self, planes, norm_fn, act_fn, indice_key):
         super(SALayer, self).__init__()
-        self.conv = conv_norm_act(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, conv_type='subm',
+        self.conv = conv_norm_act(planes, 1, 3, norm_fn=norm_fn, act_fn=act_fn, padding=1, conv_type='subm',
                                   indice_key=indice_key)
         self.sigmoid = nn.Sigmoid()
 

@@ -13,7 +13,7 @@ class SparseBasicBlock(spconv.SparseModule):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, with_se=False,
-                 norm_fn=None, act_fn=None, indice_key=None):
+                 with_sa=False, norm_fn=None, act_fn=None, indice_key=None):
         super(SparseBasicBlock, self).__init__()
 
         assert norm_fn is not None
@@ -36,6 +36,11 @@ class SparseBasicBlock(spconv.SparseModule):
         else:
             self.se = None
 
+        if with_sa:
+            self.sa = SALayer(planes, norm_fn, act_fn, indice_key=indice_key)
+        else:
+            self.sa = None
+
     def forward(self, x):
         identity = x
 
@@ -48,6 +53,9 @@ class SparseBasicBlock(spconv.SparseModule):
 
         if self.se is not None:
             out = replace_feature(out, self.se(out.features, out.indices[:, 0]))
+
+        if self.sa is not None:
+            out = self.sa(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -66,15 +74,15 @@ class UpBlock(spconv.SparseModule):
                                        indice_key='subm' + layer_id)
         self.conv_m = block(2 * inplanes, inplanes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
                             indice_key='subm' + layer_id)
-
         if conv_type == 'inverseconv':
-            indice_key = 'spconv' + layer_id
+            self.conv_out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn,
+                                  conv_type=conv_type, indice_key='spconv' + layer_id)
         elif conv_type == 'subm':
-            indice_key = 'subm' + layer_id
+            self.conv_out = block(inplanes, planes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
+                                  conv_type=conv_type, indice_key='subm' + layer_id)
         else:
             raise NotImplementedError
-        self.conv_out = block(inplanes, planes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
-                              conv_type=conv_type, indice_key=indice_key)
+
 
     def forward(self, x_bottom, x_lateral):
         x = self.conv_t(x_bottom)
@@ -92,11 +100,11 @@ class SparseUnet(nn.Module):
 
     def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range):
         super().__init__()
-        self.sparse_shape = grid_size[::-1] + [1, 0, 0]
+        self.sparse_shape = grid_size[::-1]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
 
-        norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
+        norm_fn = nn.BatchNorm1d
         act_fn = nn.ReLU(inplace=True)
         block = conv_norm_act
 
@@ -122,14 +130,14 @@ class SparseUnet(nn.Module):
             # [752, 752, 36] -> [376, 376, 18]
             block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, with_sa=True, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
             # [376, 376, 18] -> [188, 188, 9]
             block(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
-            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
+            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, with_sa=True, indice_key='subm4')
         )
 
         # decoder
@@ -141,9 +149,6 @@ class SparseUnet(nn.Module):
         self.up2 = UpBlock(64, 32, norm_fn, act_fn, layer_id='2', conv_type='inverseconv')
         # [1504, 1504, 72] -> [1504, 1504, 72]
         self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, layer_id='1', conv_type='subm')
-
-        # attention
-        self.sa = SALayer(output_channels, output_channels, norm_fn, act_fn, indice_key='sa')
 
     def forward(self, batch_dict):
         """
@@ -178,8 +183,5 @@ class SparseUnet(nn.Module):
         x_up2 = self.up2(x_up3, x_conv2)
         x_up1 = self.up1(x_up2, x_conv1)
 
-        x_up0 = self.sa(x_up1)
-        x_up0 = replace_feature(x_up0, x_up1.features + x_up0.features)
-
-        batch_dict['voxel_features'] = x_up0.features
+        batch_dict['voxel_features'] = x_up1.features
         return batch_dict

@@ -19,8 +19,7 @@ def conv_norm_act(in_channels, out_channels, kernel_size, indice_key=None, strid
         conv = spconv.SparseConv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding,
                                    bias=False, indice_key=indice_key)
     elif conv_type == 'inverseconv':
-        conv = spconv.SparseInverseConv3d(in_channels, out_channels, kernel_size, padding=padding,
-                                          bias=False, indice_key=indice_key)
+        conv = spconv.SparseInverseConv3d(in_channels, out_channels, kernel_size, bias=False, indice_key=indice_key)
     else:
         raise NotImplementedError
 
