@@ -104,7 +104,7 @@ class SparseUnet(nn.Module):
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
 
-        norm_fn = nn.BatchNorm1d
+        norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         act_fn = nn.ReLU(inplace=True)
         block = conv_norm_act
 
