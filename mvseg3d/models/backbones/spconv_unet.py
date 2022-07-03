@@ -62,16 +62,19 @@ class UpBlock(spconv.SparseModule):
         super().__init__()
         block = conv_norm_act
 
-        self.conv_t = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm' + layer_id)
-        self.conv_m = block(2 * inplanes, inplanes, 3, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm' + layer_id)
+        self.conv_t = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
+                                       indice_key='subm' + layer_id)
+        self.conv_m = block(2 * inplanes, inplanes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
+                            indice_key='subm' + layer_id)
+
         if conv_type == 'inverseconv':
-            self.conv_out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type=conv_type,
-                                  indice_key='spconv' + layer_id)
+            indice_key = 'spconv' + layer_id
         elif conv_type == 'subm':
-            self.conv_out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type=conv_type,
-                                  indice_key='subm' + layer_id)
+            indice_key = 'subm' + layer_id
         else:
             raise NotImplementedError
+        self.conv_out = block(inplanes, planes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
+                              conv_type=conv_type, indice_key=indice_key)
 
     def forward(self, x_bottom, x_lateral):
         x = self.conv_t(x_bottom)
@@ -109,30 +112,34 @@ class SparseUnet(nn.Module):
         )
 
         self.conv2 = spconv.SparseSequential(
-            # [1600, 1408, 41] -> [800, 704, 21]
+            # [1504, 1504, 72] -> [752, 752, 36]
             block(32, 64, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv2'),
             SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2'),
             SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
         )
 
         self.conv3 = spconv.SparseSequential(
-            # [800, 704, 21] -> [400, 352, 11]
+            # [752, 752, 36] -> [376, 376, 18]
             block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
-            # [400, 352, 11] -> [200, 176, 5]
+            # [376, 376, 18] -> [188, 188, 9]
             block(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
         )
 
         # decoder
+        # [188, 188, 9] -> [376, 376, 18]
         self.up4 = UpBlock(256, 128, norm_fn, act_fn, layer_id='4', conv_type='inverseconv')
+        # [376, 376, 18] -> [752, 752, 36]
         self.up3 = UpBlock(128, 64, norm_fn, act_fn, layer_id='3', conv_type='inverseconv')
+        # [752, 752, 36] -> [1504, 1504, 72]
         self.up2 = UpBlock(64, 32, norm_fn, act_fn, layer_id='2', conv_type='inverseconv')
+        # [1504, 1504, 72] -> [1504, 1504, 72]
         self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, layer_id='1', conv_type='subm')
 
         # attention
@@ -157,23 +164,20 @@ class SparseUnet(nn.Module):
             spatial_shape=self.sparse_shape,
             batch_size=batch_size
         )
-        x = self.conv_input(input_sp_tensor)
 
+        # encoder
+        x = self.conv_input(input_sp_tensor)
         x_conv1 = self.conv1(x)
         x_conv2 = self.conv2(x_conv1)
         x_conv3 = self.conv3(x_conv2)
         x_conv4 = self.conv4(x_conv3)
 
-        # for segmentation head
-        # [400, 352, 11] <- [200, 176, 5]
+        # decoder
         x_up4 = self.up4(x_conv4, x_conv4)
-        # [800, 704, 21] <- [400, 352, 11]
         x_up3 = self.up3(x_up4, x_conv3)
-        # [1600, 1408, 41] <- [800, 704, 21]
         x_up2 = self.up2(x_up3, x_conv2)
-        # [1600, 1408, 41] <- [1600, 1408, 41]
         x_up1 = self.up1(x_up2, x_conv1)
-        # attention
+
         x_up0 = self.sa(x_up1)
         x_up0 = replace_feature(x_up0, x_up1.features + x_up0.features)
 
