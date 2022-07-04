@@ -2,10 +2,12 @@ import torch
 from torch.autograd import Function
 from torch.cuda.amp import custom_bwd, custom_fwd
 
+import torch_scatter
+
 from . import voxel_pooling_ext
 
 
-class VoxelPoolingFunction(Function):
+class VoxelAvgPoolingFunction(Function):
     @staticmethod
     @custom_fwd(cast_inputs=torch.half)
     def forward(ctx, feats: torch.Tensor, coords: torch.Tensor,
@@ -56,4 +58,15 @@ class VoxelPoolingFunction(Function):
 
         return grad_feats, None, None
 
-voxel_pooling = VoxelPoolingFunction.apply
+voxel_avg_pooling = VoxelAvgPoolingFunction.apply
+
+
+def voxel_max_pooling(feats, coords):
+    """
+        :param feats: FloatTensor[N, C]
+        :param coords: the coordinates of points, LongTensor[N,]
+        :return:
+            FloatTensor[M, C]
+    """
+    voxel_features = torch_scatter.scatter(feats, coords, dim=0, reduce='max')
+    return voxel_features
