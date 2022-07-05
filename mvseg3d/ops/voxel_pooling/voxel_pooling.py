@@ -13,12 +13,13 @@ class VoxelAvgPoolingFunction(Function):
     def forward(ctx, feats: torch.Tensor, coords: torch.Tensor,
                 counts: torch.Tensor) -> torch.Tensor:
         """
-            :param ctx:
-            :param feats: FloatTensor[N, C]
-            :param coords: the coordinates of points, IntTensor[N,]
-            :param counts: point num of per voxel, IntTensor[M,]
-            :return:
-                FloatTensor[M, C]
+        Args:
+            ctx: context
+            feats: FloatTensor[N, C]
+            coords: the coordinates of points, IntTensor[N,]
+            counts: point num of per voxel, IntTensor[M,]
+        Returns:
+            FloatTensor[M, C]
         """
         feats = feats.contiguous()
         coords = coords.contiguous().int()
@@ -61,12 +62,24 @@ class VoxelAvgPoolingFunction(Function):
 voxel_avg_pooling = VoxelAvgPoolingFunction.apply
 
 
-def voxel_max_pooling(feats, coords):
-    """
-        :param feats: FloatTensor[N, C]
-        :param coords: the coordinates of points, LongTensor[N,]
-        :return:
+class VoxelMaxPooling(object):
+    def __call__(self, feats, data_dict):
+        """
+        Args:
+            feats: FloatTensor[N, C]
+            data_dict:
+                point_voxel_ids: FloatTensor[N,]
+        Returns:
             FloatTensor[M, C]
-    """
-    voxel_features = torch_scatter.scatter(feats, coords, dim=0, reduce='max')
-    return voxel_features
+        """
+        coords = data_dict['point_voxel_ids']
+        mask = (coords != -1)
+        feats = feats[mask]
+        coords = coords[mask]
+        data_dict['voxel_features'] = torch_scatter.scatter(feats, coords, dim=0, reduce='max')
+        return data_dict
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+voxel_max_pooling = VoxelMaxPooling()

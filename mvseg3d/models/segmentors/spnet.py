@@ -78,9 +78,9 @@ class SPNet(nn.Module):
         point_voxel_ids = batch_dict['point_voxel_ids']
 
         point_per_features = self.point_encoder(points)
-        batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
-        voxel_enc = self.voxel_encoder(batch_dict)
-        point_voxel_features = voxel_to_point(voxel_enc['voxel_features'], point_voxel_ids)
+        batch_dict = voxel_max_pooling(point_per_features, batch_dict)
+        batch_dict = self.voxel_encoder(batch_dict)
+        point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
         # fusion multi-view features
         if self.use_image_feature:
@@ -99,7 +99,7 @@ class SPNet(nn.Module):
         out = self.classifier(point_fusion_features)
         result['out'] = out
 
-        aux_out = self.aux_classifier(voxel_enc['aux_voxel_features'])
+        aux_out = self.aux_classifier(batch_dict['aux_voxel_features'])
         result['aux_out'] = aux_out
 
         return result
