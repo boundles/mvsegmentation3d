@@ -78,8 +78,8 @@ class SPNet(nn.Module):
         point_voxel_ids = batch_dict['point_voxel_ids']
 
         point_per_features = self.point_encoder(points)
-        voxel_per_features = voxel_max_pooling(point_per_features, point_voxel_ids)
-        voxel_enc = self.voxel_encoder(voxel_per_features)
+        batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
+        voxel_enc = self.voxel_encoder(batch_dict)
         point_voxel_features = voxel_to_point(voxel_enc['voxel_features'], point_voxel_ids)
 
         # fusion multi-view features
