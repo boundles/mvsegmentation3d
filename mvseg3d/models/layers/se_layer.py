@@ -1,5 +1,6 @@
 import torch.nn as nn
-from mvseg3d.ops import voxel_pooling
+
+from mvseg3d.ops import voxel_avg_pooling
 
 
 class FlattenSELayer(nn.Module):
@@ -21,7 +22,7 @@ class FlattenSELayer(nn.Module):
             torch.Tensor: The output with shape (N, C)
         """
         unique_ids, counts = indices.unique(return_counts=True)
-        out = voxel_pooling(x, indices, counts)
+        out = voxel_avg_pooling(x, indices, counts)
         out = self.fc(out)
         out = out[indices.long()]
         out = x * out
