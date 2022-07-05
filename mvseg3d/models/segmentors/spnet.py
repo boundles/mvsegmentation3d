@@ -3,10 +3,9 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
-from mvseg3d.ops import voxel_to_point
+from mvseg3d.ops import voxel_to_point, voxel_max_pooling
 
 class SPNet(nn.Module):
     def __init__(self, dataset):
@@ -35,8 +34,7 @@ class SPNet(nn.Module):
             self.image_feature_channel = 0
 
         self.voxel_feature_channel = 32
-        self.vfe = MeanVFE(dataset.dim_point)
-        self.voxel_encoder = SparseUnet(dataset.dim_point,
+        self.voxel_encoder = SparseUnet(self.point_feature_channel,
                                         self.voxel_feature_channel,
                                         dataset.grid_size,
                                         dataset.voxel_size,
@@ -80,7 +78,8 @@ class SPNet(nn.Module):
         point_voxel_ids = batch_dict['point_voxel_ids']
 
         point_per_features = self.point_encoder(points)
-        voxel_enc = self.voxel_encoder(self.vfe(batch_dict))
+        voxel_per_features = voxel_max_pooling(point_per_features, point_voxel_ids)
+        voxel_enc = self.voxel_encoder(voxel_per_features)
         point_voxel_features = voxel_to_point(voxel_enc['voxel_features'], point_voxel_ids)
 
         # fusion multi-view features
