@@ -83,27 +83,10 @@ class UpBlock(spconv.SparseModule):
         else:
             raise NotImplementedError
 
-    @staticmethod
-    def channel_reduction(x, out_channels):
-        """
-        Args:
-            x: x.features (N, C1)
-            out_channels: C2
-        Returns:
-        """
-        features = x.features
-        n, in_channels = features.shape
-        assert (in_channels % out_channels == 0) and (in_channels >= out_channels)
-
-        x = replace_feature(x, features.view(n, out_channels, -1).sum(dim=2))
-        return x
-
     def forward(self, x_bottom, x_lateral):
-        x = self.conv_t(x_lateral)
-        x = replace_feature(x, torch.cat([x_bottom.features, x.features], dim=1))
-        x_m = self.conv_m(x)
-        x = self.channel_reduction(x, x_m.features.shape[1])
-        x = replace_feature(x, x_m.features + x.features)
+        x = self.conv_t(x_bottom)
+        x = replace_feature(x, torch.cat([x_lateral.features, x.features], dim=1))
+        x = self.conv_m(x)
         x = self.conv_out(x)
         return x
 
@@ -146,14 +129,14 @@ class SparseUnet(nn.Module):
             # [752, 752, 36] -> [376, 376, 18]
             block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, with_sa=True, indice_key='subm3')
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
         )
 
         self.conv4 = spconv.SparseSequential(
             # [376, 376, 18] -> [188, 188, 9]
             block(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
-            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, with_sa=True, indice_key='subm4')
+            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
         )
 
         # decoder

@@ -55,7 +55,7 @@ class SPNet(nn.Module):
                                         dataset.point_cloud_range)
 
         self.fusion_feature_channel = self.point_feature_channel + self.voxel_feature_channel
-        self.fusion_encoder = Res1DBlock(self.fusion_feature_channel, res_expansion=2)
+        self.fusion_encoder = Res1DBlock(self.fusion_feature_channel)
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
