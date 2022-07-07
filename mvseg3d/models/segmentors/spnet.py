@@ -7,6 +7,25 @@ from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
 from mvseg3d.ops import voxel_to_point, voxel_max_pooling
 
+
+class FusionResBlock(nn.Module):
+    def __init__(self, channel, res_expansion=1.0, bias=True):
+        super(FusionResBlock, self).__init__()
+        self.act = nn.ReLU(inplace=True)
+        self.net1 = nn.Sequential(
+            nn.Linear(in_channels=channel, out_channels=int(channel * res_expansion), bias=bias),
+            nn.BatchNorm1d(int(channel * res_expansion)),
+            self.act
+        )
+
+        self.net2 = nn.Sequential(
+            nn.Linear(in_channels=int(channel * res_expansion), out_channels=channel, bias=bias)
+            nn.BatchNorm1d(channel)
+
+    def forward(self, x):
+        return self.act(self.net2(self.net1(x)) + x)
+
+
 class SPNet(nn.Module):
     def __init__(self, dataset):
         super().__init__()
@@ -25,13 +44,7 @@ class SPNet(nn.Module):
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
-            self.image_feature_channel = 32
-            self.image_encoder = nn.Sequential(
-                nn.Linear(dataset.dim_image_feature, self.image_feature_channel, bias=False),
-                nn.BatchNorm1d(self.image_feature_channel),
-                nn.ReLU(inplace=True))
-        else:
-            self.image_feature_channel = 0
+            self.point_feature_channel += dataset.dim_image_feature
 
         self.voxel_feature_channel = 32
         self.voxel_encoder = SparseUnet(self.point_feature_channel,
@@ -40,25 +53,22 @@ class SPNet(nn.Module):
                                         dataset.voxel_size,
                                         dataset.point_cloud_range)
 
-        self.fusion_in_channel = self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel
-        self.fusion_out_channel = 64
-        self.fusion_encoder = nn.Sequential(nn.Linear(self.fusion_in_channel, self.fusion_out_channel, bias=False),
-                                            nn.BatchNorm1d(self.fusion_out_channel),
-                                            nn.ReLU(inplace=True))
+        self.fusion_feature_channel = self.point_feature_channel + self.voxel_feature_channel
+        self.fusion_encoder = FusionResBlock(self.fusion_feature_channel, res_expansion=2)
 
-        self.se = FlattenSELayer(self.fusion_out_channel)
+        self.se = FlattenSELayer(self.fusion_feature_channel)
 
-        self.aux_classifier = nn.Sequential(nn.Linear(self.voxel_feature_channel, 32, bias=False),
-                                            nn.BatchNorm1d(32),
+        self.aux_classifier = nn.Sequential(nn.Linear(self.voxel_feature_channel, self.voxel_feature_channel, bias=False),
+                                            nn.BatchNorm1d(self.voxel_feature_channel),
                                             nn.ReLU(inplace=True),
                                             nn.Dropout(0.1),
-                                            nn.Linear(32, dataset.num_classes, bias=False))
+                                            nn.Linear(self.voxel_feature_channel, dataset.num_classes, bias=False))
 
-        self.classifier = nn.Sequential(nn.Linear(self.fusion_out_channel, self.fusion_out_channel, bias=False),
-                                        nn.BatchNorm1d(self.fusion_out_channel),
+        self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, self.fusion_feature_channel, bias=False),
+                                        nn.BatchNorm1d(self.fusion_feature_channel),
                                         nn.ReLU(inplace=True),
                                         nn.Dropout(0.1),
-                                        nn.Linear(self.fusion_out_channel, dataset.num_classes, bias=False))
+                                        nn.Linear(self.fusion_feature_channel, dataset.num_classes, bias=False))
 
         self.weight_initialization()
 
@@ -78,17 +88,16 @@ class SPNet(nn.Module):
         point_voxel_ids = batch_dict['point_voxel_ids']
 
         point_per_features = self.point_encoder(points)
+        if self.use_image_feature:
+            point_image_features = batch_dict['point_image_features']
+            point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
+
         batch_dict = voxel_max_pooling(point_per_features, batch_dict)
         batch_dict = self.voxel_encoder(batch_dict)
         point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
         # fusion multi-view features
-        if self.use_image_feature:
-            point_image_features = batch_dict['point_image_features']
-            point_image_features = self.image_encoder(point_image_features)
-            point_fusion_features = torch.cat([point_voxel_features, point_per_features, point_image_features], dim=1)
-        else:
-            point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
+        point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # channel attention
