@@ -8,19 +8,20 @@ from mvseg3d.models.layers import FlattenSELayer
 from mvseg3d.ops import voxel_to_point, voxel_max_pooling
 
 
-class FusionResBlock(nn.Module):
+class Res1DBlock(nn.Module):
     def __init__(self, channel, res_expansion=1.0, bias=True):
-        super(FusionResBlock, self).__init__()
+        super(Res1DBlock, self).__init__()
         self.act = nn.ReLU(inplace=True)
         self.net1 = nn.Sequential(
-            nn.Linear(in_channels=channel, out_channels=int(channel * res_expansion), bias=bias),
+            nn.Linear(channel, int(channel * res_expansion), bias=bias),
             nn.BatchNorm1d(int(channel * res_expansion)),
             self.act
         )
 
         self.net2 = nn.Sequential(
-            nn.Linear(in_channels=int(channel * res_expansion), out_channels=channel, bias=bias)
+            nn.Linear(int(channel * res_expansion), channel, bias=bias),
             nn.BatchNorm1d(channel)
+        )
 
     def forward(self, x):
         return self.act(self.net2(self.net1(x)) + x)
@@ -28,7 +29,7 @@ class FusionResBlock(nn.Module):
 
 class SPNet(nn.Module):
     def __init__(self, dataset):
-        super().__init__()
+        super(SPNet, self).__init__()
 
         self.point_feature_channel = 32
         self.point_encoder = nn.Sequential(
@@ -54,15 +55,16 @@ class SPNet(nn.Module):
                                         dataset.point_cloud_range)
 
         self.fusion_feature_channel = self.point_feature_channel + self.voxel_feature_channel
-        self.fusion_encoder = FusionResBlock(self.fusion_feature_channel, res_expansion=2)
+        self.fusion_encoder = Res1DBlock(self.fusion_feature_channel, res_expansion=2)
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
-        self.aux_classifier = nn.Sequential(nn.Linear(self.voxel_feature_channel, self.voxel_feature_channel, bias=False),
-                                            nn.BatchNorm1d(self.voxel_feature_channel),
-                                            nn.ReLU(inplace=True),
-                                            nn.Dropout(0.1),
-                                            nn.Linear(self.voxel_feature_channel, dataset.num_classes, bias=False))
+        self.aux_classifier = nn.Sequential(
+            nn.Linear(self.voxel_feature_channel, self.voxel_feature_channel, bias=False),
+            nn.BatchNorm1d(self.voxel_feature_channel),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1),
+            nn.Linear(self.voxel_feature_channel, dataset.num_classes, bias=False))
 
         self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, self.fusion_feature_channel, bias=False),
                                         nn.BatchNorm1d(self.fusion_feature_channel),
