@@ -27,6 +27,19 @@ class Res1DBlock(nn.Module):
         return self.act(self.net2(self.net1(x)) + x)
 
 
+class GatedFusionBlock(nn.Module):
+    def __init__(self, inplanes1, inplanes2, planes):
+        self.w1 = nn.Linear(inplanes1, planes, bias=False)
+        self.w2 = nn.Linear(inplanes2, planes, bias=False)
+
+    def forward(self, x1, x2):
+        x1 = self.w1(x1)
+        x2 = self.w2(x2)
+        score = torch.sum(x1 * x2, dim=1)
+        score = torch.sigmoid(score)
+        return x2 * score
+
+
 class SPNet(nn.Module):
     def __init__(self, dataset):
         super(SPNet, self).__init__()
@@ -45,6 +58,7 @@ class SPNet(nn.Module):
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
+            self.gated_fusion = GatedFusionBlock(self.point_feature_channel, dataset.dim_image_feature, 32)
             self.point_feature_channel += dataset.dim_image_feature
 
         self.voxel_feature_channel = 32
@@ -92,6 +106,7 @@ class SPNet(nn.Module):
         point_per_features = self.point_encoder(points)
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
+            point_image_features = self.gated_fusion(point_per_features, point_image_features)
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
         batch_dict = voxel_max_pooling(point_per_features, batch_dict)
