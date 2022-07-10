@@ -34,9 +34,9 @@ class GatedFusionBlock(nn.Module):
         self.w2 = nn.Linear(inplanes2, planes, bias=False)
 
     def forward(self, x1, x2):
-        x1 = self.w1(x1)
-        x2 = self.w2(x2)
-        score = torch.sum(x1 * x2, dim=1)
+        out1 = self.w1(x1)
+        out2 = self.w2(x2)
+        score = torch.sum(out1 * out2, dim=1, keepdim=True)
         score = torch.sigmoid(score)
         return x1 * score
 
