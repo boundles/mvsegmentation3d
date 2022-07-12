@@ -6,18 +6,18 @@ from mvseg3d.utils.spconv_utils import replace_feature
 
 
 class PPMLayer(nn.Module):
-    def __init__(self, planes, sizes=(24, 48, 96)):
+    def __init__(self, planes, sizes=(3, 12, 48)):
         super(PPMLayer, self).__init__()
-        self.features = []
-        reduction_dim = int(planes / len(sizes))
+        self.ppm_modules = []
+        reduction_planes = int(planes / len(sizes))
         for size in sizes:
-            self.features.append(nn.Sequential(
+            self.ppm_modules.append(nn.Sequential(
                 nn.AdaptiveAvgPool2d(size),
-                nn.Conv2d(planes, reduction_dim, kernel_size=1, bias=False),
-                nn.BatchNorm2d(reduction_dim),
+                nn.Conv2d(planes, reduction_planes, kernel_size=1, bias=False),
+                nn.BatchNorm2d(reduction_planes),
                 nn.ReLU(inplace=True)
             ))
-        self.features = nn.ModuleList(self.features)
+        self.ppm_modules = nn.ModuleList(self.ppm_modules)
 
         self.bottleneck = nn.Sequential(
             nn.Conv2d(2 * planes, planes, kernel_size=1, bias=False),
@@ -28,8 +28,8 @@ class PPMLayer(nn.Module):
     def forward(self, x):
         x_size = x.size()
         ppm_outs = [x]
-        for f in self.features:
-            ppm_outs.append(F.interpolate(f(x), x_size[2:], mode='bilinear', align_corners=True))
+        for module in self.ppm_modules:
+            ppm_outs.append(F.interpolate(module(x), x_size[2:], mode='bilinear', align_corners=True))
         ppm_outs = torch.cat(ppm_outs, 1)
         out = self.bottleneck(ppm_outs)
         return out
