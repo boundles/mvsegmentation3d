@@ -47,13 +47,12 @@ class ContextLayer(nn.Module):
         Returns:
             SparseTensor: The output with features: shape (N, C)
         """
-        indices = x.indices
+        indices = x.indices.long()
         x_dense = x.dense()
         b, c, h, w, l = x_dense.shape
         x_dense = x_dense.reshape(b, c * h, w, l)
-        out = self.ppm(x_dense)
-        out = out.reshape(b, c, h, w, l)
-        out_features = out[indices[:, 0].long(), :, indices[:, 1].long(), indices[:, 2].long(), indices[:, 3].long()]
-        out = replace_feature(out, out_features)
-
-        return out
+        out_dense = self.ppm(x_dense)
+        out_dense = out_dense.reshape(b, c, h, w, l)
+        out_features = out_dense[indices[:, 0], :, indices[:, 1], indices[:, 2], indices[:, 3]]
+        x = replace_feature(x, out_features)
+        return x

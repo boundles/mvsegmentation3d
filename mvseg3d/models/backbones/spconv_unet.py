@@ -140,7 +140,7 @@ class SparseUnet(nn.Module):
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
         )
 
-        self.context = ContextLayer(256)
+        self.context = ContextLayer(256 * 9)
 
         # decoder
         # [188, 188, 9] -> [376, 376, 18]
