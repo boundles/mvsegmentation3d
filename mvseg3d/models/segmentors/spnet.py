@@ -39,7 +39,7 @@ class SPNet(nn.Module):
         self.fusion_encoder = nn.Sequential(
             nn.Linear(self.point_feature_channel + self.voxel_feature_channel, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
-            self.act
+            nn.ReLU(inplace=True)
         )
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
