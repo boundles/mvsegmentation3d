@@ -5,6 +5,7 @@ import torch.nn as nn
 
 import spconv.pytorch as spconv
 
+from mvseg3d.models.layers.context_layer import ContextLayer
 from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
 from mvseg3d.models.layers import FlattenSELayer, SALayer
 
@@ -139,6 +140,8 @@ class SparseUnet(nn.Module):
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
         )
 
+        self.context = ContextLayer(256)
+
         # decoder
         # [188, 188, 9] -> [376, 376, 18]
         self.up4 = UpBlock(256, 128, norm_fn, act_fn, layer_id='4', conv_type='inverseconv')
@@ -175,6 +178,7 @@ class SparseUnet(nn.Module):
         x_conv2 = self.conv2(x_conv1)
         x_conv3 = self.conv3(x_conv2)
         x_conv4 = self.conv4(x_conv3)
+        x_conv4 = self.context(x_conv4)
 
         # decoder
         x_up4 = self.up4(x_conv4, x_conv4)
