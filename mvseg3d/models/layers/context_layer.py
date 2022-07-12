@@ -6,22 +6,22 @@ from mvseg3d.utils.spconv_utils import replace_feature
 
 
 class PPMLayer(nn.Module):
-    def __init__(self, in_dim, sizes=(1, 2, 3, 6)):
+    def __init__(self, planes, sizes=(24, 48, 96)):
         super(PPMLayer, self).__init__()
         self.features = []
-        reduction_dim = int(in_dim / len(sizes))
+        reduction_dim = int(planes / len(sizes))
         for size in sizes:
             self.features.append(nn.Sequential(
                 nn.AdaptiveAvgPool2d(size),
-                nn.Conv2d(in_dim, reduction_dim, kernel_size=1, bias=False),
+                nn.Conv2d(planes, reduction_dim, kernel_size=1, bias=False),
                 nn.BatchNorm2d(reduction_dim),
                 nn.ReLU(inplace=True)
             ))
         self.features = nn.ModuleList(self.features)
 
         self.bottleneck = nn.Sequential(
-            nn.Conv2d(2 * in_dim, in_dim, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(in_dim),
+            nn.Conv2d(2 * planes, planes, kernel_size=1, bias=False),
+            nn.BatchNorm2d(planes),
             nn.ReLU(inplace=True)
         )
 
