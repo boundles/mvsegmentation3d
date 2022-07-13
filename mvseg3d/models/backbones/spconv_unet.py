@@ -59,7 +59,7 @@ class SparseBasicBlock(spconv.SparseModule):
             out = self.sa(out)
 
         if self.downsample is not None:
-            identity = self.downsample(x)
+            identity = replace_feature(x, self.downsample(x.features))
 
         out = replace_feature(out, out.features + identity.features)
         out = replace_feature(out, self.act(out.features))
@@ -74,8 +74,14 @@ class UpBlock(spconv.SparseModule):
 
         self.transform = block(inplanes, inplanes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
                                indice_key='subm' + str(layer_id))
+
+        downsample = nn.Sequential(
+            nn.Linear(2 * inplanes, inplanes, bias=False),
+            nn.BatchNorm1d(inplanes),
+        )
         self.bottleneck = SparseBasicBlock(2 * inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
-                                           indice_key='subm' + str(layer_id))
+                                           downsample=downsample, indice_key='subm' + str(layer_id))
+
         if conv_type == 'inverseconv':
             self.out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn,
                              conv_type=conv_type, indice_key='spconv' + str(layer_id))
