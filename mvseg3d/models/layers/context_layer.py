@@ -6,7 +6,7 @@ from mvseg3d.utils.spconv_utils import replace_feature
 
 
 class PPMLayer(nn.Module):
-    def __init__(self, planes, sizes=(3, 12, 48)):
+    def __init__(self, planes, sizes=(1, 2, 3, 6)):
         super(PPMLayer, self).__init__()
         self.ppm_modules = []
         reduction_planes = int(planes / len(sizes))
@@ -20,7 +20,7 @@ class PPMLayer(nn.Module):
         self.ppm_modules = nn.ModuleList(self.ppm_modules)
 
         self.bottleneck = nn.Sequential(
-            nn.Conv2d(2 * planes, planes, kernel_size=1, bias=False),
+            nn.Conv2d(2 * planes, planes, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(planes),
             nn.ReLU(inplace=True)
         )
@@ -50,9 +50,10 @@ class ContextLayer(nn.Module):
         indices = x.indices.long()
         x_dense = x.dense()
         b, c, h, w, l = x_dense.shape
-        x_dense = x_dense.reshape(b, c * h, w, l)
+        x_dense = torch.mean(x_dense, dim=2)
         out_dense = self.ppm(x_dense)
-        out_dense = out_dense.reshape(b, c, h, w, l)
+        out_dense = out_dense.unsqueeze(2)
+        out_dense = out_dense.repeat(1, 1, h, 1, 1)
         out_features = out_dense[indices[:, 0], :, indices[:, 1], indices[:, 2], indices[:, 3]]
-        x = replace_feature(x, out_features)
+        x = replace_feature(x, x.features + out_features)
         return x
