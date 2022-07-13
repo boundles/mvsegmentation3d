@@ -69,7 +69,7 @@ class SparseBasicBlock(spconv.SparseModule):
 
 class UpBlock(spconv.SparseModule):
     def __init__(self, inplanes, planes, norm_fn, act_fn, conv_type, layer_id):
-        super(UpBlock).__init__()
+        super(UpBlock, self).__init__()
         block = conv_norm_act
 
         self.transform = block(inplanes, inplanes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
@@ -101,7 +101,7 @@ class SparseUnet(nn.Module):
     """
 
     def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range):
-        super(SparseUnet).__init__()
+        super(SparseUnet, self).__init__()
         self.sparse_shape = grid_size[::-1]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
