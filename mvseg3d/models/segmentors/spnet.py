@@ -44,7 +44,14 @@ class SPNet(nn.Module):
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
-        self.aux_classifier = nn.Sequential(
+        self.aux_classifier1 = nn.Sequential(
+            nn.Linear(self.voxel_feature_channel, 32, bias=False),
+            nn.BatchNorm1d(32),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1),
+            nn.Linear(32, dataset.num_classes, bias=False))
+
+        self.aux_classifier2 = nn.Sequential(
             nn.Linear(self.voxel_feature_channel, 32, bias=False),
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
@@ -95,7 +102,10 @@ class SPNet(nn.Module):
         out = self.classifier(point_fusion_features)
         result['out'] = out
 
-        aux_out = self.aux_classifier(batch_dict['aux_voxel_features'])
-        result['aux_out'] = aux_out
+        aux_out1 = self.aux_classifier1(batch_dict['aux_voxel_features1'])
+        result['aux_out1'] = aux_out1
+
+        aux_out2 = self.aux_classifier2(batch_dict['aux_voxel_features2'])
+        result['aux_out2'] = aux_out2
 
         return result
