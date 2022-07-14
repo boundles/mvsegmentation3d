@@ -164,7 +164,7 @@ class SparseUnet(nn.Module):
         # auxiliary decoders
         self.aux_up3 = spconv.SparseSequential(
             block(128, 64, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv3'),
-            block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv3')
+            block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv2')
         )
 
         self.aux_up2 = spconv.SparseSequential(
