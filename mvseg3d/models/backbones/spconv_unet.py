@@ -129,21 +129,24 @@ class SparseUnet(nn.Module):
 
         # [1504, 1504, 72] -> [752, 752, 36]
         self.conv2 = spconv.SparseSequential(
-            block(32, 64, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv2'),
+            block(32, 64, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+                  indice_key='spconv2'),
             SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2'),
             SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
         )
 
         # [752, 752, 36] -> [376, 376, 18]
         self.conv3 = spconv.SparseSequential(
-            block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv3'),
+            block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+                  indice_key='spconv3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
         )
 
         # [376, 376, 18] -> [188, 188, 9]
         self.conv4 = spconv.SparseSequential(
-            block(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv', indice_key='spconv4'),
+            block(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+                  indice_key='spconv4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
         )
@@ -158,8 +161,15 @@ class SparseUnet(nn.Module):
         # [1504, 1504, 72] -> [1504, 1504, 72]
         self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
-        # aux head
-        self.aux_up2 = block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv2')
+        # auxiliary decoders
+        self.aux_up3 = spconv.SparseSequential(
+            block(128, 64, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv3'),
+            block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv3')
+        )
+
+        self.aux_up2 = spconv.SparseSequential(
+            block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv2')
+        )
 
     def forward(self, batch_dict):
         """
@@ -194,9 +204,10 @@ class SparseUnet(nn.Module):
         x_up3 = self.up3(x_up4, x_conv3)
         x_up2 = self.up2(x_up3, x_conv2)
         x_up1 = self.up1(x_up2, x_conv1)
+
+        aux_x_up3 = self.aux_up3(x_up4)
         aux_x_up2 = self.aux_up2(x_up3)
 
         batch_dict['voxel_features'] = x_up1.features
-        batch_dict['aux_voxel_features1'] = x_up2.features
-        batch_dict['aux_voxel_features2'] = aux_x_up2.features
+        batch_dict['aux_voxel_features'] = [x_up2.features, aux_x_up2.features, aux_x_up3.features]
         return batch_dict

@@ -44,19 +44,16 @@ class SPNet(nn.Module):
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
-        self.aux_classifier1 = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
-
-        self.aux_classifier2 = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
+        self.aux_head_cnt = 3
+        self.aux_classifiers = nn.ModuleList()
+        for i in range(self.aux_head_cnt):
+            self.aux_classifiers.append(nn.Sequential(
+                nn.Linear(self.voxel_feature_channel, 32, bias=False),
+                nn.BatchNorm1d(32),
+                nn.ReLU(inplace=True),
+                nn.Dropout(0.1),
+                nn.Linear(32, dataset.num_classes, bias=False))
+            )
 
         self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 32, bias=False),
                                         nn.BatchNorm1d(32),
@@ -102,10 +99,11 @@ class SPNet(nn.Module):
         out = self.classifier(point_fusion_features)
         result['out'] = out
 
-        aux_out1 = self.aux_classifier1(batch_dict['aux_voxel_features1'])
-        result['aux_out1'] = aux_out1
-
-        aux_out2 = self.aux_classifier2(batch_dict['aux_voxel_features2'])
-        result['aux_out2'] = aux_out2
+        aux_outs = []
+        aux_voxel_features = batch_dict['aux_voxel_features']
+        for aux_classifier, aux_voxel_feature in zip(self.aux_classifiers, aux_voxel_features):
+            aux_out = aux_classifier(aux_voxel_feature)
+            aux_outs.append(aux_out)
+        result['aux_outs'] = aux_outs
 
         return result

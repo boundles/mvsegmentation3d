@@ -65,23 +65,19 @@ def save_checkpoint(model, optimizer, lr_scheduler, save_dir, epoch, logger):
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
 def compute_loss(pred_result, data_dict, criterion):
+    loss = 0
+
     point_gt_labels = data_dict['labels']
     point_pred_labels = pred_result['out']
-    loss = 0
     for loss_func, loss_weight in criterion:
         loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
 
-    if 'aux_out1' in pred_result:
+    if 'aux_outs' in pred_result:
+        aux_outs = pred_result['aux_outs']
         voxel_gt_labels = data_dict['voxel_labels']
-        voxel_pred_labels = pred_result['aux_out1']
-        for loss_func, loss_weight in criterion:
-            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
-
-    if 'aux_out2' in pred_result:
-        voxel_gt_labels = data_dict['voxel_labels']
-        voxel_pred_labels = pred_result['aux_out2']
-        for loss_func, loss_weight in criterion:
-            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
+        for aux_out in aux_outs:
+            for loss_func, loss_weight in criterion:
+                loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(aux_out, voxel_gt_labels) * loss_weight
 
     return loss
 
