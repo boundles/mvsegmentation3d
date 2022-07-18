@@ -88,8 +88,8 @@ class UpBlock(spconv.SparseModule):
             raise NotImplementedError
 
     def forward(self, x_bottom, x_lateral):
-        x = self.transform(x_lateral)
-        x = replace_feature(x, torch.cat([x_bottom.features, x.features], dim=1))
+        x = self.transform(x_bottom)
+        x = replace_feature(x, torch.cat([x_lateral.features, x.features], dim=1))
         x = self.bottleneck(x)
         x = self.out(x)
         return x
