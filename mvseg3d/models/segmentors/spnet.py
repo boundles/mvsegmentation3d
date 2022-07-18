@@ -44,9 +44,8 @@ class SPNet(nn.Module):
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
-        self.aux_head_cnt = 3
         self.aux_classifiers = nn.ModuleList()
-        for i in range(self.aux_head_cnt):
+        for i in range(1):
             self.aux_classifiers.append(nn.Sequential(
                 nn.Linear(self.voxel_feature_channel, 32, bias=False),
                 nn.BatchNorm1d(32),
@@ -101,8 +100,8 @@ class SPNet(nn.Module):
 
         aux_outs = []
         aux_voxel_features = batch_dict['aux_voxel_features']
-        for aux_classifier, aux_voxel_feature in zip(self.aux_classifiers, aux_voxel_features):
-            aux_out = aux_classifier(aux_voxel_feature)
+        for idx, aux_voxel_feature in enumerate(aux_voxel_features):
+            aux_out = self.aux_classifiers[idx](aux_voxel_feature)
             aux_outs.append(aux_out)
         result['aux_outs'] = aux_outs
 
