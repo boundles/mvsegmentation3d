@@ -26,3 +26,12 @@ def get_sub_indices_pos(sub_indices, all_indices):
             pos_in_all_indices.append(i)
             pos_in_sub_indices.append(sub_indices_dic[idx])
     return pos_in_all_indices, pos_in_sub_indices
+
+
+# transformation between Cartesian coordinates and polar coordinates
+def cart2polar(points):
+    rho = np.sqrt(points[:, 0] ** 2 + points[:, 1] ** 2)
+    phi = np.arctan2(points[:, 1], points[:, 0])
+    points[:, 0] = rho
+    points[:, 1] = phi
+    return points

@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
+from mvseg3d.utils.data_utils import cart2polar
 
 
 class WaymoDataset(Dataset):
@@ -234,6 +235,9 @@ class WaymoDataset(Dataset):
         """
         if self.split == 'training' and self.cfg.DATASET.AUG_DATA:
             data_dict = self.transforms(data_dict)
+
+        if self.cfg.DATASET.USE_CYLINDER:
+            data_dict['points'] = cart2polar(data_dict['points'])
 
         voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxels'] = voxels
