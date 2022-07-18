@@ -237,9 +237,11 @@ class WaymoDataset(Dataset):
             data_dict = self.transforms(data_dict)
 
         if self.cfg.DATASET.USE_CYLINDER:
-            data_dict['points'] = cart2polar(data_dict['points'])
+            input_points = cart2polar(data_dict['points'])
+        else:
+            input_points = data_dict['points']
 
-        voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
+        voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(input_points)
         data_dict['voxels'] = voxels
         data_dict['voxel_coords'] = coords
         data_dict['voxel_num_points'] = num_points_per_voxel
