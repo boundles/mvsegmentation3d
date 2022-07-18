@@ -72,15 +72,11 @@ class UpBlock(spconv.SparseModule):
         super(UpBlock, self).__init__()
         block = conv_norm_act
 
-        self.transform = block(inplanes, inplanes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
-                               indice_key='subm' + str(layer_id))
+        self.transform = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
+                                          indice_key='subm' + str(layer_id))
 
-        downsample = nn.Sequential(
-            nn.Linear(2 * inplanes, inplanes, bias=False),
-            nn.BatchNorm1d(inplanes),
-        )
-        self.bottleneck = SparseBasicBlock(2 * inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
-                                           downsample=downsample, indice_key='subm' + str(layer_id))
+        self.bottleneck = block(2 * inplanes, inplanes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
+                                indice_key='subm' + str(layer_id))
 
         if conv_type == 'inverseconv':
             self.out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn,
@@ -163,12 +159,12 @@ class SparseUnet(nn.Module):
 
         # auxiliary decoders
         self.aux_up3 = spconv.SparseSequential(
-            block(128, 64, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv3'),
-            block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv2')
+            spconv.SparseInverseConv3d(128, 64, 3, bias=False, indice_key='spconv3'),
+            spconv.SparseInverseConv3d(64, 32, 3, bias=False, indice_key='spconv2')
         )
 
         self.aux_up2 = spconv.SparseSequential(
-            block(64, 32, 3, norm_fn=norm_fn, act_fn=act_fn, conv_type='inverseconv', indice_key='spconv2')
+            spconv.SparseInverseConv3d(64, 32, 3, bias=False, indice_key='spconv2')
         )
 
     def forward(self, batch_dict):
@@ -209,5 +205,5 @@ class SparseUnet(nn.Module):
         aux_x_up2 = self.aux_up2(x_up3)
 
         batch_dict['voxel_features'] = x_up1.features
-        batch_dict['aux_voxel_features'] = [x_up2.features, aux_x_up2.features, aux_x_up3.features]
+        batch_dict['aux_voxel_features'] = [aux_x_up3.features, aux_x_up2.features, x_up2.features]
         return batch_dict
