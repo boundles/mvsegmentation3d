@@ -72,12 +72,11 @@ def compute_loss(pred_result, data_dict, criterion):
     for loss_func, loss_weight in criterion:
         loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
 
-    if 'aux_outs' in pred_result:
-        aux_outs = pred_result['aux_outs']
+    if 'aux_out' in pred_result:
+        voxel_pred_labels = pred_result['aux_out']
         voxel_gt_labels = data_dict['voxel_labels']
-        for aux_out in aux_outs:
-            for loss_func, loss_weight in criterion:
-                loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(aux_out, voxel_gt_labels) * loss_weight
+        for loss_func, loss_weight in criterion:
+            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
     return loss
 
