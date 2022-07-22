@@ -32,5 +32,4 @@ def get_sub_indices_pos(sub_indices, all_indices):
 def cart2polar(points):
     rho = np.sqrt(points[:, 0] ** 2 + points[:, 1] ** 2)
     phi = np.arctan2(points[:, 1], points[:, 0])
-    polar_points = np.concatenate((rho, phi, points[:, 2], points[:, :2], points[:, 3:]), axis=1)
-    return polar_points
+    return np.stack((rho, phi, points[:, 2]), axis=1)
