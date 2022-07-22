@@ -54,11 +54,8 @@ class WaymoDataset(Dataset):
         return self.cfg.DATASET.DIM_POINT
 
     @property
-    def dim_point_feature(self):
-        if self.cfg.DATASET.USE_CYLINDER:
-            return self.cfg.DATASET.DIM_POINT + 2
-        else:
-            return self.cfg.DATASET.DIM_POINT
+    def use_cylinder(self):
+        return self.cfg.DATASET.USE_CYLINDER
 
     @property
     def num_classes(self):
