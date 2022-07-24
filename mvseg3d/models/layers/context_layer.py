@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from mvseg3d.utils.spconv_utils import replace_feature
+
 
 def square_distance(src, dst):
     """
@@ -95,11 +97,17 @@ class ContextLayer(nn.Module):
         Returns:
             SparseTensor: The output with features: shape (N, C)
         """
+        context_features = []
         indices = x.indices.long()
         for i in range(x.batch_size):
-            i_indices = indices[indices[:, 0] == i][1:].unsqueeze(0)
-            sample_indices = farthest_point_sample(i_indices, self.n_sample).squeeze(0)
-            sample_features = x.features[sample_indices].unsqueeze(0)
-            sample_features = self.attn(sample_features).squeeze(0)
-            print(sample_features.shape)
+            i_indices = indices[indices[:, 0] == i][:, 1:].unsqueeze(0)
+            sample_idx = farthest_point_sample(i_indices, self.n_sample).squeeze(0)
+            sample_features = x.features[sample_idx].unsqueeze(0)
+            sample_features = self.attn(sample_features).squeeze()
+            all_to_sample_dists = square_distance(i_indices, i_indices[sample_idx, :])
+            all_to_sample_idx = torch.argmin(all_to_sample_dists, dim=2).squeeze()
+            i_features = sample_features[all_to_sample_idx, :]
+            context_features.append(i_features)
+        context_features = torch.cat(context_features, dim=0)
+        x = replace_feature(x, x.features + context_features)
         return x
