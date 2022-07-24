@@ -12,18 +12,33 @@ class SPNet(nn.Module):
     def __init__(self, dataset):
         super(SPNet, self).__init__()
 
-        dim_point = dataset.dim_point + 2 if dataset.use_cylinder else dataset.dim_point
         self.point_feature_channel = 32
-        self.point_encoder = nn.Sequential(
-            nn.Linear(dim_point, 32, bias=False),
-            nn.BatchNorm1d(32),
-            nn.ReLU(inplace=True),
-            nn.Linear(32, 64, bias=False),
-            nn.BatchNorm1d(64),
-            nn.ReLU(inplace=True),
-            nn.Linear(64, self.point_feature_channel, bias=False),
-            nn.BatchNorm1d(self.point_feature_channel),
-            nn.ReLU(inplace=True))
+        if dataset.use_cylinder:
+            dim_point = dataset.dim_point + 2
+            self.point_encoder = nn.Sequential(
+                nn.BatchNorm1d(dim_point),
+                nn.Linear(dim_point, 32, bias=False),
+                nn.BatchNorm1d(32),
+                nn.ReLU(inplace=True),
+                nn.Linear(32, 64, bias=False),
+                nn.BatchNorm1d(64),
+                nn.ReLU(inplace=True),
+                nn.Linear(64, self.point_feature_channel, bias=False),
+                nn.BatchNorm1d(self.point_feature_channel),
+                nn.ReLU(inplace=True))
+        else:
+            dim_point = dataset.dim_point
+            self.point_encoder = nn.Sequential(
+                nn.BatchNorm1d(dim_point),
+                nn.Linear(dim_point, 32, bias=False),
+                nn.BatchNorm1d(32),
+                nn.ReLU(inplace=True),
+                nn.Linear(32, 64, bias=False),
+                nn.BatchNorm1d(64),
+                nn.ReLU(inplace=True),
+                nn.Linear(64, self.point_feature_channel, bias=False),
+                nn.BatchNorm1d(self.point_feature_channel),
+                nn.ReLU(inplace=True))
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
