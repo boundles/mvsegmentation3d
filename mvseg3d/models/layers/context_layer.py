@@ -99,15 +99,16 @@ class ContextLayer(nn.Module):
         """
         context_features = []
         indices = x.indices.long()
+        features = x.features
         for i in range(x.batch_size):
             i_indices = indices[indices[:, 0] == i][:, 1:].unsqueeze(0)
             sample_idx = farthest_point_sample(i_indices, self.n_sample).squeeze(0)
-            sample_features = x.features[sample_idx].unsqueeze(0)
+            sample_features = features[sample_idx].unsqueeze(0)
             sample_features = self.attn(sample_features).squeeze()
-            all_to_sample_dists = square_distance(i_indices, i_indices[sample_idx, :])
-            all_to_sample_idx = torch.argmin(all_to_sample_dists, dim=2).squeeze()
-            i_features = sample_features[all_to_sample_idx, :]
+            dists = square_distance(i_indices.float(), i_indices[:, sample_idx, :].float())
+            min_dist_idx = torch.argmin(dists, dim=2).squeeze()
+            i_features = sample_features[min_dist_idx, :]
             context_features.append(i_features)
         context_features = torch.cat(context_features, dim=0)
-        x = replace_feature(x, x.features + context_features)
+        x = replace_feature(x, features + context_features)
         return x
