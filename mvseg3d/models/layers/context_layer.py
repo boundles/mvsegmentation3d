@@ -40,7 +40,7 @@ class ContextLayer(nn.Module):
     def __init__(self, planes):
         super(ContextLayer, self).__init__()
 
-        self.attn = SelfAttention(planes, 3)
+        self.attn = SelfAttention(planes, 4)
 
     def forward(self, x):
         """Forward function.
@@ -51,6 +51,6 @@ class ContextLayer(nn.Module):
         """
         indices = x.indices.long()
         for i in range(x.batch_size):
-            features = x.features[indices == i].unsqueeze(0)
+            features = x.features[indices[:, 0] == i].unsqueeze(0)
             features = self.attn(features).squeeze(0)
         return x
