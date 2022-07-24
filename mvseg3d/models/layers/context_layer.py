@@ -48,17 +48,17 @@ def farthest_point_sample(xyz, npoint):
     return centroids
 
 class SelfAttention(nn.Module):
-    def __init__(self, embed_dim, num_heads):
+    def __init__(self, embed_dim, num_heads, attn_drop_rate=0., proj_drop_rate=0.):
         super(SelfAttention, self).__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         head_embed_dim = embed_dim // num_heads
         self.scale = head_embed_dim ** -0.5
 
-        self.qkv = nn.Linear(embed_dim, embed_dim * 3, bias=False)
-        self.attn_drop = nn.Dropout(0.5)
+        self.qkv = nn.Linear(embed_dim, embed_dim * 3, bias=True)
+        self.attn_drop = nn.Dropout(attn_drop_rate)
         self.proj = nn.Linear(embed_dim, embed_dim)
-        self.proj_drop = nn.Dropout(0.5)
+        self.proj_drop = nn.Dropout(proj_drop_rate)
 
         self.softmax = nn.Softmax(dim=-1)
 
@@ -82,11 +82,11 @@ class SelfAttention(nn.Module):
         return x
 
 class ContextLayer(nn.Module):
-    def __init__(self, planes):
+    def __init__(self, planes, num_groups=1024, num_heads=4):
         super(ContextLayer, self).__init__()
 
-        self.n_sample = 1000
-        self.attn = SelfAttention(planes, 4)
+        self.num_groups = num_groups
+        self.attn = SelfAttention(planes, num_heads)
 
     def forward(self, x):
         """Forward function.
@@ -99,14 +99,14 @@ class ContextLayer(nn.Module):
         indices = x.indices.long()
         features = x.features
         for i in range(x.batch_size):
-            i_indices = indices[indices[:, 0] == i][:, 1:].unsqueeze(0)
-            sample_idx = farthest_point_sample(i_indices, self.n_sample).squeeze(0)
-            sample_features = features[sample_idx].unsqueeze(0)
-            sample_features = self.attn(sample_features).squeeze()
-            dists = square_distance(i_indices.float(), i_indices[:, sample_idx, :].float())
+            batch_indices = indices[indices[:, 0] == i][:, 1:].unsqueeze(0)
+            group_idx = farthest_point_sample(batch_indices, self.num_groups).squeeze(0)
+            group_features = features[group_idx].unsqueeze(0)
+            group_features = self.attn(group_features).squeeze()
+            dists = square_distance(batch_indices.float(), batch_indices[:, group_idx, :].float())
             min_dist_idx = torch.argmin(dists, dim=2).squeeze()
-            i_features = sample_features[min_dist_idx, :]
-            context_features.append(i_features)
+            batch_features = group_features[min_dist_idx, :]
+            context_features.append(batch_features)
         context_features = torch.cat(context_features, dim=0)
         x = replace_feature(x, features + context_features)
         return x
