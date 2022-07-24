@@ -29,7 +29,6 @@ class SPNet(nn.Module):
         else:
             dim_point = dataset.dim_point
             self.point_encoder = nn.Sequential(
-                nn.BatchNorm1d(dim_point),
                 nn.Linear(dim_point, 32, bias=False),
                 nn.BatchNorm1d(32),
                 nn.ReLU(inplace=True),
