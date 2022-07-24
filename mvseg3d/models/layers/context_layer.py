@@ -69,8 +69,6 @@ class SelfAttention(nn.Module):
         # make torchscript happy (cannot use tensor as tuple)
         q, k, v = qkv[0], qkv[1], qkv[2]
 
-        print(q.shape, k.shape, v.shape)
-
         q = q * self.scale
         attn = (q @ k.transpose(-2, -1))
 
