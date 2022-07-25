@@ -3,51 +3,9 @@ import torch.nn as nn
 
 from torch_scatter import scatter
 
+from mvseg3d.utils.data_utils import farthest_point_sample, square_distance
 from mvseg3d.utils.spconv_utils import replace_feature
 
-
-def square_distance(src, dst):
-    """
-    Calculate Euclid distance between each two points.
-    src^T * dst = xn * xm + yn * ym + zn * zm；
-    sum(src^2, dim=-1) = xn*xn + yn*yn + zn*zn;
-    sum(dst^2, dim=-1) = xm*xm + ym*ym + zm*zm;
-    dist = (xn - xm)^2 + (yn - ym)^2 + (zn - zm)^2
-         = sum(src**2,dim=-1)+sum(dst**2,dim=-1)-2*src^T*dst
-    Input:
-        src: source points, [B, N, C]
-        dst: target points, [B, M, C]
-    Output:
-        dist: per-point square distance, [B, N, M]
-    """
-    B, N, _ = src.shape
-    _, M, _ = dst.shape
-    dist = -2 * torch.matmul(src, dst.permute(0, 2, 1))
-    dist += torch.sum(src ** 2, -1).view(B, N, 1)
-    dist += torch.sum(dst ** 2, -1).view(B, 1, M)
-    return dist
-
-def farthest_point_sample(xyz, npoint):
-    """
-    Input:
-        xyz: pointcloud data, [B, N, 3]
-        npoint: number of samples
-    Return:
-        centroids: sampled pointcloud index, [B, npoint]
-    """
-    device = xyz.device
-    B, N, C = xyz.shape
-    centroids = torch.zeros(B, npoint, dtype=torch.long).to(device)
-    distance = torch.ones(B, N).to(device) * 1e10
-    farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
-    batch_indices = torch.arange(B, dtype=torch.long).to(device)
-    for i in range(npoint):
-        centroids[:, i] = farthest
-        centroid = xyz[batch_indices, farthest, :].view(B, 1, 3)
-        dist = torch.sum((xyz - centroid) ** 2, -1)
-        distance = torch.min(distance, dist)
-        farthest = torch.max(distance, -1)[1]
-    return centroids
 
 class SelfAttention(nn.Module):
     def __init__(self, embed_dim, num_heads, attn_drop_rate=0., proj_drop_rate=0.):
@@ -83,12 +41,36 @@ class SelfAttention(nn.Module):
         x = self.proj_drop(x)
         return x
 
+class Block(nn.Module):
+    """ an unassuming Transformer block """
+    def __init__(self, embed_dim, num_heads):
+        super(Block, self).__init__()
+        self.ln_1 = nn.LayerNorm(embed_dim)
+        self.attn = SelfAttention(embed_dim, num_heads)
+        self.ln_2 = nn.LayerNorm(embed_dim)
+        self.ffn = nn.Sequential(
+            nn.Linear(embed_dim, 4 * embed_dim),
+            nn.Linear(4 * embed_dim, embed_dim),
+            nn.GELU(),
+            nn.Dropout(0.1),
+        )
+
+    def forward(self, x):
+        x = x + self.attn(self.ln_1(x))
+        x = x + self.ffn(self.ln_2(x))
+        return x
+
 class ContextLayer(nn.Module):
     def __init__(self, planes, num_groups=1024, num_heads=4):
         super(ContextLayer, self).__init__()
 
         self.num_groups = num_groups
-        self.attn = SelfAttention(planes, num_heads)
+        self.transformer = Block(planes, num_heads)
+        self.bottleneck = nn.Sequential(
+            nn.Linear(2 * planes, planes, bias=False),
+            nn.BatchNorm1d(planes),
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, x):
         """Forward function.
@@ -106,10 +88,11 @@ class ContextLayer(nn.Module):
             point_to_group_dists = square_distance(batch_indices.float(), batch_indices[:, group_idx, :].float())
             point_to_group_idx = torch.argmin(point_to_group_dists, dim=2).squeeze()
             batch_features = features[indices[:, 0] == i]
-            group_features = scatter(batch_features, point_to_group_idx, dim=0, reduce='mean').unsqueeze(0)
-            group_features = self.attn(group_features).squeeze()
+            group_features = scatter(batch_features, point_to_group_idx, dim=0, reduce='max').unsqueeze(0)
+            group_features = self.transformer(group_features).squeeze()
             batch_context_features = group_features[point_to_group_idx, :]
             context_features.append(batch_context_features)
         context_features = torch.cat(context_features, dim=0)
-        x = replace_feature(x, features + context_features)
+        x = replace_feature(x, torch.cat([features, context_features], dim=1))
+        x = replace_feature(x, self.bottleneck(x.features))
         return x
