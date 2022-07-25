@@ -105,10 +105,12 @@ class ContextLayer(nn.Module):
             group_idx = farthest_point_sample(batch_indices, self.num_groups).squeeze(0)
             dists = square_distance(batch_indices.float(), batch_indices[:, group_idx, :].float())
             min_dist_idx = torch.argmin(dists, dim=2).squeeze()
-            group_features = torch_scatter.scatter(features, min_dist_idx, dim=0, reduce='mean')
+
+            batch_features = features[indices[:, 0] == i][:, 1:]
+            group_features = torch_scatter.scatter(batch_features, min_dist_idx, dim=0, reduce='mean')
             group_features = self.attn(group_features).squeeze()
-            batch_features = group_features[min_dist_idx, :]
-            context_features.append(batch_features)
+            batch_context_features = group_features[min_dist_idx, :]
+            context_features.append(batch_context_features)
         context_features = torch.cat(context_features, dim=0)
         x = replace_feature(x, features + context_features)
         return x
