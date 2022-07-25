@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+import torch_scatter
+
 from mvseg3d.utils.spconv_utils import replace_feature
 
 
@@ -101,10 +103,10 @@ class ContextLayer(nn.Module):
         for i in range(x.batch_size):
             batch_indices = indices[indices[:, 0] == i][:, 1:].unsqueeze(0)
             group_idx = farthest_point_sample(batch_indices, self.num_groups).squeeze(0)
-            group_features = features[group_idx].unsqueeze(0)
-            group_features = self.attn(group_features).squeeze()
             dists = square_distance(batch_indices.float(), batch_indices[:, group_idx, :].float())
             min_dist_idx = torch.argmin(dists, dim=2).squeeze()
+            group_features = torch_scatter.scatter(features, min_dist_idx, dim=0, reduce='mean')
+            group_features = self.attn(group_features).squeeze()
             batch_features = group_features[min_dist_idx, :]
             context_features.append(batch_features)
         context_features = torch.cat(context_features, dim=0)
