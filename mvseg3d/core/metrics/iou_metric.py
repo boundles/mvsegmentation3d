@@ -10,12 +10,10 @@ class IOUMetric(object):
 
     Args:
         class_names (List[str]): class names
-        ignore_index (int): Index that will be ignored in evaluation.
     """
 
-    def __init__(self, class_names, ignore_index=255):
+    def __init__(self, class_names):
         self.class_names = class_names
-        self.ignore_index = ignore_index
 
         self.hist_list = []
 
@@ -54,10 +52,6 @@ class IOUMetric(object):
         preds = pred_labels.clone().numpy().astype(np.int)
         labels = gt_labels.clone().numpy().astype(np.int)
 
-        # filter out ignored points
-        preds[preds == self.ignore_index] = -1
-        labels[labels == self.ignore_index] = -1
-
         # calculate one instance result
         hist = self.fast_hist(preds, labels, len(self.class_names))
         self.hist_list.append(hist)
@@ -93,7 +87,7 @@ class IOUMetric(object):
 
 if __name__ == '__main__':
     class_names = ['c0', 'c1', 'c2', 'c3']
-    iou_metric = IOUMetric(class_names, 255)
+    iou_metric = IOUMetric(class_names)
 
     pred_labels = torch.Tensor([1, 2, 3])
     gt_labels = torch.Tensor([1, 1, 3])
