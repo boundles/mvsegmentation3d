@@ -76,8 +76,11 @@ def compute_loss(pred_result, data_dict, criterion, num_classes):
     if 'voxel_pred_masks' in pred_result:
         voxel_pred_masks = pred_result['voxel_pred_masks']
         voxel_gt_labels = data_dict['voxel_labels']
-        voxel_gt_labels = torch.one_hot(voxel_gt_labels, num_classes=num_classes)
-        loss += F.binary_cross_entropy_with_logits(voxel_pred_masks, voxel_gt_labels)
+        valid = (voxel_gt_labels != 255)
+        voxel_pred_masks = voxel_pred_masks[valid]
+        voxel_gt_labels = voxel_gt_labels[valid]
+        voxel_gt_labels = F.one_hot(voxel_gt_labels, num_classes=num_classes)
+        loss += F.binary_cross_entropy_with_logits(voxel_pred_masks, voxel_gt_labels.float())
 
     return loss
 
