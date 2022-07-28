@@ -6,7 +6,7 @@ from torch.nn import functional as F
 class SelfAttentionLayer(nn.Module):
     def __init__(self, d_model, nhead, dropout=0.0):
         super(SelfAttentionLayer, self).__init__()
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
 
         self.norm = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
@@ -21,21 +21,21 @@ class SelfAttentionLayer(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     def forward(self, x):
-        # (N, C) -> (1, N, C)
-        x = x.unsqueeze(0)
+        # (N, C) -> (N, 1, C)
+        x = x.unsqueeze(1)
         q = k = v = x
         attn_output = self.self_attn(q, k, value=v)[0]
         out = x + self.dropout(attn_output)
         out = self.norm(out)
-        # (1, N, C)->(N, C)
-        out = out.squeeze(0)
+        # (N, 1, C)->(N, C)
+        out = out.squeeze(1)
         return out
 
 
 class CrossAttentionLayer(nn.Module):
     def __init__(self, d_model, nhead, dropout=0.0):
         super(CrossAttentionLayer, self).__init__()
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
 
         self.norm = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
@@ -50,14 +50,14 @@ class CrossAttentionLayer(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     def forward(self, q, kv):
-        # (N, C) -> (1, N, C)
-        q = q.unsqueeze(0)
-        k = v = kv.unsqueeze(0)
+        # (N, C) -> (N, 1, C)
+        q = q.unsqueeze(1)
+        k = v = kv.unsqueeze(1)
         attn_output = self.self_attn(q, k, value=v)[0]
         out = q + self.dropout(attn_output)
         out = self.norm(out)
-        # (1, N, C)->(N, C)
-        out = out.squeeze(0)
+        # (N, 1, C)->(N, C)
+        out = out.squeeze(1)
         return out
 
 
