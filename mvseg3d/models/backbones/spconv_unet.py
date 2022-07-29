@@ -204,8 +204,9 @@ class SparseUnet(nn.Module):
             mask_features = batch_mask_features.transpose(0, 1)
             output_mask = self.transformer_decoder(decoder_features, mask_features).transpose(0, 1)
             output_masks.append(output_mask)
-        output_masks = torch.cat(output_masks, dim=0)
+        attn_masks = torch.sigmoid(torch.cat(output_masks, dim=0))
+        x_up1 = replace_feature(x_up1, x_up1.features + x_up1.features * attn_masks)
 
-        batch_dict['voxel_features'] = output_masks
+        batch_dict['voxel_features'] = x_up1.features
         batch_dict['aux_voxel_features'] = x_up2.features
         return batch_dict
