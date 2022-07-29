@@ -156,9 +156,9 @@ class SparseUnet(nn.Module):
         self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
         # transformer decoder
-        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[128, 64, 32], hidden_dim=32,
+        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[128, 64, 32], hidden_dim=64,
                                                                 num_queries=output_channels, nheads=4,
-                                                                dim_feedforward=64, mask_dim=32, dec_layers=3)
+                                                                dim_feedforward=256, mask_dim=32, dec_layers=3)
 
     def forward(self, batch_dict):
         """
