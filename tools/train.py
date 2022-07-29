@@ -5,7 +5,6 @@ import argparse
 import torch
 import torch.optim
 import torch.distributed as dist
-import torch.nn.functional as F
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
@@ -65,7 +64,7 @@ def save_checkpoint(model, optimizer, lr_scheduler, save_dir, epoch, logger):
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
-def compute_loss(pred_result, data_dict, criterion, num_classes):
+def compute_loss(pred_result, data_dict, criterion):
     loss = 0
 
     point_gt_labels = data_dict['labels']
@@ -73,14 +72,11 @@ def compute_loss(pred_result, data_dict, criterion, num_classes):
     for loss_func, loss_weight in criterion:
         loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
 
-    if 'voxel_pred_masks' in pred_result:
-        voxel_pred_masks = pred_result['voxel_pred_masks']
+    if 'aux_out' in pred_result:
+        voxel_pred_labels = pred_result['aux_out']
         voxel_gt_labels = data_dict['voxel_labels']
-        valid = (voxel_gt_labels != 255)
-        voxel_pred_masks = voxel_pred_masks[valid]
-        voxel_gt_labels = voxel_gt_labels[valid]
-        voxel_gt_labels = F.one_hot(voxel_gt_labels, num_classes=num_classes)
-        loss += F.binary_cross_entropy_with_logits(voxel_pred_masks, voxel_gt_labels.float())
+        for loss_func, loss_weight in criterion:
+            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
     return loss
 
@@ -92,7 +88,7 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
         with torch.no_grad():
             result = model(data_dict)
 
-        loss = compute_loss(result, data_dict, criterion, num_classes=len(class_names))
+        loss = compute_loss(result, data_dict, criterion)
 
         if step % args.log_iter_interval == 0:
             logger.info(
@@ -105,13 +101,13 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
-def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, epoch, logger, class_names):
+def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, epoch, logger):
     model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
         result = model(data_dict)
 
-        loss = compute_loss(result, data_dict, criterion, num_classes=len(class_names))
+        loss = compute_loss(result, data_dict, criterion)
 
         optimizer.zero_grad()
         loss.backward()
@@ -138,7 +134,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names,
         cur_epoch = epoch + 1
 
         # train for one epoch
-        train_epoch(args, data_loaders['train'], model, criterion, optimizer, lr_scheduler, cur_epoch, logger, class_names)
+        train_epoch(args, data_loaders['train'], model, criterion, optimizer, lr_scheduler, cur_epoch, logger)
 
         # save checkpoint
         if rank == 0 and args.auto_resume:
