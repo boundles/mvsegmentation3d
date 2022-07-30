@@ -4,7 +4,7 @@ import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
 
-from mvseg3d.models.layers import PositionEncodingSine
+from .position_encoding import PositionEncodingSine
 
 
 class SelfAttentionLayer(nn.Module):
