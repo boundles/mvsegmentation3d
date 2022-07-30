@@ -1,6 +1,10 @@
+from typing import Optional
+
 import torch
-import torch.nn as nn
+from torch import nn, Tensor
 from torch.nn import functional as F
+
+from mvseg3d.models.layers import PositionEncodingSine
 
 
 class SelfAttentionLayer(nn.Module):
@@ -20,12 +24,16 @@ class SelfAttentionLayer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def forward(self, x):
+    @staticmethod
+    def with_pos_embed(tensor, pos: Optional[Tensor]):
+        return tensor if pos is None else tensor + pos
+
+    def forward(self, tgt, query_pos: Optional[Tensor] = None):
+        q = k = self.with_pos_embed(tgt, query_pos)
         # (N, C) -> (N, 1, C)
-        x = x.unsqueeze(1)
-        q = k = v = x
-        attn_output = self.self_attn(q, k, value=v)[0]
-        out = x + self.dropout(attn_output)
+        q, k, tgt = q.unsqueeze(1), k.unsqueeze(1), tgt.unsqueeze(1)
+        attn_tgt = self.self_attn(q, k, value=tgt)[0]
+        out = tgt + self.dropout(attn_tgt)
         out = self.norm(out)
         # (N, 1, C)->(N, C)
         out = out.squeeze(1)
@@ -49,12 +57,19 @@ class CrossAttentionLayer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def forward(self, q, kv):
+    @staticmethod
+    def with_pos_embed(tensor, pos: Optional[Tensor]):
+        return tensor if pos is None else tensor + pos
+
+    def forward(self, tgt, memory,
+                pos: Optional[Tensor] = None,
+                query_pos: Optional[Tensor] = None):
+        q = self.with_pos_embed(tgt, query_pos)
+        k = self.with_pos_embed(memory, pos)
         # (N, C) -> (N, 1, C)
-        q = q.unsqueeze(1)
-        k = v = kv.unsqueeze(1)
-        attn_output = self.self_attn(q, k, value=v)[0]
-        out = q + self.dropout(attn_output)
+        q, k, memory = q.unsqueeze(1), k.unsqueeze(1), memory.unsqueeze(1)
+        attn_tgt = self.self_attn(query=q, key=k, value=memory)[0]
+        out = tgt + self.dropout(attn_tgt)
         out = self.norm(out)
         # (N, 1, C)->(N, C)
         out = out.squeeze(1)
@@ -126,6 +141,8 @@ class MultiScaleTransformerDecoder(nn.Module):
         """
         super(MultiScaleTransformerDecoder, self).__init__()
 
+        self.pe_layer = PositionEncodingSine(hidden_dim)
+
         # define Transformer decoder here
         self.num_heads = nheads
         self.num_layers = dec_layers
@@ -163,6 +180,8 @@ class MultiScaleTransformerDecoder(nn.Module):
         self.num_queries = num_queries
         # learnable query features
         self.query_feat = nn.Embedding(num_queries, hidden_dim)
+        # learnable query p.e.
+        self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
         # level embedding (we always use 3 scales)
         self.num_feature_levels = 3
@@ -176,27 +195,37 @@ class MultiScaleTransformerDecoder(nn.Module):
 
         self.mask_embed = MLP(hidden_dim, hidden_dim, mask_dim, 3)
 
-    def forward(self, x, mask_features):
+    def forward(self, features, indices, mask_features):
         # x is a list of multi-scale feature
-        assert len(x) == self.num_feature_levels
+        assert len(features) == self.num_feature_levels
 
         src = []
+        pos = []
         for i in range(self.num_feature_levels):
-            src.append(self.input_proj[i](x[i]) + self.level_embed.weight[i][None, :])
+            pos.append(self.pe_layer(indices[i]))
+            src.append(self.input_proj[i](features[i]) + self.level_embed.weight[i][None, :])
+
+        query_embed = self.query_embed.weight
+        output = self.query_feat.weight
 
         predictions_mask = []
 
         # prediction heads on learnable query features
-        output = self.query_feat.weight
         outputs_mask = self.forward_prediction_heads(output, mask_features)
         predictions_mask.append(outputs_mask)
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
             # attention: cross-attention first
-            output = self.transformer_cross_attention_layers[i](output, src[level_index])
+            output = self.transformer_cross_attention_layers[i](
+                output, src[level_index],
+                pos=pos[level_index],
+                query_pos=query_embed
+            )
 
-            output = self.transformer_self_attention_layers[i](output)
+            output = self.transformer_self_attention_layers[i](
+                output, query_pos=query_embed
+            )
 
             # FFN
             output = self.transformer_ffn_layers[i](output)

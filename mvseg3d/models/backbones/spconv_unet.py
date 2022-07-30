@@ -156,9 +156,9 @@ class SparseUnet(nn.Module):
         self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
         # transformer decoder
-        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[128, 64, 32], hidden_dim=64,
+        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[128, 64, 32], hidden_dim=72,
                                                                 num_queries=output_channels, nheads=4,
-                                                                dim_feedforward=256, mask_dim=output_channels,
+                                                                dim_feedforward=128, mask_dim=output_channels,
                                                                 dec_layers=6)
 
     def forward(self, batch_dict):
@@ -197,13 +197,17 @@ class SparseUnet(nn.Module):
         # transformer decoder
         output_masks = []
         for i in range(batch_size):
-            batch_up4_features = x_up4.features[x_up4.indices[:, 0] == i]
-            batch_up3_features = x_up3.features[x_up3.indices[:, 0] == i]
-            batch_up2_features = x_up2.features[x_up2.indices[:, 0] == i]
-            batch_mask_features = x_up1.features[x_up1.indices[:, 0] == i]
-            decoder_features = [batch_up4_features, batch_up3_features, batch_up2_features]
-            mask_features = batch_mask_features.transpose(0, 1)
-            output_mask = self.transformer_decoder(decoder_features, mask_features).transpose(0, 1)
+            batch_features_8 = x_conv4.features[x_conv4.indices[:, 0] == i]
+            batch_features_4 = x_up4.features[x_up4.indices[:, 0] == i]
+            batch_features_2 = x_up3.features[x_up3.indices[:, 0] == i]
+            batch_indices_8 = x_conv4.indices[x_conv4.indices[:, 0] == i]
+            batch_indices_4 = x_up4.indices[x_up4.indices[:, 0] == i]
+            batch_indices_2 = x_up3.indices[x_up3.indices[:, 0] == i]
+            features = [batch_features_8, batch_features_4, batch_features_2]
+            indices = [batch_indices_8, batch_indices_4, batch_indices_2]
+            mask_features = x_up1.features[x_up1.indices[:, 0] == i]
+            mask_features = mask_features.transpose(0, 1)
+            output_mask = self.transformer_decoder(features, indices, mask_features).transpose(0, 1)
             output_masks.append(output_mask)
         attn_masks = torch.sigmoid(torch.cat(output_masks, dim=0))
         x_up1 = replace_feature(x_up1, x_up1.features + x_up1.features * attn_masks)
