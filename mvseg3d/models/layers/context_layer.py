@@ -88,7 +88,7 @@ class ContextLayer(nn.Module):
             point_to_group_dists = square_distance(batch_indices.float(), batch_indices[:, group_idx, :].float())
             point_to_group_idx = torch.argmin(point_to_group_dists, dim=2).squeeze()
             batch_features = features[indices[:, 0] == i]
-            group_features = scatter(batch_features, point_to_group_idx, dim=0, reduce='max').unsqueeze(0)
+            group_features = scatter(batch_features, point_to_group_idx, dim=0, reduce='mean').unsqueeze(0)
             group_features = self.transformer(group_features).squeeze()
             batch_context_features = group_features[point_to_group_idx, :]
             context_features.append(batch_context_features)
