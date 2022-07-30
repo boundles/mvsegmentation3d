@@ -33,11 +33,11 @@ class SelfAttentionLayer(nn.Module):
         # (N, C) -> (N, 1, C)
         q, k, tgt = q.unsqueeze(1), k.unsqueeze(1), tgt.unsqueeze(1)
         attn_tgt = self.self_attn(q, k, value=tgt)[0]
-        out = tgt + self.dropout(attn_tgt)
-        out = self.norm(out)
+        tgt = tgt + self.dropout(attn_tgt)
+        tgt = self.norm(tgt)
         # (N, 1, C)->(N, C)
-        out = out.squeeze(1)
-        return out
+        tgt = tgt.squeeze(1)
+        return tgt
 
 
 class CrossAttentionLayer(nn.Module):
@@ -67,13 +67,13 @@ class CrossAttentionLayer(nn.Module):
         q = self.with_pos_embed(tgt, query_pos)
         k = self.with_pos_embed(memory, pos)
         # (N, C) -> (N, 1, C)
-        q, k, memory = q.unsqueeze(1), k.unsqueeze(1), memory.unsqueeze(1)
+        q, k, memory, tgt = q.unsqueeze(1), k.unsqueeze(1), memory.unsqueeze(1), tgt.unsqueeze(1)
         attn_tgt = self.self_attn(query=q, key=k, value=memory)[0]
-        out = tgt + self.dropout(attn_tgt)
-        out = self.norm(out)
+        tgt = tgt + self.dropout(attn_tgt)
+        tgt = self.norm(tgt)
         # (N, 1, C)->(N, C)
-        out = out.squeeze(1)
-        return out
+        tgt = tgt.squeeze(1)
+        return tgt
 
 
 class FFNLayer(nn.Module):
