@@ -35,7 +35,7 @@ class SelfAttentionLayer(nn.Module):
         attn_tgt = self.self_attn(q, k, value=tgt)[0]
         tgt = tgt + self.dropout(attn_tgt)
         tgt = self.norm(tgt)
-        # (N, 1, C)->(N, C)
+        # (N, 1, C) -> (N, C)
         tgt = tgt.squeeze(1)
         return tgt
 
@@ -71,7 +71,7 @@ class CrossAttentionLayer(nn.Module):
         attn_tgt = self.self_attn(query=q, key=k, value=memory)[0]
         tgt = tgt + self.dropout(attn_tgt)
         tgt = self.norm(tgt)
-        # (N, 1, C)->(N, C)
+        # (N, 1, C) -> (N, C)
         tgt = tgt.squeeze(1)
         return tgt
 
