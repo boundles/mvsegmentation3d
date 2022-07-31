@@ -43,7 +43,7 @@ class SPNet(nn.Module):
         if self.use_image_feature:
             self.point_feature_channel += dataset.dim_image_feature
 
-        self.voxel_feature_channel = 32
+        self.voxel_feature_channel = dataset.num_classes
         self.voxel_encoder = SparseUnet(self.point_feature_channel,
                                         self.voxel_feature_channel,
                                         dataset.grid_size,
@@ -66,7 +66,7 @@ class SPNet(nn.Module):
                                         nn.Linear(32, dataset.num_classes, bias=False))
 
         self.aux_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
+            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 32, bias=False),
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
             nn.Dropout(0.1),

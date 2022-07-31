@@ -153,13 +153,13 @@ class SparseUnet(nn.Module):
         # [752, 752, 36] -> [1504, 1504, 72]
         self.up2 = UpBlock(64, 32, norm_fn, act_fn, conv_type='inverseconv', layer_id=2)
         # [1504, 1504, 72] -> [1504, 1504, 72]
-        self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
+        self.up1 = UpBlock(32, 32, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
         # transformer decoder
         self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[256, 128, 64], hidden_dim=72,
                                                                 num_queries=output_channels, nheads=4,
-                                                                dim_feedforward=128, mask_dim=output_channels,
-                                                                dec_layers=6)
+                                                                dim_feedforward=128, mask_dim=32, dec_layers=6)
+        self.aux_voxel_feature_channel = 32
 
     def forward(self, batch_dict):
         """
@@ -209,9 +209,8 @@ class SparseUnet(nn.Module):
             mask_features = mask_features.transpose(0, 1)
             output_mask = self.transformer_decoder(features, indices, mask_features).transpose(0, 1)
             output_masks.append(output_mask)
-        attn_masks = torch.sigmoid(torch.cat(output_masks, dim=0))
-        x_up1 = replace_feature(x_up1, x_up1.features + x_up1.features * attn_masks)
+        output_masks = torch.sigmoid(torch.cat(output_masks, dim=0))
 
-        batch_dict['voxel_features'] = x_up1.features
+        batch_dict['voxel_features'] = output_masks
         batch_dict['aux_voxel_features'] = x_up2.features
         return batch_dict

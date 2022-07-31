@@ -17,7 +17,6 @@ class PositionEncodingSine(nn.Module):
         :param channels: The last dimension of the tensor you want to apply pos emb to.
         """
         super(PositionEncodingSine, self).__init__()
-        self.org_channels = channels
         channels = int(np.ceil(channels / 6) * 2)
         if channels % 2:
             channels += 1
@@ -40,7 +39,7 @@ class PositionEncodingSine(nn.Module):
         emb_y = get_emb(sin_inp_y)
         emb_z = get_emb(sin_inp_z)
         emb = torch.zeros((x.shape[0], self.channels * 3), device=x.device)
-        emb[:, : self.channels] = emb_z
-        emb[:, self.channels: 2 * self.channels] = emb_y
+        emb[:, :self.channels] = emb_z
+        emb[:, self.channels:2 * self.channels] = emb_y
         emb[:, 2 * self.channels:] = emb_x
         return emb
