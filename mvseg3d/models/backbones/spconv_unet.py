@@ -156,7 +156,7 @@ class SparseUnet(nn.Module):
         self.up1 = UpBlock(32, 32, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
         # transformer decoder
-        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[64, 32], hidden_dim=48,
+        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[32, 32], hidden_dim=48,
                                                                 num_queries=output_channels, nheads=4,
                                                                 dim_feedforward=128, mask_dim=32, dec_layers=4)
         self.aux_voxel_feature_channel = 32
@@ -203,8 +203,7 @@ class SparseUnet(nn.Module):
             batch_indices_1 = x_up1.indices[x_up1.indices[:, 0] == i]
             features = [batch_features_2, batch_features_1]
             indices = [batch_indices_2, batch_indices_1]
-            mask_features = x_up1.features[x_up1.indices[:, 0] == i]
-            mask_features = mask_features.transpose(0, 1)
+            mask_features = batch_features_1.transpose(0, 1)
             output_mask = self.transformer_decoder(features, indices, mask_features).transpose(0, 1)
             output_masks.append(output_mask)
         output_masks = torch.sigmoid(torch.cat(output_masks, dim=0))
