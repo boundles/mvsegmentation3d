@@ -245,8 +245,8 @@ class MultiScaleTransformerDecoder(nn.Module):
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("qc,cn->qn", mask_embed, mask_features)
 
-        # [Q, N] -> [h, Q, N]
-        attn_mask = (outputs_mask.sigmoid().unsqueeze(1).repeat(self.num_heads, 1, 1) < 0.5).bool()
+        # [Q, N] -> [B, Q, N] -> [B*h, Q, N]
+        attn_mask = (outputs_mask.sigmoid().unsqueeze(0).repeat(self.num_heads, 1, 1) < 0.5).bool()
         attn_mask = attn_mask.detach()
 
         return outputs_mask, attn_mask
