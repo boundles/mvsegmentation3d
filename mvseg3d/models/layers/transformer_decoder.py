@@ -62,13 +62,14 @@ class CrossAttentionLayer(nn.Module):
         return tensor if pos is None else tensor + pos
 
     def forward(self, tgt, memory,
+                memory_mask: Optional[Tensor] = None,
                 pos: Optional[Tensor] = None,
                 query_pos: Optional[Tensor] = None):
         q = self.with_pos_embed(tgt, query_pos)
         k = self.with_pos_embed(memory, pos)
         # (N, C) -> (N, 1, C)
         q, k, memory, tgt = q.unsqueeze(1), k.unsqueeze(1), memory.unsqueeze(1), tgt.unsqueeze(1)
-        attn_tgt = self.self_attn(query=q, key=k, value=memory)[0]
+        attn_tgt = self.self_attn(query=q, key=k, value=memory, attn_mask=memory_mask)[0]
         tgt = tgt + self.dropout(attn_tgt)
         tgt = self.norm(tgt)
         # (N, 1, C) -> (N, C)
@@ -183,8 +184,8 @@ class MultiScaleTransformerDecoder(nn.Module):
         # learnable query p.e.
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
-        # level embedding (we always use 3 scales)
-        self.num_feature_levels = 3
+        # level embedding (we always use 2 scales)
+        self.num_feature_levels = 2
         self.level_embed = nn.Embedding(self.num_feature_levels, hidden_dim)
         self.input_proj = nn.ModuleList()
         for i in range(self.num_feature_levels):
@@ -211,14 +212,16 @@ class MultiScaleTransformerDecoder(nn.Module):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_mask = self.forward_prediction_heads(output, mask_features)
+        outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features)
         predictions_mask.append(outputs_mask)
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
+            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
             # attention: cross-attention first
             output = self.transformer_cross_attention_layers[i](
                 output, src[level_index],
+                memory_mask=attn_mask,
                 pos=pos[level_index],
                 query_pos=query_embed
             )
@@ -230,7 +233,7 @@ class MultiScaleTransformerDecoder(nn.Module):
             # FFN
             output = self.transformer_ffn_layers[i](output)
 
-            outputs_mask = self.forward_prediction_heads(output, mask_features)
+            outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features)
             predictions_mask.append(outputs_mask)
 
         assert len(predictions_mask) == self.num_layers + 1
@@ -242,4 +245,8 @@ class MultiScaleTransformerDecoder(nn.Module):
         mask_embed = self.mask_embed(decoder_output)
         outputs_mask = torch.einsum("qc,cn->qn", mask_embed, mask_features)
 
-        return outputs_mask
+        # [Q, N] -> [h, Q, N]
+        attn_mask = (outputs_mask.sigmoid().unsqueeze(1).repeat(self.num_heads, 1, 1) < 0.5).bool()
+        attn_mask = attn_mask.detach()
+
+        return outputs_mask, attn_mask

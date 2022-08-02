@@ -156,9 +156,9 @@ class SparseUnet(nn.Module):
         self.up1 = UpBlock(32, 32, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
         # transformer decoder
-        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[256, 128, 64], hidden_dim=72,
+        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[64, 32], hidden_dim=48,
                                                                 num_queries=output_channels, nheads=4,
-                                                                dim_feedforward=128, mask_dim=32, dec_layers=6)
+                                                                dim_feedforward=128, mask_dim=32, dec_layers=4)
         self.aux_voxel_feature_channel = 32
 
     def forward(self, batch_dict):
@@ -197,14 +197,12 @@ class SparseUnet(nn.Module):
         # transformer decoder
         output_masks = []
         for i in range(batch_size):
-            batch_features_8 = x_conv4.features[x_conv4.indices[:, 0] == i]
-            batch_features_4 = x_up4.features[x_up4.indices[:, 0] == i]
-            batch_features_2 = x_up3.features[x_up3.indices[:, 0] == i]
-            batch_indices_8 = x_conv4.indices[x_conv4.indices[:, 0] == i]
-            batch_indices_4 = x_up4.indices[x_up4.indices[:, 0] == i]
-            batch_indices_2 = x_up3.indices[x_up3.indices[:, 0] == i]
-            features = [batch_features_8, batch_features_4, batch_features_2]
-            indices = [batch_indices_8, batch_indices_4, batch_indices_2]
+            batch_features_2 = x_up2.features[x_up2.indices[:, 0] == i]
+            batch_features_1 = x_up1.features[x_up1.indices[:, 0] == i]
+            batch_indices_2 = x_up2.indices[x_up2.indices[:, 0] == i]
+            batch_indices_1 = x_up1.indices[x_up1.indices[:, 0] == i]
+            features = [batch_features_2, batch_features_1]
+            indices = [batch_indices_2, batch_indices_1]
             mask_features = x_up1.features[x_up1.indices[:, 0] == i]
             mask_features = mask_features.transpose(0, 1)
             output_mask = self.transformer_decoder(features, indices, mask_features).transpose(0, 1)
