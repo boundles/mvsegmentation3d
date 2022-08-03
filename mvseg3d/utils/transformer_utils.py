@@ -72,8 +72,7 @@ class KMeansCrossAttentionLayer(nn.Module):
 
         self.bottleneck = nn.Sequential(
             nn.LayerNorm(d_model),
-            nn.Linear(d_model, d_model, bias=False),
-            nn.LayerNorm(d_model)
+            nn.Linear(d_model, d_model, bias=False)
         )
 
         self.dropout = nn.Dropout(dropout)
@@ -82,7 +81,7 @@ class KMeansCrossAttentionLayer(nn.Module):
         mask_embeddings = self.mlp(cluster_centers)
         pred_logits = torch.einsum("qc,nc->nq", mask_embeddings, point_features)
         clustering_result = torch.argmax(pred_logits, dim=1)
-        clustering_result = torch.one_hot(clustering_result, num_classes=self.num_queries).to(point_features.device)
+        clustering_result = F.one_hot(clustering_result, num_classes=self.num_queries).to(point_features.device)
         cluster_memory = torch.einsum("nq,nc->qc", clustering_result, point_features)
         cluster_centers = cluster_centers + self.dropout(self.bottleneck(cluster_memory))
         return pred_logits, cluster_centers
