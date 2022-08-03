@@ -279,9 +279,9 @@ class WaymoDataset(Dataset):
             voxel_coords_list.append(out_indices[:, 1:])
             voxel_labels_list.append(scaled_labels)
 
-        batch_dict['voxel_labels_stride_2'] = voxel_labels_list[1]
-        batch_dict['voxel_labels_stride_4'] = voxel_labels_list[2]
-        batch_dict['voxel_labels_stride_8'] = voxel_labels_list[3]
+        batch_dict['voxel_labels_2'] = voxel_labels_list[1]
+        batch_dict['voxel_labels_4'] = voxel_labels_list[2]
+        batch_dict['voxel_labels_8'] = voxel_labels_list[3]
 
     def prepare_data(self, data_dict):
         """
@@ -371,7 +371,7 @@ class WaymoDataset(Dataset):
                     coors.append(coor_pad)
                 ret[key] = np.concatenate(coors, axis=0)
             elif key in ['voxels', 'voxel_num_points', 'points_ri', 'point_image_features', 'voxel_labels',
-                         'voxel_labels_stride_2', 'voxel_labels_stride_4', 'voxel_labels_stride_8', 'labels']:
+                         'voxel_labels_2', 'voxel_labels_4', 'voxel_labels_8', 'labels']:
                 ret[key] = np.concatenate(val, axis=0)
             elif key in ['filename']:
                 ret[key] = val

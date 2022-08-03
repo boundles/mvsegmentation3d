@@ -8,7 +8,7 @@ def load_data_to_gpu(data_dict):
             continue
         else:
             if key in ['point_indices', 'point_voxel_ids', 'voxel_labels', 'labels',
-                       'voxel_labels_stride_2', 'voxel_labels_stride_4', 'voxel_labels_stride_8']:
+                       'voxel_labels_2', 'voxel_labels_4', 'voxel_labels_8']:
                 data_dict[key] = torch.from_numpy(val).long().cuda()
             else:
                 data_dict[key] = torch.from_numpy(val).float().cuda()

@@ -80,7 +80,7 @@ def compute_loss(pred_result, data_dict, criterion):
 
     for stride in ['8', '4', '2']:
         voxel_pred_labels = pred_result['aux_out_' + stride]
-        voxel_gt_labels = data_dict['voxel_labels_stride_' + stride]
+        voxel_gt_labels = data_dict['voxel_labels_' + stride]
         for loss_func, loss_weight in criterion:
             loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
