@@ -37,7 +37,7 @@ class KMaXTransformerDecoder(nn.Module):
         self.transformer_cross_attention_layers = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
-        for _ in range(self.num_layers):
+        for _ in range(len(num_blocks)):
             self.transformer_cross_attention_layers.append(
                 KMeansCrossAttentionLayer(
                     d_model=hidden_dim,
@@ -100,7 +100,7 @@ class KMaXTransformerDecoder(nn.Module):
 
                 aux_predictions_logits_list.append(predictions_logits)
 
-        assert len(aux_predictions_logits_list) == self.num_layers
+        assert len(aux_predictions_logits_list) == len(self.num_blocks)
 
         predictions_logits = self.forward_prediction_heads(cluster_centers, output_features)
 
