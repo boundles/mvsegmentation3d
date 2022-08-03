@@ -87,7 +87,7 @@ def compute_loss(pred_result, data_dict, criterion):
 
 def prepare_aux_targets(batch_dict):
     batch_size = batch_dict['batch_size']
-    spatial_shapes = [[1504, 1504, 72], [752, 752, 36], [376, 376, 18], [188, 188, 9]]
+    spatial_shapes = [[72, 1504, 1504], [36, 752, 752], [18, 376, 376], [9, 188, 188]]
     voxel_labels = [batch_dict['voxel_labels']]
     voxel_indices = [batch_dict['voxel_coords']]
     for i in range(len(spatial_shapes) - 1):
@@ -111,8 +111,8 @@ def prepare_aux_targets(batch_dict):
         voxel_label_counter = dict()
         for j in range(indice_pairs_np.shape[-1]):
             for filter_offset in range(nfilters):
-                i_ind = indice_pairs_np[:, :, j][0][filter_offset]
-                o_ind = indice_pairs_np[:, :, j][1][filter_offset]
+                i_ind = indice_pairs_np[0, filter_offset, j]
+                o_ind = indice_pairs_np[1, filter_offset, j]
                 if i_ind != -1 and o_ind != -1:
                     if o_ind not in voxel_label_counter:
                         counter = np.zeros((label_size,), dtype=np.uint16)
