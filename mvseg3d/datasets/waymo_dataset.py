@@ -4,11 +4,7 @@ import glob
 import numpy as np
 from collections import defaultdict
 
-import torch
 from torch.utils.data import Dataset
-
-from spconv.core import ConvAlgo
-from spconv.pytorch import ops
 
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
@@ -229,60 +225,6 @@ class WaymoDataset(Dataset):
 
             data_dict['voxel_labels'] = voxel_labels
 
-    def prepare_aux_voxel_labels(self, batch_dict):
-        assert self.ignore_index == 255
-        label_size = 256
-
-        spatial_shapes = [[72, 1504, 1504], [36, 752, 752], [18, 376, 376]]
-        voxel_labels_list = [batch_dict['voxel_labels']]
-        voxel_coords_list = [batch_dict['voxel_coords']]
-        for i in range(len(spatial_shapes)):
-            in_indices = np.pad(voxel_coords_list[-1], ((0, 0), (1, 0)),
-                                mode='constant', constant_values=0)
-            in_indices_th = torch.from_numpy(in_indices).cuda()
-            out_indices_th, indice_pairs_th, _ = ops.get_indice_pairs(
-                in_indices_th,
-                batch_size=1,
-                spatial_shape=spatial_shapes[i],
-                algo=ConvAlgo.Native,
-                ksize=[3, 3, 3],
-                stride=[2, 2, 2],
-                padding=[1, 1, 1],
-                dilation=[1, 1, 1],
-                out_padding=[0, 0, 0]
-            )
-
-            out_indices = out_indices_th.cpu().numpy()
-            indice_pairs = indice_pairs_th.cpu().numpy()
-
-            voxel_label_counter = dict()
-            voxel_labels = voxel_labels_list[-1]
-            for j in range(indice_pairs.shape[-1]):
-                for filter_offset in range(27):
-                    i_ind = indice_pairs[0, filter_offset, j]
-                    o_ind = indice_pairs[1, filter_offset, j]
-                    if i_ind != -1 and o_ind != -1:
-                        if o_ind not in voxel_label_counter:
-                            counter = np.zeros((label_size,), dtype=np.uint16)
-                            counter[voxel_labels[i_ind]] += 1
-                            voxel_label_counter[o_ind] = counter
-                        else:
-                            counter = voxel_label_counter[o_ind]
-                            counter[voxel_labels[i_ind]] += 1
-                            voxel_label_counter[o_ind] = counter
-
-            scaled_labels = np.ones(out_indices.shape[0], dtype=np.uint8) * 255
-            for voxel_id in voxel_label_counter:
-                counter = voxel_label_counter[voxel_id]
-                scaled_labels[voxel_id] = np.argmax(counter)
-
-            voxel_coords_list.append(out_indices[:, 1:])
-            voxel_labels_list.append(scaled_labels)
-
-        batch_dict['voxel_labels_2'] = voxel_labels_list[1]
-        batch_dict['voxel_labels_4'] = voxel_labels_list[2]
-        batch_dict['voxel_labels_8'] = voxel_labels_list[3]
-
     def prepare_data(self, data_dict):
         """
         Args:
@@ -317,8 +259,6 @@ class WaymoDataset(Dataset):
             data_dict['point_voxel_ids'] = data_dict['point_voxel_ids'][point_indices]
 
         self.prepare_voxel_labels(data_dict)
-
-        self.prepare_aux_voxel_labels(data_dict)
 
         return data_dict
 
@@ -370,8 +310,7 @@ class WaymoDataset(Dataset):
                     coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
                     coors.append(coor_pad)
                 ret[key] = np.concatenate(coors, axis=0)
-            elif key in ['voxels', 'voxel_num_points', 'points_ri', 'point_image_features', 'voxel_labels',
-                         'voxel_labels_2', 'voxel_labels_4', 'voxel_labels_8', 'labels']:
+            elif key in ['voxels', 'voxel_num_points', 'points_ri', 'point_image_features', 'voxel_labels', 'labels']:
                 ret[key] = np.concatenate(val, axis=0)
             elif key in ['filename']:
                 ret[key] = val
