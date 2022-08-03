@@ -106,8 +106,6 @@ def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, ep
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
 
-        prepare_aux_targets(data_dict)
-
         result = model(data_dict)
 
         loss = compute_loss(result, data_dict, criterion)
