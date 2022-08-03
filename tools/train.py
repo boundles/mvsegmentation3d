@@ -239,7 +239,9 @@ def main():
 
     model.train()  # before wrap to DistributedDataParallel to support fixed some parameters
     if distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank % torch.cuda.device_count()])
+        model = torch.nn.parallel.DistributedDataParallel(model,
+                                                          device_ids=[rank % torch.cuda.device_count()],
+                                                          find_unused_parameters=True)
 
     # loss function
     criterion = build_criterion(cfg, train_dataset)
