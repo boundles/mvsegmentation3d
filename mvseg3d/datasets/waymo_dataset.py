@@ -233,13 +233,12 @@ class WaymoDataset(Dataset):
         assert self.ignore_index == 255
         label_size = 256
 
-        device = torch.cuda.current_device()
-
         spatial_shapes = [[72, 1504, 1504], [36, 752, 752], [18, 376, 376]]
         voxel_labels = [batch_dict['voxel_labels']]
         voxel_indices = [batch_dict['voxel_coords']]
         for i in range(len(spatial_shapes)):
-            indices = torch.from_numpy(voxel_indices[-1]).to(device)
+            indices = np.pad(voxel_indices[-1], ((0, 0), (1, 0)), mode='constant', constant_values=0)
+            indices = torch.from_numpy(indices)
             out_inds, indice_pairs, _ = ops.get_indice_pairs(
                 indices,
                 batch_size=1,
@@ -275,7 +274,7 @@ class WaymoDataset(Dataset):
                 counter = voxel_label_counter[voxel_id]
                 scaled_labels[voxel_id] = np.argmax(counter)
 
-            voxel_indices.append(out_inds.cpu().numpy())
+            voxel_indices.append(out_inds[:, 1:].numpy())
             voxel_labels.append(scaled_labels)
 
         batch_dict['aux_voxel_indices'] = voxel_indices
@@ -316,7 +315,7 @@ class WaymoDataset(Dataset):
 
         self.prepare_voxel_labels(data_dict)
 
-        self.prepare_aux_voxel_labels()
+        self.prepare_aux_voxel_labels(data_dict)
 
         return data_dict
 
