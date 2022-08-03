@@ -92,7 +92,7 @@ def prepare_aux_targets(batch_dict):
     voxel_indices = [batch_dict['voxel_coords']]
     for i in range(len(spatial_shapes) - 1):
         out_inds, indice_pairs, _ = ops.get_indice_pairs(
-            voxel_indices[-1],
+            voxel_indices[-1].int(),
             batch_size=batch_size,
             spatial_shape=spatial_shapes[i],
             algo=ConvAlgo.Native,
@@ -105,10 +105,12 @@ def prepare_aux_targets(batch_dict):
 
         voxel_labels_np = voxel_labels[-1].cpu().numpy()
         indice_pairs_np = indice_pairs.cpu().numpy()
+
         label_size = 256
+        nfilters = 27
         voxel_label_counter = dict()
         for j in range(indice_pairs_np.shape[-1]):
-            for filter_offset in range(27):
+            for filter_offset in range(nfilters):
                 i_ind = indice_pairs_np[:, :, j][0][filter_offset]
                 o_ind = indice_pairs_np[:, :, j][1][filter_offset]
                 if i_ind != -1 and o_ind != -1:
@@ -126,7 +128,7 @@ def prepare_aux_targets(batch_dict):
             counter = voxel_label_counter[voxel_id]
             voxel_labels_downsample[voxel_id] = np.argmax(counter)
 
-        voxel_indices.append(out_inds)
+        voxel_indices.append(out_inds.float())
         voxel_labels.append(torch.from_numpy(voxel_labels_downsample).to(voxel_labels[-1].device))
 
     batch_dict['aux_voxel_indices'] = voxel_indices
