@@ -75,6 +75,8 @@ class KMeansCrossAttentionLayer(nn.Module):
             nn.Linear(d_model, d_model, bias=False)
         )
 
+        self.norm = nn.LayerNorm(d_model)
+
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, cluster_centers, point_features):
@@ -82,8 +84,9 @@ class KMeansCrossAttentionLayer(nn.Module):
         pred_logits = torch.einsum("qc,nc->nq", mask_embeddings, point_features)
         clustering_result = torch.argmax(pred_logits, dim=1)
         clustering_result = F.one_hot(clustering_result, num_classes=self.num_queries).to(point_features.device)
-        cluster_memory = torch.einsum("nq,nc->qc", clustering_result, point_features)
+        cluster_memory = torch.einsum("nq,nc->qc", clustering_result.float(), point_features)
         cluster_centers = cluster_centers + self.dropout(self.bottleneck(cluster_memory))
+        cluster_centers = self.norm(cluster_centers)
         return pred_logits, cluster_centers
 
 class FFNLayer(nn.Module):
