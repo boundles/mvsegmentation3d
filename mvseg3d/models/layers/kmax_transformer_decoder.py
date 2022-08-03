@@ -100,8 +100,6 @@ class KMaXTransformerDecoder(nn.Module):
 
                 aux_predictions_logits_list.append(predictions_logits)
 
-        assert len(aux_predictions_logits_list) == len(self.num_blocks)
-
         predictions_logits = self.forward_prediction_heads(cluster_centers, output_features)
 
         return predictions_logits, aux_predictions_logits_list
