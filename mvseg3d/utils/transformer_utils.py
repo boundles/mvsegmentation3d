@@ -65,12 +65,12 @@ class KMeansCrossAttentionLayer(nn.Module):
 
         self.num_queries = num_queries
 
-        self.mlp = nn.Sequencial(
+        self.mlp = nn.Sequential(
             nn.LayerNorm(d_model),
             MLP(d_model, d_model, d_model, 3)
         )
 
-        self.bottleneck = nn.Sequencial(
+        self.bottleneck = nn.Sequential(
             nn.LayerNorm(d_model),
             nn.Linear(d_model, d_model, bias=False),
             nn.LayerNorm(d_model)
