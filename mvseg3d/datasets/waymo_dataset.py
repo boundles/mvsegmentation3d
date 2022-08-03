@@ -1,9 +1,14 @@
 import os
 import glob
+
 import numpy as np
 from collections import defaultdict
 
+import torch
 from torch.utils.data import Dataset
+
+from spconv.core import ConvAlgo
+from spconv.pytorch import ops
 
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
@@ -223,6 +228,58 @@ class WaymoDataset(Dataset):
                 voxel_labels[voxel_id] = np.argmax(counter)
 
             data_dict['voxel_labels'] = voxel_labels
+
+    def prepare_aux_voxel_labels(self, batch_dict):
+        assert self.ignore_index == 255
+        label_size = 256
+
+        device = torch.cuda.current_device()
+
+        spatial_shapes = [[72, 1504, 1504], [36, 752, 752], [18, 376, 376], [9, 188, 188]]
+        voxel_labels = [batch_dict['voxel_labels']]
+        voxel_indices = [batch_dict['voxel_coords']]
+        for i in range(len(spatial_shapes) - 1):
+            indices = torch.from_numpy(voxel_indices[-1]).to(device)
+            out_inds, indice_pairs, _ = ops.get_indice_pairs(
+                indices,
+                batch_size=1,
+                spatial_shape=spatial_shapes[i],
+                algo=ConvAlgo.Native,
+                ksize=[3, 3, 3],
+                stride=[2, 2, 2],
+                padding=[1, 1, 1],
+                dilation=[1, 1, 1],
+                out_padding=[0, 0, 0]
+            )
+
+            labels = voxel_labels[-1]
+            pairs = indice_pairs.cpu().numpy()
+
+            voxel_label_counter = dict()
+            for j in range(pairs.shape[-1]):
+                for filter_offset in range(27):
+                    i_ind = pairs[0, filter_offset, j]
+                    o_ind = pairs[1, filter_offset, j]
+                    if i_ind != -1 and o_ind != -1:
+                        if o_ind not in voxel_label_counter:
+                            counter = np.zeros((label_size,), dtype=np.uint16)
+                            counter[labels[i_ind]] += 1
+                            voxel_label_counter[o_ind] = counter
+                        else:
+                            counter = voxel_label_counter[o_ind]
+                            counter[labels[i_ind]] += 1
+                            voxel_label_counter[o_ind] = counter
+
+            scaled_labels = np.ones(out_inds.shape[0], dtype=np.uint8) * 255
+            for voxel_id in voxel_label_counter:
+                counter = voxel_label_counter[voxel_id]
+                scaled_labels[voxel_id] = np.argmax(counter)
+
+            voxel_indices.append(out_inds.cpu().numpy())
+            voxel_labels.append(scaled_labels)
+
+        batch_dict['aux_voxel_indices'] = voxel_indices
+        batch_dict['aux_voxel_labels'] = voxel_labels
 
     def prepare_data(self, data_dict):
         """
