@@ -6,7 +6,7 @@ import torch.nn as nn
 import spconv.pytorch as spconv
 
 from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
-from mvseg3d.models.layers import FlattenSELayer, SALayer, MultiScaleTransformerDecoder
+from mvseg3d.models.layers import FlattenSELayer, SALayer, KMaXTransformerDecoder
 
 
 class SparseBasicBlock(spconv.SparseModule):
@@ -156,9 +156,9 @@ class SparseUnet(nn.Module):
         self.up1 = UpBlock(32, 32, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
         # transformer decoder
-        self.transformer_decoder = MultiScaleTransformerDecoder(in_channels=[32, 32], hidden_dim=48,
-                                                                num_queries=output_channels, nheads=4,
-                                                                dim_feedforward=128, mask_dim=32, dec_layers=4)
+        self.transformer_decoder = KMaXTransformerDecoder(in_channels=[256, 128, 64], hidden_dim=128,
+                                                          num_queries=output_channels, dim_feedforward=256,
+                                                          mask_dim=32, num_blocks=[2, 2, 2])
         self.aux_voxel_feature_channel = 32
 
     def forward(self, batch_dict):
@@ -195,19 +195,17 @@ class SparseUnet(nn.Module):
         x_up1 = self.up1(x_up2, x_conv1)
 
         # transformer decoder
-        output_masks = []
+        output_logits_list = []
         for i in range(batch_size):
-            batch_features_2 = x_up2.features[x_up2.indices[:, 0] == i]
-            batch_features_1 = x_up1.features[x_up1.indices[:, 0] == i]
-            batch_indices_2 = x_up2.indices[x_up2.indices[:, 0] == i]
-            batch_indices_1 = x_up1.indices[x_up1.indices[:, 0] == i]
-            features = [batch_features_2, batch_features_1]
-            indices = [batch_indices_2, batch_indices_1]
-            mask_features = batch_features_1.transpose(0, 1)
-            output_mask = self.transformer_decoder(features, indices, mask_features).transpose(0, 1)
-            output_masks.append(output_mask)
-        output_masks = torch.sigmoid(torch.cat(output_masks, dim=0))
+            batch_features_8 = x_conv4.features[x_conv4.indices[:, 0] == i]
+            batch_features_4 = x_up4.features[x_up4.indices[:, 0] == i]
+            batch_features_2 = x_up3.features[x_up3.indices[:, 0] == i]
+            decoder_features = [batch_features_8, batch_features_4, batch_features_2]
+            output_features = x_up1.features[x_up1.indices[:, 0] == i]
+            _, output_logits = self.transformer_decoder(decoder_features, output_features)
+            output_logits_list.append(output_logits)
+        output_logits = torch.sigmoid(torch.cat(output_logits_list, dim=0))
 
-        batch_dict['voxel_features'] = output_masks
+        batch_dict['voxel_features'] = output_logits
         batch_dict['aux_voxel_features'] = x_up2.features
         return batch_dict
