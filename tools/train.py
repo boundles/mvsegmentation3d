@@ -90,7 +90,7 @@ def prepare_aux_targets(batch_dict):
     spatial_shapes = [[1504, 1504, 72], [752, 752, 36], [376, 376, 18], [188, 188, 9]]
     voxel_labels = [batch_dict['voxel_labels']]
     voxel_indices = [batch_dict['voxel_coords']]
-    for i in range(len(spatial_shapes)):
+    for i in range(len(spatial_shapes) - 1):
         out_inds, indice_pairs, _ = ops.get_indice_pairs(
             voxel_indices[-1],
             batch_size=batch_size,
