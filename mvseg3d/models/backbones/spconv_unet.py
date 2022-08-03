@@ -158,7 +158,7 @@ class SparseUnet(nn.Module):
         # transformer decoder
         self.transformer_decoder = KMaXTransformerDecoder(in_channels=[256, 128, 64], hidden_dim=128,
                                                           num_queries=output_channels, dim_feedforward=256,
-                                                          mask_dim=32, num_blocks=[2, 2, 2])
+                                                          nheads=4, mask_dim=32, num_blocks=[2, 2, 2])
         self.aux_voxel_feature_channel = 32
 
     def forward(self, batch_dict):

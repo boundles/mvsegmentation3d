@@ -1,8 +1,9 @@
 import torch
-from torch import nn, Tensor
+from torch import nn
 
 from .position_encoding import PositionEncodingSine
-from .transformer_utils import MLP, FFNLayer, SelfAttentionLayer, CrossAttentionLayer
+
+from mvseg3d.utils.transformer_utils import MLP, FFNLayer, SelfAttentionLayer, CrossAttentionLayer
 
 
 class MultiScaleTransformerDecoder(nn.Module):

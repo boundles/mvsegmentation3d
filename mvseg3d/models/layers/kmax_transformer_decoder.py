@@ -1,9 +1,9 @@
 from typing import List
 
 import torch
-from torch import nn, Tensor
+from torch import nn
 
-from .transformer_utils import MLP, FFNLayer, SelfAttentionLayer, KMeansCrossAttentionLayer
+from mvseg3d.utils.transformer_utils import MLP, FFNLayer, SelfAttentionLayer, KMeansCrossAttentionLayer
 
 
 class KMaXTransformerDecoder(nn.Module):
