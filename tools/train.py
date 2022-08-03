@@ -83,19 +83,17 @@ def compute_loss(pred_result, data_dict, criterion):
         for loss_func, loss_weight in criterion:
             loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
-    # for stride in ['8', '4', '2']:
-    #     voxel_pred_labels = pred_result['aux_out_' + stride]
-    #     voxel_gt_labels = data_dict['voxel_labels_' + stride]
-    #     for loss_func, loss_weight in criterion:
-    #         loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
+    for stride in ['8', '4', '2']:
+        voxel_pred_labels = pred_result['aux_out_' + stride]
+        voxel_gt_labels = data_dict['voxel_labels_' + stride]
+        for loss_func, loss_weight in criterion:
+            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
     return loss
 
 def prepare_aux_voxel_labels(batch_dict):
-    label_size = 256
-    batch_size = batch_dict['batch_size']
-
     spatial_shapes = [[72, 1504, 1504], [36, 752, 752], [18, 376, 376]]
+    batch_size = batch_dict['batch_size']
     voxel_labels_list = [batch_dict['voxel_labels']]
     voxel_coords_list = [batch_dict['voxel_coords']]
     for i in range(len(spatial_shapes)):
@@ -113,36 +111,24 @@ def prepare_aux_voxel_labels(batch_dict):
             out_padding=[0, 0, 0]
         )
 
-        # indice_pairs = indice_pairs_th.cpu().numpy()
-        # voxel_labels = voxel_labels_th.cpu().numpy()
+        i_inds = indice_pairs_th[0].view(-1)
+        o_inds = indice_pairs_th[1].view(-1)
 
-        # voxel_label_counter = dict()
-        # for j in range(indice_pairs.shape[-1]):
-        #     for filter_offset in range(27):
-        #         i_ind = indice_pairs[0, filter_offset, j]
-        #         o_ind = indice_pairs[1, filter_offset, j]
-        #         if i_ind != -1 and o_ind != -1:
-        #             if o_ind not in voxel_label_counter:
-        #                 counter = np.zeros((label_size,), dtype=np.uint16)
-        #                 counter[voxel_labels[i_ind]] += 1
-        #                 voxel_label_counter[o_ind] = counter
-        #             else:
-        #                 counter = voxel_label_counter[o_ind]
-        #                 counter[voxel_labels[i_ind]] += 1
-        #                 voxel_label_counter[o_ind] = counter
-        #
-        # scaled_labels = np.ones(out_indices_th.shape[0], dtype=np.uint8) * 255
-        # for voxel_id in voxel_label_counter:
-        #     counter = voxel_label_counter[voxel_id]
-        #     scaled_labels[voxel_id] = np.argmax(counter)
-        # scaled_labels = torch.from_numpy(scaled_labels).to(voxel_labels_th.device).long()
-        #
-        # voxel_coords_list.append(out_indices_th)
-        # voxel_labels_list.append(scaled_labels)
+        mask = (i_inds != -1)
+        i_inds = i_inds[mask]
+        o_inds = o_inds[mask]
 
-    # batch_dict['voxel_labels_2'] = voxel_labels_list[1]
-    # batch_dict['voxel_labels_4'] = voxel_labels_list[2]
-    # batch_dict['voxel_labels_8'] = voxel_labels_list[3]
+        scaled_labels = torch.ones(out_indices_th.shape[0]) * 255
+        for i, o_ind in enumerate(o_inds):
+            scaled_labels[o_ind] = voxel_labels_th[i_inds[i]]
+        scaled_labels = scaled_labels.to(voxel_labels_th.device).long()
+
+        voxel_coords_list.append(out_indices_th)
+        voxel_labels_list.append(scaled_labels)
+
+    batch_dict['voxel_labels_2'] = voxel_labels_list[1]
+    batch_dict['voxel_labels_4'] = voxel_labels_list[2]
+    batch_dict['voxel_labels_8'] = voxel_labels_list[3]
 
 def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     iou_metric = IOUMetric(class_names)
