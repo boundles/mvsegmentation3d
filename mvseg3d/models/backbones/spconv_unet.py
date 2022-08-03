@@ -202,7 +202,7 @@ class SparseUnet(nn.Module):
             batch_features_2 = x_up3.features[x_up3.indices[:, 0] == i]
             decoder_features = [batch_features_8, batch_features_4, batch_features_2]
             output_features = x_up1.features[x_up1.indices[:, 0] == i]
-            _, output_logits = self.transformer_decoder(decoder_features, output_features)
+            output_logits, _ = self.transformer_decoder(decoder_features, output_features)
             output_logits_list.append(output_logits)
         output_logits = torch.sigmoid(torch.cat(output_logits_list, dim=0))
 
