@@ -196,16 +196,34 @@ class SparseUnet(nn.Module):
 
         # transformer decoder
         output_logits_list = []
+        aux_output_logits_list = []
         for i in range(batch_size):
             batch_features_8 = x_conv4.features[x_conv4.indices[:, 0] == i]
             batch_features_4 = x_up4.features[x_up4.indices[:, 0] == i]
             batch_features_2 = x_up3.features[x_up3.indices[:, 0] == i]
             decoder_features = [batch_features_8, batch_features_4, batch_features_2]
             output_features = x_up1.features[x_up1.indices[:, 0] == i]
-            output_logits, _ = self.transformer_decoder(decoder_features, output_features)
+            output_logits, aux_output_logits = self.transformer_decoder(decoder_features, output_features)
             output_logits_list.append(output_logits)
+            aux_output_logits_list.append(aux_output_logits)
         output_logits = torch.sigmoid(torch.cat(output_logits_list, dim=0))
+
+        aux_output_logits_8_list = []
+        aux_output_logits_4_list = []
+        aux_output_logits_2_list = []
+        for i in range(batch_size):
+            aux_output_logits_8_list.append(aux_output_logits_list[i][0])
+            aux_output_logits_4_list.append(aux_output_logits_list[i][1])
+            aux_output_logits_2_list.append(aux_output_logits_list[i][2])
 
         batch_dict['voxel_features'] = output_logits
         batch_dict['aux_voxel_features'] = x_up2.features
+
+        output_logits_8 = torch.sigmoid(torch.cat(aux_output_logits_8_list, dim=0))
+        output_logits_4 = torch.sigmoid(torch.cat(aux_output_logits_4_list, dim=0))
+        output_logits_2 = torch.sigmoid(torch.cat(aux_output_logits_2_list, dim=0))
+        batch_dict['aux_voxel_features_8'] = output_logits_8
+        batch_dict['aux_voxel_features_4'] = output_logits_4
+        batch_dict['aux_voxel_features_2'] = output_logits_2
+
         return batch_dict
