@@ -2,14 +2,14 @@ import os
 import time
 import argparse
 
-import numpy as np
-
 import torch
 import torch.optim
 import torch.distributed as dist
 
 from spconv.core import ConvAlgo
 from spconv.pytorch import ops
+
+import torch_scatter
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
@@ -118,10 +118,9 @@ def prepare_aux_voxel_labels(batch_dict):
         i_inds = i_inds[mask]
         o_inds = o_inds[mask]
 
-        scaled_labels = torch.ones(out_indices_th.shape[0]) * 255
-        for i, o_ind in enumerate(o_inds):
-            scaled_labels[o_ind] = voxel_labels_th[i_inds[i]]
-        scaled_labels = scaled_labels.to(voxel_labels_th.device).long()
+        scaled_labels = torch.ones(out_indices_th.shape[0], dtype=torch.long, device=voxel_labels_th.device)
+        for k in range(o_inds.shape[0]):
+            scaled_labels[o_inds[k]] = voxel_labels_th[i_inds[k]]
 
         voxel_coords_list.append(out_indices_th)
         voxel_labels_list.append(scaled_labels)
