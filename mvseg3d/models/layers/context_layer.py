@@ -34,12 +34,13 @@ class ASPPModule(nn.ModuleList):
                     norm_fn=norm_fn,
                     act_fn=act_fn,
                     indice_key=indice_key))
+        self.aspp_modules = nn.ModuleList(self.aspp_modules)
 
     def forward(self, x):
         """Forward function."""
         aspp_outs = []
         for aspp_module in self.aspp_modules:
-            aspp_out = aspp_module(x).features
+            aspp_out = aspp_module(x)
             aspp_outs.append(aspp_out)
 
         return aspp_outs
@@ -63,8 +64,7 @@ class ContextLayer(nn.Module):
         Returns:
             Features with context information
         """
-        aspp_outs = []
-        aspp_outs.extend(self.aspp_modules(x))
+        aspp_outs = [aspp_out.features for aspp_out in self.aspp_modules(x)]
         aspp_outs = torch.cat(aspp_outs, dim=1)
         out_features = self.bottleneck(aspp_outs)
         x = replace_feature(x, out_features)
