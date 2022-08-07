@@ -22,8 +22,9 @@ class ASPPModule(nn.ModuleList):
         self.channels = channels
         self.norm_fn = norm_fn
         self.act_fn = act_fn
+        self.aspp_modules = []
         for dilation in dilations:
-            self.append(
+            self.aspp_modules.append(
                 ConvModule(
                     self.in_channels,
                     self.channels,
@@ -37,8 +38,9 @@ class ASPPModule(nn.ModuleList):
     def forward(self, x):
         """Forward function."""
         aspp_outs = []
-        for aspp_module in self:
-            aspp_outs.append(aspp_module(x).features)
+        for aspp_module in self.aspp_modules:
+            aspp_out = aspp_module(x).features
+            aspp_outs.append(aspp_out)
 
         return aspp_outs
 
@@ -50,7 +52,7 @@ class ContextLayer(nn.Module):
                                        act_fn=act_fn, indice_key=indice_key)
         self.bottleneck = nn.Sequential(
             nn.Linear(len(dilations) * planes, planes, bias=False),
-            nn.BatchNorm2d(planes),
+            nn.BatchNorm1d(planes),
             nn.ReLU(inplace=True)
         )
 
