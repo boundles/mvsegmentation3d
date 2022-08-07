@@ -33,7 +33,7 @@ class ASPPModule(nn.ModuleList):
                     padding=0 if dilation == 1 else dilation,
                     norm_fn=norm_fn,
                     act_fn=act_fn,
-                    indice_key=indice_key))
+                    indice_key=indice_key + str(dilation)))
         self.aspp_modules = nn.ModuleList(self.aspp_modules)
 
     def forward(self, x):

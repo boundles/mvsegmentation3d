@@ -146,7 +146,7 @@ class SparseUnet(nn.Module):
 
         # context layer
         self.context = ContextLayer(dilations=[1, 6, 12], planes=256, act_fn=act_fn,
-                                    norm_fn=norm_fn, indice_key='subm4')
+                                    norm_fn=norm_fn, indice_key='subm4-aspp')
 
         # [188, 188, 9] -> [376, 376, 18]
         self.up4 = UpBlock(256, 128, norm_fn, act_fn, conv_type='inverseconv', layer_id=4)
