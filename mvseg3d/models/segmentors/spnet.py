@@ -43,7 +43,7 @@ class SPNet(nn.Module):
         if self.use_image_feature:
             self.point_feature_channel += dataset.dim_image_feature
 
-        self.voxel_feature_channel = dataset.num_classes
+        self.voxel_feature_channel = 32
         self.voxel_encoder = SparseUnet(self.point_feature_channel,
                                         self.voxel_feature_channel,
                                         dataset.grid_size,
@@ -67,27 +67,6 @@ class SPNet(nn.Module):
 
         self.aux_classifier = nn.Sequential(
             nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
-
-        self.aux_classifier_8 = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
-
-        self.aux_classifier_4 = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
-
-        self.aux_classifier_2 = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
             nn.Dropout(0.1),
@@ -136,17 +115,5 @@ class SPNet(nn.Module):
         aux_voxel_features = batch_dict['aux_voxel_features']
         aux_out = self.aux_classifier(aux_voxel_features)
         result['aux_out'] = aux_out
-
-        aux_voxel_features_8 = batch_dict['aux_voxel_features_8']
-        aux_out_8 = self.aux_classifier_8(aux_voxel_features_8)
-        result['aux_out_8'] = aux_out_8
-
-        aux_voxel_features_4 = batch_dict['aux_voxel_features_4']
-        aux_out_4 = self.aux_classifier_4(aux_voxel_features_4)
-        result['aux_out_4'] = aux_out_4
-
-        aux_voxel_features_2 = batch_dict['aux_voxel_features_2']
-        aux_out_2 = self.aux_classifier_2(aux_voxel_features_2)
-        result['aux_out_2'] = aux_out_2
 
         return result
