@@ -47,13 +47,13 @@ class ASPPModule(nn.ModuleList):
 
 
 class ContextLayer(nn.Module):
-    def __init__(self, dilations, planes, act_fn, norm_fn, indice_key):
+    def __init__(self, dilations, in_channels, channels, act_fn, norm_fn, indice_key):
         super(ContextLayer, self).__init__()
-        self.aspp_modules = ASPPModule(dilations, planes, planes, norm_fn=norm_fn,
+        self.aspp_modules = ASPPModule(dilations, in_channels, channels, norm_fn=norm_fn,
                                        act_fn=act_fn, indice_key=indice_key)
         self.bottleneck = nn.Sequential(
-            nn.Linear(len(dilations) * planes, planes, bias=False),
-            nn.BatchNorm1d(planes),
+            nn.Linear(len(dilations) * channels, in_channels, bias=False),
+            nn.BatchNorm1d(in_channels),
             nn.ReLU(inplace=True)
         )
 
