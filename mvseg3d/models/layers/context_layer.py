@@ -1,44 +1,58 @@
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 
-from mvseg3d.utils.spconv_utils import replace_feature
+from mvseg3d.utils.spconv_utils import replace_feature, ConvModule
 
 
-class PPMLayer(nn.Module):
-    def __init__(self, planes, sizes=(1, 2, 3, 6)):
-        super(PPMLayer, self).__init__()
-        self.ppm_modules = []
-        reduction_planes = int(planes / len(sizes))
-        for size in sizes:
-            self.ppm_modules.append(nn.Sequential(
-                nn.AdaptiveAvgPool2d(size),
-                nn.Conv2d(planes, reduction_planes, kernel_size=1, bias=False),
-                nn.BatchNorm2d(reduction_planes),
-                nn.ReLU(inplace=True)
-            ))
-        self.ppm_modules = nn.ModuleList(self.ppm_modules)
+class ASPPModule(nn.ModuleList):
+    """Atrous Spatial Pyramid Pooling (ASPP) Module.
 
-        self.bottleneck = nn.Sequential(
-            nn.Conv2d(2 * planes, planes, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(planes),
-            nn.ReLU(inplace=True)
-        )
+    Args:
+        dilations (tuple[int]): Dilation rate of each layer.
+        in_channels (int): Input channels.
+        channels (int): Channels after modules, before conv_seg.
+        norm_fn: Norm layer.
+        act_fn: Activation layer.
+    """
+
+    def __init__(self, dilations, in_channels, channels, norm_fn, act_fn, indice_key):
+        super(ASPPModule, self).__init__()
+        self.dilations = dilations
+        self.in_channels = in_channels
+        self.channels = channels
+        self.norm_fn = norm_fn
+        self.act_fn = act_fn
+        for dilation in dilations:
+            self.append(
+                ConvModule(
+                    self.in_channels,
+                    self.channels,
+                    1 if dilation == 1 else 3,
+                    dilation=dilation,
+                    padding=0 if dilation == 1 else dilation,
+                    norm_fn=norm_fn,
+                    act_fn=act_fn,
+                    indice_key=indice_key))
 
     def forward(self, x):
-        x_size = x.size()
-        ppm_outs = [x]
-        for module in self.ppm_modules:
-            ppm_outs.append(F.interpolate(module(x), x_size[2:], mode='bilinear', align_corners=True))
-        ppm_outs = torch.cat(ppm_outs, 1)
-        out = self.bottleneck(ppm_outs)
-        return out
+        """Forward function."""
+        aspp_outs = []
+        for aspp_module in self:
+            aspp_outs.append(aspp_module(x).features)
+
+        return aspp_outs
 
 
 class ContextLayer(nn.Module):
-    def __init__(self, planes):
+    def __init__(self, dilations, planes, act_fn, norm_fn, indice_key):
         super(ContextLayer, self).__init__()
-        self.ppm = PPMLayer(planes)
+        self.aspp = ASPPModule(dilations, planes, planes, norm_fn=norm_fn,
+                               act_fn=act_fn, indice_key=indice_key)
+        self.bottleneck = nn.Sequential(
+            nn.Linear(len(dilations) * planes, planes, bias=False),
+            nn.BatchNorm2d(planes),
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, x):
         """Forward function.
@@ -47,13 +61,9 @@ class ContextLayer(nn.Module):
         Returns:
             Features with context information
         """
-        indices = x.indices.long()
-        x_dense = x.dense()
-        b, c, h, w, l = x_dense.shape
-        x_dense = torch.mean(x_dense, dim=2)
-        out_dense = self.ppm(x_dense)
-        out_dense = out_dense.unsqueeze(2)
-        out_dense = out_dense.repeat(1, 1, h, 1, 1)
-        out_features = out_dense[indices[:, 0], :, indices[:, 1], indices[:, 2], indices[:, 3]]
-        x = replace_feature(x, x.features + out_features)
+        aspp_outs = []
+        aspp_outs.extend(self.aspp_modules(x))
+        aspp_outs = torch.cat(aspp_outs, dim=1)
+        out_features = self.bottleneck(aspp_outs)
+        x = replace_feature(x, out_features)
         return x

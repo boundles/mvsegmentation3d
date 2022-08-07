@@ -5,8 +5,8 @@ import torch.nn as nn
 
 import spconv.pytorch as spconv
 
-from mvseg3d.utils.spconv_utils import replace_feature, conv_norm_act
-from mvseg3d.models.layers import FlattenSELayer, SALayer
+from mvseg3d.utils.spconv_utils import replace_feature, ConvModule
+from mvseg3d.models.layers import FlattenSELayer, SALayer, ContextLayer
 
 
 class SparseBasicBlock(spconv.SparseModule):
@@ -69,20 +69,19 @@ class SparseBasicBlock(spconv.SparseModule):
 class UpBlock(spconv.SparseModule):
     def __init__(self, inplanes, planes, norm_fn, act_fn, conv_type, layer_id):
         super(UpBlock, self).__init__()
-        block = conv_norm_act
 
         self.transform = SparseBasicBlock(inplanes, inplanes, norm_fn=norm_fn, act_fn=act_fn,
                                           indice_key='subm' + str(layer_id))
 
-        self.bottleneck = block(2 * inplanes, inplanes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
-                                indice_key='subm' + str(layer_id))
+        self.bottleneck = ConvModule(2 * inplanes, inplanes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
+                                     indice_key='subm' + str(layer_id))
 
         if conv_type == 'inverseconv':
-            self.out = block(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn,
-                             conv_type=conv_type, indice_key='spconv' + str(layer_id))
+            self.out = ConvModule(inplanes, planes, 3, norm_fn=norm_fn, act_fn=act_fn,
+                                  conv_type=conv_type, indice_key='spconv' + str(layer_id))
         elif conv_type == 'subm':
-            self.out = block(inplanes, planes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
-                             conv_type=conv_type, indice_key='subm' + str(layer_id))
+            self.out = ConvModule(inplanes, planes, 3, padding=1, norm_fn=norm_fn, act_fn=act_fn,
+                                  conv_type=conv_type, indice_key='subm' + str(layer_id))
         else:
             raise NotImplementedError
 
@@ -109,7 +108,6 @@ class SparseUnet(nn.Module):
 
         norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         act_fn = nn.ReLU(inplace=True)
-        block = conv_norm_act
 
         self.conv_input = spconv.SparseSequential(
             spconv.SubMConv3d(input_channels, 32, 3, padding=1, bias=False, indice_key='subm1'),
@@ -124,27 +122,31 @@ class SparseUnet(nn.Module):
 
         # [1504, 1504, 72] -> [752, 752, 36]
         self.conv2 = spconv.SparseSequential(
-            block(32, 64, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
-                  indice_key='spconv2'),
+            ConvModule(32, 64, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+                       indice_key='spconv2'),
             SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2'),
             SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
         )
 
         # [752, 752, 36] -> [376, 376, 18]
         self.conv3 = spconv.SparseSequential(
-            block(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
-                  indice_key='spconv3'),
+            ConvModule(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+                       indice_key='spconv3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
         )
 
         # [376, 376, 18] -> [188, 188, 9]
         self.conv4 = spconv.SparseSequential(
-            block(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
-                  indice_key='spconv4'),
+            ConvModule(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+                       indice_key='spconv4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
             SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
         )
+
+        # context layer
+        self.context = ContextLayer(dilations=[1, 6, 12], planes=256, act_fn=act_fn,
+                                    norm_fn=norm_fn, indice_key='subm4')
 
         # [188, 188, 9] -> [376, 376, 18]
         self.up4 = UpBlock(256, 128, norm_fn, act_fn, conv_type='inverseconv', layer_id=4)
@@ -153,7 +155,7 @@ class SparseUnet(nn.Module):
         # [752, 752, 36] -> [1504, 1504, 72]
         self.up2 = UpBlock(64, 32, norm_fn, act_fn, conv_type='inverseconv', layer_id=2)
         # [1504, 1504, 72] -> [1504, 1504, 72]
-        self.up1 = UpBlock(32, 32, norm_fn, act_fn, conv_type='subm', layer_id=1)
+        self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
         self.aux_voxel_feature_channel = 32
 
@@ -183,6 +185,8 @@ class SparseUnet(nn.Module):
         x_conv2 = self.conv2(x_conv1)
         x_conv3 = self.conv3(x_conv2)
         x_conv4 = self.conv4(x_conv3)
+
+        x_conv4 = self.context(x_conv4)
 
         # decoder
         x_up4 = self.up4(x_conv4, x_conv4)
