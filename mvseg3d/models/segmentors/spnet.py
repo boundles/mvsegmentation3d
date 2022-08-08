@@ -89,31 +89,30 @@ class SPNet(nn.Module):
 
     def forward(self, batch_dict):
         points = batch_dict['points'][:, 1:]
-        point_batch_indices = batch_dict['points'][:, 0]
         point_voxel_ids = batch_dict['point_voxel_ids']
-        batch_size = batch_dict['batch_size']
-        voxel_coords = batch_dict['voxel_coords']
 
         point_per_features = self.point_encoder(points)
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
-        voxel_features = voxel_max_pooling(point_per_features, point_voxel_ids)
-        voxel_features, aux_voxel_features = self.voxel_encoder(batch_size, voxel_features, voxel_coords)
-        point_voxel_features = voxel_to_point(voxel_features, point_voxel_ids)
+        batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
+        batch_dict = self.voxel_encoder(batch_dict)
+        point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
         # fusion multi-view features
         point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # channel attention
+        point_batch_indices = batch_dict['points'][:, 0].long()
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
         out = self.classifier(point_fusion_features)
         result['out'] = out
 
+        aux_voxel_features = batch_dict['aux_voxel_features']
         aux_out = self.aux_classifier(aux_voxel_features)
         result['aux_out'] = aux_out
 

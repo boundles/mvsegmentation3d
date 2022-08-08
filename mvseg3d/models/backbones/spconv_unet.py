@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from functools import partial
 
 import torch
@@ -160,16 +159,20 @@ class SparseUnet(nn.Module):
 
         self.aux_voxel_feature_channel = 32
 
-    def forward(self, batch_size, voxel_features, voxel_coords):
+    def forward(self, batch_dict):
         """
         Args:
-            batch_size: int
-            voxel_features: (num_voxels, Cin)
-            voxel_coords: (num_voxels, 4), [batch_idx, z_idx, y_idx, x_idx]
+            batch_dict:
+                batch_size: int
+                voxel_features: (num_voxels, Cin)
+                voxel_coords: (num_voxels, 4), [batch_idx, z_idx, y_idx, x_idx]
         Returns:
-            voxel_features: (num_voxels, Cout)
-            aux_voxel_features: (num_voxels, Cout)
+            batch_dict:
+                voxel_features: (num_voxels, Cout)
+                aux_voxel_features: (num_voxels, Cout)
         """
+        voxel_features, voxel_coords = batch_dict['voxel_features'], batch_dict['voxel_coords']
+        batch_size = batch_dict['batch_size']
         input_sp_tensor = spconv.SparseConvTensor(
             features=voxel_features,
             indices=voxel_coords.int(),
@@ -192,7 +195,7 @@ class SparseUnet(nn.Module):
         x_up2 = self.up2(x_up3, x_conv2)
         x_up1 = self.up1(x_up2, x_conv1)
 
-        voxel_features = x_up1.features
-        aux_voxel_features = x_up2.features
+        batch_dict['voxel_features'] = x_up1.features
+        batch_dict['aux_voxel_features'] = x_up2.features
 
-        return voxel_features, aux_voxel_features
+        return batch_dict

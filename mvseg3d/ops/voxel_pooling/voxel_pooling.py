@@ -4,7 +4,7 @@ from torch.cuda.amp import custom_bwd, custom_fwd
 
 from . import voxel_pooling_ext
 
-from torch_scatter import scatter_max
+from torch_scatter import scatter
 
 
 class VoxelAvgPoolingFunction(Function):
@@ -64,12 +64,15 @@ class VoxelMaxPooling(object):
         """
         Args:
             feats: FloatTensor[N, C]
-            coords: the coordinates of points, IntTensor[N,]
+            coords: the coordinates of points, LongTensor[N,]
         Returns:
             FloatTensor[M, C]
         """
-        out, _ = scatter_max(feats, coords, dim=0)
-        return out
+        mask = (coords != -1)
+        feats = feats[mask]
+        coords = coords[mask]
+        feats = scatter(feats, coords, dim=0, reduce='max')
+        return feats
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
