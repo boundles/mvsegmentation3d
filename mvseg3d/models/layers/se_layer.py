@@ -21,6 +21,7 @@ class FlattenSELayer(nn.Module):
         Returns:
             torch.Tensor: The output with shape (N, C)
         """
+        index = index.long()
         out = scatter(x, index, dim=0, reduce='mean')
         out = self.fc(out)
         out = out[index]
