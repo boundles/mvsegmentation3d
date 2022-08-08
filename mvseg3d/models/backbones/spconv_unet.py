@@ -58,7 +58,7 @@ class SparseBasicBlock(spconv.SparseModule):
             out = self.sa(out)
 
         if self.downsample is not None:
-            x = replace_feature(x, self.downsample(x.features))
+            identity = replace_feature(x, self.downsample(x.features))
 
         out = replace_feature(out, out.features + identity.features)
         out = replace_feature(out, self.act(out.features))
