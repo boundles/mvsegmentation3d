@@ -66,6 +66,6 @@ class ContextLayer(nn.Module):
         """
         aspp_outs = [aspp_out.features for aspp_out in self.aspp_modules(x)]
         aspp_outs = torch.cat(aspp_outs, dim=1)
-        out_features = self.bottleneck(aspp_outs)
-        x = replace_feature(x, out_features)
+        aspp_outs = self.bottleneck(aspp_outs)
+        x = replace_feature(x, aspp_outs)
         return x
