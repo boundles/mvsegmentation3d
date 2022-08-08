@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Function
 from torch.cuda.amp import custom_bwd, custom_fwd
 
-import torch_scatter
+from torch_scatter import scatter_max
 
 from . import voxel_pooling_ext
 
@@ -76,7 +76,7 @@ class VoxelMaxPooling(object):
         mask = (coords != -1)
         feats = feats[mask]
         coords = coords[mask]
-        data_dict['voxel_features'] = torch_scatter.scatter(feats, coords, dim=0, reduce='max')
+        data_dict['voxel_features'] = scatter_max(feats, coords, dim=0)
         return data_dict
 
     def __repr__(self) -> str:

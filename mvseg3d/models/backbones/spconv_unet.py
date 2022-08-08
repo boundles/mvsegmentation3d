@@ -42,8 +42,6 @@ class SparseBasicBlock(spconv.SparseModule):
             self.sa = None
 
     def forward(self, x):
-        identity = x
-
         out = self.conv1(x)
         out = replace_feature(out, self.bn1(out.features))
         out = replace_feature(out, self.act(out.features))
@@ -58,9 +56,9 @@ class SparseBasicBlock(spconv.SparseModule):
             out = self.sa(out)
 
         if self.downsample is not None:
-            identity = replace_feature(x, self.downsample(x.features))
+            x = replace_feature(x, self.downsample(x.features))
 
-        out = replace_feature(out, out.features + identity.features)
+        out = replace_feature(out, out.features + x.features)
         out = replace_feature(out, self.act(out.features))
 
         return out
