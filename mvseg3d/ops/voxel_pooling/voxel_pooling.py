@@ -2,9 +2,9 @@ import torch
 from torch.autograd import Function
 from torch.cuda.amp import custom_bwd, custom_fwd
 
-from torch_scatter import scatter_max
-
 from . import voxel_pooling_ext
+
+from torch_scatter import scatter_max
 
 
 class VoxelAvgPoolingFunction(Function):
