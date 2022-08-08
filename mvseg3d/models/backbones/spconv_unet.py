@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from functools import partial
 
 import torch
@@ -42,6 +43,8 @@ class SparseBasicBlock(spconv.SparseModule):
             self.sa = None
 
     def forward(self, x):
+        identity = x
+
         out = self.conv1(x)
         out = replace_feature(out, self.bn1(out.features))
         out = replace_feature(out, self.act(out.features))
@@ -58,7 +61,7 @@ class SparseBasicBlock(spconv.SparseModule):
         if self.downsample is not None:
             x = replace_feature(x, self.downsample(x.features))
 
-        out = replace_feature(out, out.features + x.features)
+        out = replace_feature(out, out.features + identity.features)
         out = replace_feature(out, self.act(out.features))
 
         return out
@@ -192,7 +195,8 @@ class SparseUnet(nn.Module):
         x_up2 = self.up2(x_up3, x_conv2)
         x_up1 = self.up1(x_up2, x_conv1)
 
-        batch_dict['voxel_features'] = x_up1.features
-        batch_dict['aux_voxel_features'] = x_up2.features
+        encoder_out = OrderedDict()
+        encoder_out['voxel_features'] = x_up1.features
+        encoder_out['aux_voxel_features'] = x_up2.features
 
-        return batch_dict
+        return encoder_out

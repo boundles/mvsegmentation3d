@@ -96,9 +96,9 @@ class SPNet(nn.Module):
             point_image_features = batch_dict['point_image_features']
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
-        batch_dict = voxel_max_pooling(point_per_features, batch_dict)
-        batch_dict = self.voxel_encoder(batch_dict)
-        point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
+        batch_dict = voxel_max_pooling(point_per_features, point_voxel_ids)
+        encoder_out = self.voxel_encoder(batch_dict)
+        point_voxel_features = voxel_to_point(encoder_out['voxel_features'], point_voxel_ids)
 
         # fusion multi-view features
         point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
@@ -112,8 +112,7 @@ class SPNet(nn.Module):
         out = self.classifier(point_fusion_features)
         result['out'] = out
 
-        aux_voxel_features = batch_dict['aux_voxel_features']
-        aux_out = self.aux_classifier(aux_voxel_features)
+        aux_out = self.aux_classifier(encoder_out['aux_voxel_features'])
         result['aux_out'] = aux_out
 
         return result
