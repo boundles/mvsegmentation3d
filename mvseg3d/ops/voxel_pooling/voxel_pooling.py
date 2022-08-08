@@ -69,10 +69,8 @@ class VoxelMaxPooling(object):
             FloatTensor[M, C]
         """
         mask = (coords != -1)
-        feats = feats[mask]
-        coords = coords[mask]
-        feats = scatter(feats, coords, dim=0, reduce='max')
-        return feats
+        out = scatter(feats[mask], coords[mask], dim=0, reduce='max')
+        return out
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
