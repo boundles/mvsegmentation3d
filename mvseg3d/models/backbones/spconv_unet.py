@@ -160,19 +160,16 @@ class SparseUnet(nn.Module):
 
         self.aux_voxel_feature_channel = 32
 
-    def forward(self, batch_dict):
+    def forward(self, batch_size, voxel_features, voxel_coords):
         """
         Args:
-            batch_dict:
-                batch_size: int
-                vfe_features: (num_voxels, Cin)
-                voxel_coords: (num_voxels, 4), [batch_idx, z_idx, y_idx, x_idx]
+            batch_size: int
+            voxel_features: (num_voxels, Cin)
+            voxel_coords: (num_voxels, 4), [batch_idx, z_idx, y_idx, x_idx]
         Returns:
-            batch_dict:
-                voxel_features: (num_voxels, Cout)
+            voxel_features: (num_voxels, Cout)
+            aux_voxel_features: (num_voxels, Cout)
         """
-        voxel_features, voxel_coords = batch_dict['voxel_features'], batch_dict['voxel_coords']
-        batch_size = batch_dict['batch_size']
         input_sp_tensor = spconv.SparseConvTensor(
             features=voxel_features,
             indices=voxel_coords.int(),
@@ -195,8 +192,7 @@ class SparseUnet(nn.Module):
         x_up2 = self.up2(x_up3, x_conv2)
         x_up1 = self.up1(x_up2, x_conv1)
 
-        encoder_out = OrderedDict()
-        encoder_out['voxel_features'] = x_up1.features
-        encoder_out['aux_voxel_features'] = x_up2.features
+        voxel_features = x_up1.features
+        aux_voxel_features = x_up2.features
 
-        return encoder_out
+        return voxel_features, aux_voxel_features
