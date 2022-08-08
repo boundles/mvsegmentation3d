@@ -59,9 +59,6 @@ class VoxelAvgPoolingFunction(Function):
 
         return grad_feats, None, None
 
-voxel_avg_pooling = VoxelAvgPoolingFunction.apply
-
-
 class VoxelMaxPooling(object):
     def __call__(self, feats, data_dict):
         """
@@ -73,13 +70,11 @@ class VoxelMaxPooling(object):
             FloatTensor[M, C]
         """
         coords = data_dict['point_voxel_ids']
-        mask = (coords != -1)
-        feats = feats[mask]
-        coords = coords[mask]
-        data_dict['voxel_features'] = scatter_max(feats, coords, dim=0)
+        data_dict['voxel_features'], _ = scatter_max(feats, coords, dim=0)
         return data_dict
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
 
+voxel_avg_pooling = VoxelAvgPoolingFunction.apply
 voxel_max_pooling = VoxelMaxPooling()
