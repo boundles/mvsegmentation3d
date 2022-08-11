@@ -16,6 +16,7 @@ from mvseg3d.utils.config import cfg, cfg_from_file
 from mvseg3d.utils.data_utils import load_data_to_gpu
 from mvseg3d.utils.train_utils import build_criterion, build_optimizer, build_scheduler, set_random_seed, \
     init_random_seed
+from mvseg3d.utils.interpolate import sparse_interpolate
 
 
 def parse_args():
@@ -71,6 +72,11 @@ def compute_loss(pred_result, data_dict, criterion):
     point_pred_labels = pred_result['out']
     for loss_func, loss_weight in criterion:
         loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
+
+    voxel_labels_stride_4 = sparse_interpolate(data_dict['voxel_labels'], data_dict['voxel_indices'],
+                                               0.25, data_dict['voxel_indices_stride_4'],
+                                               data_dict['voxel_spatial_shape_4'], 255)
+    print(voxel_labels_stride_4.shape, voxel_labels_stride_4[voxel_labels_stride_4[voxel_labels_stride_4 != 255]].shape)
 
     if 'aux_out' in pred_result:
         voxel_pred_labels = pred_result['aux_out']
