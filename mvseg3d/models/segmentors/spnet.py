@@ -116,8 +116,8 @@ class SPNet(nn.Module):
         aux_out = self.aux_classifier(aux_voxel_features)
         result['aux_out'] = aux_out
 
-        result['voxel_indices'] = batch_dict['voxel_indices']
+        result['voxel_indices_stride_1'] = batch_dict['voxel_indices_stride_1']
         result['voxel_indices_stride_4'] = batch_dict['voxel_indices_stride_4']
-        result['voxel_spatial_shape_4'] = batch_dict['voxel_spatial_shape_4']
+        result['voxel_shape_stride_4'] = batch_dict['voxel_shape_stride_4']
 
         return result
