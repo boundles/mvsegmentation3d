@@ -81,7 +81,7 @@ def compute_loss(pred_result, data_dict, criterion):
     if 'aux_voxel_out' in pred_result:
         voxel_pred_labels = pred_result['aux_voxel_out']
         voxel_gt_labels_stride_4 = sparse_interpolate(data_dict['voxel_labels'],
-                                                      pred_result['voxel_indices_stride_1'], 0.25,
+                                                      data_dict['voxel_coords'], 0.25,
                                                       pred_result['voxel_indices_stride_4'],
                                                       pred_result['voxel_shape_stride_4'], 255)
         for loss_func, loss_weight in criterion:
