@@ -145,7 +145,7 @@ class SparseUnet(nn.Module):
         )
 
         # context layer
-        self.context = ContextLayer(dilations=[1, 6, 12], in_channels=256, channels=128,
+        self.context = ContextLayer(dilations=[1, 3, 6, 12], in_channels=256, channels=128,
                                     act_fn=act_fn, norm_fn=norm_fn, indice_key='subm4-aspp')
 
         # [188, 188, 9] -> [376, 376, 18]
@@ -157,7 +157,7 @@ class SparseUnet(nn.Module):
         # [1504, 1504, 72] -> [1504, 1504, 72]
         self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
-        self.aux_voxel_feature_channel = 32
+        self.aux_voxel_feature_channel = 128
 
     def forward(self, batch_dict):
         """
@@ -196,10 +196,10 @@ class SparseUnet(nn.Module):
         x_up1 = self.up1(x_up2, x_conv1)
 
         batch_dict['voxel_features'] = x_up1.features
-        batch_dict['aux_voxel_features'] = x_up2.features
 
         batch_dict['voxel_indices_stride_1'] = x_up1.indices
         batch_dict['voxel_indices_stride_4'] = x_up4.indices
         batch_dict['voxel_shape_stride_4'] = x_up4.spatial_shape
+        batch_dict['aux_voxel_features'] = x_up4.features
 
         return batch_dict

@@ -65,7 +65,14 @@ class SPNet(nn.Module):
                                         nn.Dropout(0.1),
                                         nn.Linear(32, dataset.num_classes, bias=False))
 
-        self.aux_classifier = nn.Sequential(
+        self.voxel_classifier = nn.Sequential(
+            nn.Linear(self.voxel_feature_channel, 32, bias=False),
+            nn.BatchNorm1d(32),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1),
+            nn.Linear(32, dataset.num_classes, bias=False))
+
+        self.aux_voxel_classifier = nn.Sequential(
             nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 32, bias=False),
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
@@ -112,12 +119,16 @@ class SPNet(nn.Module):
         out = self.classifier(point_fusion_features)
         result['out'] = out
 
-        aux_voxel_features = batch_dict['aux_voxel_features']
-        aux_out = self.aux_classifier(aux_voxel_features)
-        result['aux_out'] = aux_out
+        voxel_features = batch_dict['voxel_features']
+        voxel_out = self.voxel_classifier(voxel_features)
+        result['voxel_out'] = voxel_out
 
         result['voxel_indices_stride_1'] = batch_dict['voxel_indices_stride_1']
         result['voxel_indices_stride_4'] = batch_dict['voxel_indices_stride_4']
         result['voxel_shape_stride_4'] = batch_dict['voxel_shape_stride_4']
+
+        aux_voxel_features = batch_dict['aux_voxel_features']
+        aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
+        result['aux_voxel_out'] = aux_voxel_out
 
         return result

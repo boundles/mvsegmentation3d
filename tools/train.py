@@ -73,17 +73,19 @@ def compute_loss(pred_result, data_dict, criterion):
     for loss_func, loss_weight in criterion:
         loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
 
-    voxel_labels_stride_4 = sparse_interpolate(data_dict['voxel_labels'],
-                                               data_dict['voxel_indices_stride_1'], 0.25,
-                                               data_dict['voxel_indices_stride_4'],
-                                               data_dict['voxel_spatial_shape_4'], 255)
-    print(voxel_labels_stride_4.shape, voxel_labels_stride_4[voxel_labels_stride_4 != 255].shape)
+    voxel_pred_labels = pred_result['voxel_out']
+    voxel_gt_labels = data_dict['voxel_labels']
+    for loss_func, loss_weight in criterion:
+        loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
-    if 'aux_out' in pred_result:
-        voxel_pred_labels = pred_result['aux_out']
-        voxel_gt_labels = data_dict['voxel_labels']
+    if 'aux_voxel_out' in pred_result:
+        voxel_pred_labels = pred_result['aux_voxel_out']
+        voxel_gt_labels_stride_4 = sparse_interpolate(data_dict['voxel_labels'],
+                                                      pred_result['voxel_indices_stride_1'], 0.25,
+                                                      pred_result['voxel_indices_stride_4'],
+                                                      pred_result['voxel_shape_stride_4'], 255)
         for loss_func, loss_weight in criterion:
-            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
+            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels_stride_4) * loss_weight
 
     return loss
 
