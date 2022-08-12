@@ -82,8 +82,8 @@ def compute_loss(pred_result, data_dict, criterion):
         voxel_pred_labels = pred_result['aux_voxel_out']
         voxel_gt_labels = sparse_interpolate(data_dict['voxel_labels'],
                                              data_dict['voxel_coords'],
-                                             pred_result['aux_voxel_shape_coords'][0],
-                                             pred_result['aux_voxel_shape_coords'][1],
+                                             pred_result['aux_voxel_coords_shape'][0],
+                                             pred_result['aux_voxel_coords_shape'][1],
                                              0.25, 255)
         for loss_func, loss_weight in criterion:
             loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
