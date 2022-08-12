@@ -58,7 +58,7 @@ if __name__ == '__main__':
     # data dirs
     lidar_dir = os.path.join(data_dir, split, 'lidar')
     image_dir = os.path.join(data_dir, split, 'image')
-    feature_dir = os.path.join(data_dir, split, 'image_feature')
+    feature_dir = os.path.join(data_dir, split, 'image_dense_feature')
 
     # init model
     config_file = os.path.join(work_dir, 'segformer_mit-b3_8x1_769x769_160k_waymo.py')
