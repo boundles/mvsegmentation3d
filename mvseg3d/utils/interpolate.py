@@ -5,9 +5,9 @@ from torch import Tensor
 
 def sparse_interpolate(input: Tensor,
                        input_coords: Tensor,
-                       scale_factor: float,
                        output_coords: Tensor,
                        output_shape: tuple,
+                       scale_factor: float,
                        fill_value: int,
                        mode: str='nearest'):
     assert mode == 'nearest'
@@ -38,5 +38,5 @@ if __name__ == '__main__':
     scale_factor = 0.5
     output_coords = torch.Tensor([0, 1, 1, 1]).unsqueeze(0)
     output_shape = (10, 10, 10)
-    output = sparse_interpolate(input, input_coords, scale_factor, output_coords, output_shape, 255)
+    output = sparse_interpolate(input, input_coords, output_coords, output_shape, scale_factor, 255)
     print(output)

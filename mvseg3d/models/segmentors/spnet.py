@@ -123,11 +123,11 @@ class SPNet(nn.Module):
         voxel_out = self.voxel_classifier(voxel_features)
         result['voxel_out'] = voxel_out
 
-        aux_voxel_features = batch_dict['aux_voxel_features']
+        aux_voxel_features = batch_dict['aux_voxel_sparse_tensor'].features
         aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
         result['aux_voxel_out'] = aux_voxel_out
 
-        result['voxel_indices_stride_4'] = batch_dict['voxel_indices_stride_4']
-        result['voxel_shape_stride_4'] = batch_dict['voxel_shape_stride_4']
+        result['aux_voxel_coords_shape'] = (batch_dict['aux_voxel_sparse_tensor'].indices,
+                                            batch_dict['aux_voxel_sparse_tensor'].spatial_shape)
 
         return result

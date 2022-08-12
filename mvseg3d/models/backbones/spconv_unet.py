@@ -196,9 +196,6 @@ class SparseUnet(nn.Module):
         x_up1 = self.up1(x_up2, x_conv1)
 
         batch_dict['voxel_features'] = x_up1.features
-
-        batch_dict['voxel_indices_stride_4'] = x_up4.indices
-        batch_dict['voxel_shape_stride_4'] = x_up4.spatial_shape
-        batch_dict['aux_voxel_features'] = x_up4.features
+        batch_dict['aux_voxel_sparse_tensor'] = x_up4
 
         return batch_dict
