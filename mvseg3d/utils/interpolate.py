@@ -24,7 +24,7 @@ def sparse_interpolate(input: Tensor,
     output = np.full((output_coords.shape[0]), fill_value=fill_value)
     output_index = output_coords[:, 0] * h * w * l + output_coords[:, 1] * w * l + output_coords[:, 2] * w + output_coords[:, 3]
     output_index = output_index.cpu().numpy()
-    for i in output_index.shape[0]:
+    for i in range(output_index.shape[0]):
         idx = output_index[i]
         if idx in input_index_dict:
             output[i] = input_index_dict[idx]
