@@ -65,13 +65,6 @@ class SPNet(nn.Module):
                                         nn.Dropout(0.1),
                                         nn.Linear(32, dataset.num_classes, bias=False))
 
-        self.voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
-
         self.aux_voxel_classifier = nn.Sequential(
             nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 32, bias=False),
             nn.BatchNorm1d(32),
@@ -113,21 +106,14 @@ class SPNet(nn.Module):
 
         # channel attention
         point_batch_indices = batch_dict['points'][:, 0]
-        point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
+        point_fusion_features += self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
-        out = self.classifier(point_fusion_features)
-        result['out'] = out
+        point_out = self.classifier(point_fusion_features)
+        result['point_out'] = point_out
 
-        voxel_features = batch_dict['voxel_features']
-        voxel_out = self.voxel_classifier(voxel_features)
-        result['voxel_out'] = voxel_out
-
-        aux_voxel_features = batch_dict['aux_voxel_sparse_tensor'].features
+        aux_voxel_features = batch_dict['aux_voxel_features']
         aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
         result['aux_voxel_out'] = aux_voxel_out
-
-        result['aux_voxel_coords_shape'] = (batch_dict['aux_voxel_sparse_tensor'].indices,
-                                            batch_dict['aux_voxel_sparse_tensor'].spatial_shape)
 
         return result

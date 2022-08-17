@@ -1,7 +1,26 @@
 import torch
 import torch.nn as nn
 
+from torch_scatter import scatter
+
 from mvseg3d.utils.spconv_utils import replace_feature, ConvModule
+
+
+class PointPooling(nn.Module):
+    def __init__(self, in_channels, channels):
+        super(PointPooling, self).__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(in_channels, channels, bias=False),
+            nn.BatchNorm1d(channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        indices = x.indices[:, 0].long()
+        out = scatter(x.features, indices, dim=0, reduce='mean')
+        out = out[indices]
+        out = self.fc(out)
+        return out
 
 
 class ASPPModule(nn.ModuleList):
@@ -39,6 +58,7 @@ class ASPPModule(nn.ModuleList):
     def forward(self, x):
         """Forward function."""
         aspp_outs = []
+
         for aspp_module in self.aspp_modules:
             aspp_out = aspp_module(x)
             aspp_outs.append(aspp_out)
@@ -49,10 +69,11 @@ class ASPPModule(nn.ModuleList):
 class ContextLayer(nn.Module):
     def __init__(self, dilations, in_channels, channels, act_fn, norm_fn, indice_key):
         super(ContextLayer, self).__init__()
+        self.point_pool = PointPooling(in_channels, channels)
         self.aspp_modules = ASPPModule(dilations, in_channels, channels, norm_fn=norm_fn,
                                        act_fn=act_fn, indice_key=indice_key)
         self.bottleneck = nn.Sequential(
-            nn.Linear(len(dilations) * channels, in_channels, bias=False),
+            nn.Linear((len(dilations) + 1) * channels, in_channels, bias=False),
             nn.BatchNorm1d(in_channels),
             nn.ReLU(inplace=True)
         )
@@ -64,7 +85,8 @@ class ContextLayer(nn.Module):
         Returns:
             Features with context information
         """
-        aspp_outs = [aspp_out.features for aspp_out in self.aspp_modules(x)]
+        aspp_outs = [self.point_pool(x)]
+        aspp_outs.extend([aspp_out.features for aspp_out in self.aspp_modules(x)])
         aspp_outs = torch.cat(aspp_outs, dim=1)
         aspp_outs = self.bottleneck(aspp_outs)
         x = replace_feature(x, aspp_outs)
