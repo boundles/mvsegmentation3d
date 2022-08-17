@@ -106,7 +106,7 @@ class SPNet(nn.Module):
 
         # channel attention
         point_batch_indices = batch_dict['points'][:, 0]
-        point_fusion_features += self.se(point_fusion_features, point_batch_indices)
+        point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)
