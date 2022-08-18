@@ -95,7 +95,7 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
             logger.info(
                 'Evaluate on epoch %d - Iter [%d/%d] loss: %f' % (epoch, step, len(data_loader), loss.cpu().item()))
 
-        pred_labels = torch.argmax(result['out'], dim=1).cpu()
+        pred_labels = torch.argmax(result['point_out'], dim=1).cpu()
         gt_labels = data_dict['labels'].cpu()
         iou_metric.add(pred_labels, gt_labels)
 
