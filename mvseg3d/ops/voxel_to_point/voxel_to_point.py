@@ -13,8 +13,7 @@ class VoxelToPoint(object):
         res_feature_shape = (coords.shape[0], feats.shape[-1])
         res = torch.zeros(res_feature_shape, dtype=feats.dtype, device=feats.device)
         coords_valid = torch.nonzero(coords != -1).view(-1)
-        features_valid = feats[coords[coords_valid]]
-        res[coords_valid] = features_valid
+        res[coords_valid] = feats[coords[coords_valid]]
         return res
 
     def __repr__(self) -> str:
