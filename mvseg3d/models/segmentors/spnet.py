@@ -89,15 +89,13 @@ class SPNet(nn.Module):
 
     def forward(self, batch_dict):
         points = batch_dict['points'][:, 1:]
-        point_batch_indices = batch_dict['points'][:, 0]
-        point_voxel_ids = batch_dict['point_voxel_ids']
-
         point_per_features = self.point_encoder(points)
 
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
+        point_voxel_ids = batch_dict['point_voxel_ids']
         batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
         batch_dict = self.voxel_encoder(batch_dict)
         point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
@@ -107,6 +105,7 @@ class SPNet(nn.Module):
         point_per_features = self.fusion_encoder(point_per_features)
 
         # channel attention
+        point_batch_indices = batch_dict['points'][:, 0]
         point_per_features = point_per_features + self.se(point_per_features, point_batch_indices)
 
         result = OrderedDict()
