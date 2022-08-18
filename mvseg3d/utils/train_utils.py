@@ -146,7 +146,7 @@ def build_criterion(cfg, dataset):
     for loss_name in cfg.MODEL.LOSSES:
         if loss_name == 'ce':
             criterion = OHEMCrossEntropyLoss(class_weight=weight, keep_ratio=cfg.MODEL.OHEM_KEEP_RATIO,
-                                             ignore_index=dataset.ignore_index)
+                                             keep_labels=[1, 5, 6, 21], ignore_index=dataset.ignore_index)
         elif loss_name == 'dice':
             criterion = DiceLoss(class_weight=weight, ignore_index=dataset.ignore_index)
         elif loss_name == 'lovasz':

@@ -5,12 +5,14 @@ import torch.nn as nn
 class OHEMCrossEntropyLoss(nn.Module):
     def __init__(self,
                  keep_ratio=None,
+                 keep_labels=None,
                  ignore_index=255,
                  class_weight=None,
                  loss_name='loss_ohem_cross_entropy'):
         super(OHEMCrossEntropyLoss, self).__init__()
 
         self.keep_ratio = keep_ratio
+        self.keep_labels = keep_labels
         self.ignore_index = ignore_index
         self.class_weight = class_weight
         self.cross_entropy = nn.CrossEntropyLoss(reduction='none',
@@ -25,7 +27,14 @@ class OHEMCrossEntropyLoss(nn.Module):
         if self.keep_ratio:
             _, sort_indices = losses.sort(descending=True)
             kept_count = int(losses.shape[0] * self.keep_ratio)
-            losses = losses[sort_indices[:kept_count]]
+            keep_indices = sort_indices[:kept_count]
+            if self.keep_labels:
+                keep_indices = [keep_indices]
+                for keep_label in self.keep_labels:
+                    keep_indices.append(torch.nonzero(targets == keep_label).view(-1))
+                keep_indices = torch.cat(keep_indices, dim=0)
+                keep_indices = torch.unique(keep_indices)
+            losses = losses[keep_indices]
         loss = losses.mean()
         return loss
 
