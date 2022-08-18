@@ -2,10 +2,12 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
+import torch.utils.checkpoint as cp
 
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
 from mvseg3d.ops import voxel_to_point, voxel_max_pooling
+from mvseg3d.utils.config import cfg
 
 
 class SPNet(nn.Module):
@@ -91,7 +93,11 @@ class SPNet(nn.Module):
         points = batch_dict['points'][:, 1:]
         point_voxel_ids = batch_dict['point_voxel_ids']
 
-        point_per_features = self.point_encoder(points)
+        if cfg.MODEL.WITH_CP:
+            point_per_features = cp.checkpoint(self.point_encoder, points)
+        else:
+            point_per_features = self.point_encoder(points)
+
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
@@ -102,14 +108,20 @@ class SPNet(nn.Module):
 
         # fusion multi-view features
         point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
-        point_fusion_features = self.fusion_encoder(point_fusion_features)
+        if cfg.MODEL.WITH_CP:
+            point_fusion_features = cp.checkpoint(self.fusion_encoder, point_fusion_features)
+        else:
+            point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # channel attention
         point_batch_indices = batch_dict['points'][:, 0]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
-        point_out = self.classifier(point_fusion_features)
+        if cfg.MODEL.WITH_CP:
+            point_out = cp.checkpoint(self.classifier, point_fusion_features)
+        else:
+            point_out = self.classifier(point_fusion_features)
         result['point_out'] = point_out
 
         aux_voxel_features = batch_dict['aux_voxel_features']
