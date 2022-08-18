@@ -7,7 +7,6 @@ import torch.utils.checkpoint as cp
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
 from mvseg3d.ops import voxel_to_point, voxel_max_pooling
-from mvseg3d.utils.config import cfg
 
 
 class SPNet(nn.Module):
@@ -105,10 +104,7 @@ class SPNet(nn.Module):
 
         # fusion multi-view features
         point_fusion_features = torch.cat([point_voxel_features, point_per_features], dim=1)
-        if cfg.MODEL.WITH_CP:
-            point_fusion_features = cp.checkpoint(self.fusion_encoder, point_fusion_features)
-        else:
-            point_fusion_features = self.fusion_encoder(point_fusion_features)
+        point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # channel attention
         point_batch_indices = batch_dict['points'][:, 0]

@@ -190,12 +190,12 @@ class SparseUnet(nn.Module):
         x_conv4 = self.context(x_conv4)
 
         # decoder
-        x_up4 = self.up4(x_conv4, x_conv4)
-        x_up3 = self.up3(x_up4, x_conv3)
-        x_up2 = self.up2(x_up3, x_conv2)
-        x_up1 = self.up1(x_up2, x_conv1)
+        x_conv4 = self.up4(x_conv4, x_conv4)
+        x_conv3 = self.up3(x_conv4, x_conv3)
+        x_conv2 = self.up2(x_conv3, x_conv2)
+        x_conv1 = self.up1(x_conv2, x_conv1)
 
-        batch_dict['voxel_features'] = x_up1.features
-        batch_dict['aux_voxel_features'] = x_up2.features
+        batch_dict['voxel_features'] = x_conv1.features
+        batch_dict['aux_voxel_features'] = x_conv2.features
 
         return batch_dict
