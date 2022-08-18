@@ -18,8 +18,8 @@ class PointPooling(nn.Module):
     def forward(self, x):
         indices = x.indices[:, 0].long()
         out = scatter(x.features, indices, dim=0, reduce='mean')
-        out = out[indices]
         out = self.fc(out)
+        out = out[indices]
         return out
 
 
