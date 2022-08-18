@@ -13,17 +13,17 @@ class FlattenSELayer(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, x, index):
+    def forward(self, x, indices):
         """Forward function.
         Args:
             x (torch.Tensor): The input shape (N, C) where C = dim of input
-            index (torch.Tensor): The indices shape (N,)
+            indices (torch.Tensor): The indices shape (N,)
         Returns:
             torch.Tensor: The output with shape (N, C)
         """
-        index = index.long()
-        out = scatter(x, index, dim=0, reduce='mean')
+        indices = indices.long()
+        out = scatter(x, indices, dim=0, reduce='mean')
         out = self.fc(out)
-        out = out[index]
+        out = out[indices]
         out = x * out
         return out
