@@ -115,17 +115,11 @@ class SPNet(nn.Module):
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
-        if cfg.MODEL.WITH_CP:
-            point_out = cp.checkpoint(self.classifier, point_fusion_features)
-        else:
-            point_out = self.classifier(point_fusion_features)
+        point_out = self.classifier(point_fusion_features)
         result['point_out'] = point_out
 
         aux_voxel_features = batch_dict['aux_voxel_features']
-        if cfg.MODEL.WITH_CP:
-            aux_voxel_out = cp.checkpoint(self.aux_voxel_classifier, aux_voxel_features)
-        else:
-            aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
+        aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
         result['aux_voxel_out'] = aux_voxel_out
 
         return result
