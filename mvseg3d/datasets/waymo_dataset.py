@@ -272,11 +272,11 @@ class WaymoDataset(Dataset):
         if self.cfg.DATASET.USE_MULTI_SWEEPS:
             point_indices, points = self.load_points_from_multi_sweeps(filename, self.cfg.DATASET.NUM_SWEEPS,
                                                                        self.cfg.DATASET.MAX_NUM_SWEEPS)
+            input_dict['points'] = points[:, :self.dim_point]
             input_dict['point_indices'] = point_indices
         else:
             points = self.load_points(filename)
-
-        input_dict['points'] = points[:, :self.dim_point]
+            input_dict['points'] = points[:, :self.dim_point]
 
         if self.cfg.DATASET.USE_IMAGE_FEATURE:
             point_image_features = self.load_image_features(points.shape[0], filename)
@@ -310,7 +310,7 @@ class WaymoDataset(Dataset):
                     coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
                     coors.append(coor_pad)
                 ret[key] = np.concatenate(coors, axis=0)
-            elif key in ['voxels', 'points_ri', 'point_image_features', 'voxel_labels', 'labels']:
+            elif key in ['points_ri', 'point_image_features', 'labels', 'voxels', 'voxel_labels']:
                 ret[key] = np.concatenate(val, axis=0)
             elif key in ['filename']:
                 ret[key] = val

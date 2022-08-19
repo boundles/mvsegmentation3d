@@ -100,11 +100,9 @@ class SparseUnet(nn.Module):
     From Points to Parts: 3D Object Detection from Point Cloud with Part-aware and Part-aggregation Network
     """
 
-    def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range):
+    def __init__(self, input_channels, output_channels, grid_size):
         super(SparseUnet, self).__init__()
         self.sparse_shape = grid_size[::-1]
-        self.voxel_size = voxel_size
-        self.point_cloud_range = point_cloud_range
 
         norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         act_fn = nn.ReLU(inplace=True)

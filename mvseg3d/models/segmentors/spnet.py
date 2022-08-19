@@ -42,9 +42,7 @@ class SPNet(nn.Module):
         self.voxel_feature_channel = 32
         self.voxel_encoder = SparseUnet(self.point_feature_channel,
                                         self.voxel_feature_channel,
-                                        dataset.grid_size,
-                                        dataset.voxel_size,
-                                        dataset.point_cloud_range)
+                                        dataset.grid_size)
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
