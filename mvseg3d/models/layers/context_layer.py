@@ -69,11 +69,10 @@ class ASPPModule(nn.ModuleList):
 class ContextLayer(nn.Module):
     def __init__(self, dilations, in_channels, channels, act_fn, norm_fn, indice_key):
         super(ContextLayer, self).__init__()
-        self.point_pool = PointPooling(in_channels, channels)
         self.aspp_modules = ASPPModule(dilations, in_channels, channels, norm_fn=norm_fn,
                                        act_fn=act_fn, indice_key=indice_key)
         self.bottleneck = nn.Sequential(
-            nn.Linear((len(dilations) + 1) * channels, in_channels, bias=False),
+            nn.Linear(len(dilations) * channels, in_channels, bias=False),
             nn.BatchNorm1d(in_channels),
             nn.ReLU(inplace=True)
         )
@@ -85,8 +84,7 @@ class ContextLayer(nn.Module):
         Returns:
             Features with context information
         """
-        aspp_outs = [self.point_pool(x)]
-        aspp_outs.extend([aspp_out.features for aspp_out in self.aspp_modules(x)])
+        aspp_outs = [aspp_out.features for aspp_out in self.aspp_modules(x)]
         aspp_outs = torch.cat(aspp_outs, dim=1)
         aspp_outs = self.bottleneck(aspp_outs)
         x = replace_feature(x, aspp_outs)

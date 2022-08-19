@@ -145,7 +145,7 @@ class SparseUnet(nn.Module):
         )
 
         # context layer
-        self.context = ContextLayer(dilations=[1, 6, 12], in_channels=256, channels=128,
+        self.context = ContextLayer(dilations=[1, 6, 12, 18], in_channels=256, channels=128,
                                     act_fn=act_fn, norm_fn=norm_fn, indice_key='subm4-aspp')
 
         # [188, 188, 9] -> [376, 376, 18]
