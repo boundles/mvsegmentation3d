@@ -39,10 +39,6 @@ class SPNet(nn.Module):
                 nn.BatchNorm1d(self.point_feature_channel),
                 nn.ReLU(inplace=True))
 
-        self.use_image_feature = dataset.use_image_feature
-        if self.use_image_feature:
-            self.point_feature_channel += dataset.dim_image_feature
-
         self.voxel_feature_channel = 32
         self.voxel_encoder = SparseUnet(self.point_feature_channel,
                                         self.voxel_feature_channel,
@@ -50,9 +46,16 @@ class SPNet(nn.Module):
                                         dataset.voxel_size,
                                         dataset.point_cloud_range)
 
+        self.use_image_feature = dataset.use_image_feature
+        if self.use_image_feature:
+            self.fusion_in_feature_channel = self.point_feature_channel + self.voxel_feature_channel + \
+                                             dataset.dim_image_feature
+        else:
+            self.fusion_in_feature_channel = self.point_feature_channel + self.voxel_feature_channel
+
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, self.fusion_feature_channel, bias=False),
+            nn.Linear(self.fusion_in_feature_channel, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
@@ -91,25 +94,26 @@ class SPNet(nn.Module):
         points = batch_dict['points'][:, 1:]
         point_per_features = self.point_encoder(points)
 
-        if self.use_image_feature:
-            point_image_features = batch_dict['point_image_features']
-            point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
-
         point_voxel_ids = batch_dict['point_voxel_ids']
         batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
         batch_dict = self.voxel_encoder(batch_dict)
         point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
         # fusion multi-view features
-        point_per_features = torch.cat([point_per_features, point_voxel_features], dim=1)
-        point_per_features = self.fusion_encoder(point_per_features)
+        if self.use_image_feature:
+            point_image_features = batch_dict['point_image_features']
+            point_fusion_features = torch.cat([point_per_features, point_voxel_features, point_image_features], dim=1)
+        else:
+            point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
+
+        point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # channel attention
         point_batch_indices = batch_dict['points'][:, 0]
-        point_per_features = point_per_features + self.se(point_per_features, point_batch_indices)
+        point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
-        point_out = self.classifier(point_per_features)
+        point_out = self.classifier(point_fusion_features)
         result['point_out'] = point_out
 
         aux_voxel_features = batch_dict['aux_voxel_features']
