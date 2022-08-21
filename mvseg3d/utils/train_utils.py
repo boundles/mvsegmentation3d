@@ -4,11 +4,12 @@ from typing import List
 import numpy as np
 
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import _LRScheduler
 import torch.distributed as dist
 
-from mvseg3d.models import LovaszLoss, OHEMCrossEntropyLoss, DiceLoss
+from mvseg3d.models import LovaszLoss
 from mvseg3d.utils.distributed_utils import get_dist_info
 
 
@@ -114,7 +115,7 @@ class WarmupPolyLR(_LRScheduler):
         self.warmup_method = warmup_method
         self.power = power
         self.constant_ending = constant_ending
-        super().__init__(optimizer, last_epoch)
+        super(WarmupPolyLR, self).__init__(optimizer, last_epoch)
 
     def get_lr(self) -> List[float]:
         warmup_factor = _get_warmup_factor_at_iter(
@@ -137,20 +138,12 @@ class WarmupPolyLR(_LRScheduler):
         return self.get_lr()
 
 def build_criterion(cfg, dataset):
-    if dataset.class_weight:
-        weight = torch.FloatTensor(dataset.class_weight).cuda()
-    else:
-        weight = None
-
     losses = []
     for loss_name in cfg.MODEL.LOSSES:
         if loss_name == 'ce':
-            criterion = OHEMCrossEntropyLoss(class_weight=weight, keep_ratio=cfg.MODEL.OHEM_KEEP_RATIO,
-                                             keep_labels=[1, 5, 6, 21], ignore_index=dataset.ignore_index)
-        elif loss_name == 'dice':
-            criterion = DiceLoss(class_weight=weight, ignore_index=dataset.ignore_index)
+            criterion = nn.CrossEntropyLoss(ignore_index=dataset.ignore_index)
         elif loss_name == 'lovasz':
-            criterion = LovaszLoss(class_weight=weight, ignore_index=dataset.ignore_index)
+            criterion = LovaszLoss(ignore_index=dataset.ignore_index)
         else:
             raise NotImplementedError
         losses.append((criterion, cfg.MODEL.LOSSES[loss_name]))
