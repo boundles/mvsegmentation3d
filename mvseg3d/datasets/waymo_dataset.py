@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
-from mvseg3d.utils.data_utils import cart2polar
+from mvseg3d.utils.geometry import cart2polar
 
 
 class WaymoDataset(Dataset):
