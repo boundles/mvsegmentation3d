@@ -6,13 +6,13 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from mvseg3d.utils import distributed_utils
+from mvseg3d.utils.distributed import get_dist_info
 from mvseg3d.datasets.samplers.distributed_sampler import DistributedSampler
 
 
 def build_dataloader(dataset, batch_size, dist, num_workers=4, seed=None, training=True):
     if dist:
-        rank, world_size = distributed_utils.get_dist_info()
+        rank, world_size = get_dist_info()
 
         if training:
             sampler = DistributedSampler(

@@ -4,13 +4,12 @@ import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DistributedSampler as _DistributedSampler
 
-from mvseg3d.utils.distributed_utils import get_device, sync_random_seed
 
 class DistributedSampler(_DistributedSampler):
     """DistributedSampler inheriting from
     `torch.utils.data.DistributedSampler`.
     Args:
-        datasets (Dataset): the dataset will be loaded.
+        dataset (Dataset): the dataset will be loaded.
         num_replicas (int, optional): Number of processes participating in
             distributed training. By default, world_size is retrieved from the
             current distributed group.
@@ -28,17 +27,10 @@ class DistributedSampler(_DistributedSampler):
                  rank: Optional[int] = None,
                  shuffle: bool = True,
                  seed=0) -> None:
-        super().__init__(
+        super(DistributedSampler, self).__init__(
             dataset, num_replicas=num_replicas, rank=rank, shuffle=shuffle)
 
-        # In distributed sampling, different ranks should sample
-        # non-overlapped data in the dataset. Therefore, this function
-        # is used to make sure that each rank shuffles the data indices
-        # in the same order based on the same seed. Then different ranks
-        # could use different indices to select non-overlapped data from the
-        # same data list.
-        device = get_device()
-        self.seed = sync_random_seed(seed, device)
+        self.seed = seed
 
     def __iter__(self) -> Iterator:
         """

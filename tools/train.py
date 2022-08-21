@@ -4,18 +4,17 @@ import argparse
 
 import torch
 import torch.optim
-import torch.distributed as dist
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.spnet import SPNet
-from mvseg3d.core.metrics import IOUMetric
+from mvseg3d.models.builder import build_criterion, build_optimizer, build_scheduler
+from mvseg3d.core.evaluation import IOUMetric
 from mvseg3d.utils.logging import get_root_logger
-from mvseg3d.utils import distributed_utils
+from mvseg3d.utils.distributed import init_dist, get_dist_info
 from mvseg3d.utils.config import cfg, cfg_from_file
 from mvseg3d.utils.data_utils import load_data_to_gpu
-from mvseg3d.utils.train_utils import build_criterion, build_optimizer, build_scheduler, set_random_seed, \
-    init_random_seed
+from mvseg3d.utils.random import set_random_seed, init_random_seed
 
 
 def parse_args():
@@ -156,9 +155,9 @@ def main():
         rank = 0
     else:
         distributed = True
-        distributed_utils.init_dist(args.launcher)
+        init_dist(args.launcher)
         # gpu_ids is used to calculate iter when resuming checkpoint
-        rank, world_size = distributed_utils.get_dist_info()
+        rank, world_size = get_dist_info()
 
     # set cudnn_benchmark
     if args.cudnn_benchmark:
@@ -174,7 +173,6 @@ def main():
 
     # set random seed
     seed = init_random_seed(args.seed)
-    seed = seed + dist.get_rank()
     logger.info(f'Set random seed to {seed}, '
                 f'deterministic: {args.deterministic}')
     set_random_seed(seed, deterministic=args.deterministic)

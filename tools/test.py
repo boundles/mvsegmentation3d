@@ -10,7 +10,7 @@ from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.spnet import SPNet
 from mvseg3d.utils.logging import get_logger
-from mvseg3d.utils import submission_utils
+from mvseg3d.utils.submission import construct_seg_frame, write_submission_file
 from mvseg3d.utils.data_utils import load_data_to_gpu
 
 from waymo_open_dataset.protos import segmentation_metrics_pb2
@@ -36,7 +36,7 @@ def semseg_for_one_frame(model, data_dict):
 
     points_ri = data_dict['points_ri']
     frame_id = data_dict['filename']
-    seg_frame = submission_utils.construct_seg_frame(pred_labels, points_ri, frame_id)
+    seg_frame = construct_seg_frame(pred_labels, points_ri, frame_id)
     return seg_frame
 
 def inference(args, data_loader, model, logger):
@@ -48,7 +48,7 @@ def inference(args, data_loader, model, logger):
         segmentation_frame_list.frames.append(segmentation_frame)
 
     submission_file = os.path.join(args.save_dir, 'wod_test_set_pred_semantic_seg.bin')
-    submission_utils.write_submission_file(segmentation_frame_list, submission_file)
+    write_submission_file(segmentation_frame_list, submission_file)
 
     logger.info('Inference finished!')
 

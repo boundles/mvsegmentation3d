@@ -1,4 +1,4 @@
 from .voxel import VoxelGenerator
-from .metrics import IOUMetric
+from .evaluation import IOUMetric
 
 __all__ = ['VoxelGenerator', 'IOUMetric']
