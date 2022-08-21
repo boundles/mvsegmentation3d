@@ -92,16 +92,16 @@ class SPNet(nn.Module):
         # fusion image features
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
-            point_fusion_features = torch.cat([point_per_features, point_image_features], dim=1)
+            point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
         # encode voxel features
         point_voxel_ids = batch_dict['point_voxel_ids']
-        batch_dict['voxel_features'] = voxel_max_pooling(point_fusion_features, point_voxel_ids)
+        batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
         batch_dict = self.voxel_encoder(batch_dict)
         point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
         # fusion voxel features
-        point_fusion_features = torch.cat([point_fusion_features, point_voxel_features], dim=1)
+        point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # channel attention
