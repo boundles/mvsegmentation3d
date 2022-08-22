@@ -104,10 +104,10 @@ class SPNet(nn.Module):
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
         # encode voxel features
+        point_voxel_ids = batch_dict['point_voxel_ids']
         if self.use_multi_sweeps:
-            batch_dict = self.mean_vfe(batch_dict)
+            batch_dict['voxel_features'] = self.mean_vfe(batch_dict)
         else:
-            point_voxel_ids = batch_dict['point_voxel_ids']
             batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
 
         batch_dict = self.voxel_encoder(batch_dict)
