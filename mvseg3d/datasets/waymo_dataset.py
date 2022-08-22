@@ -283,8 +283,13 @@ class WaymoDataset(Dataset):
             input_dict['points'] = points[:, :self.dim_point]
 
         if self.cfg.DATASET.USE_IMAGE_FEATURE:
-            point_image_features = self.load_image_features(points.shape[0], filename)
-            input_dict['point_image_features'] = point_image_features
+            point_indices = input_dict.get('point_indices', None)
+            if point_indices is not None:
+                point_image_features = self.load_image_features(point_indices.shape[0], filename)
+                input_dict['point_image_features'] = point_image_features
+            else:
+                point_image_features = self.load_image_features(input_dict['points'].shape[0], filename)
+                input_dict['point_image_features'] = point_image_features
 
         if self.test_mode:
             point_indices = input_dict.get('point_indices', None)
