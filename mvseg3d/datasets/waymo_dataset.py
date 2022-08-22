@@ -55,6 +55,10 @@ class WaymoDataset(Dataset):
         return self.cfg.DATASET.DIM_POINT
 
     @property
+    def use_multi_sweeps(self):
+        return self.cfg.DATASET.USE_MULTI_SWEEPS
+
+    @property
     def use_cylinder(self):
         return self.cfg.DATASET.USE_CYLINDER
 

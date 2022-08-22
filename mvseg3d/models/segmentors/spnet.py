@@ -3,6 +3,7 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
+from mvseg3d.models.voxel_encoders import MeanVFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
 from mvseg3d.ops import voxel_to_point, voxel_max_pooling
@@ -43,8 +44,16 @@ class SPNet(nn.Module):
         if self.use_image_feature:
             self.point_feature_channel = self.point_feature_channel + dataset.dim_image_feature
 
+        self.use_multi_sweeps = dataset.use_multi_sweeps
+        if self.use_multi_sweeps:
+            self.voxel_in_feature_channel = self.mean_vfe.voxel_feature_channel
+            self.mean_vfe = MeanVFE(dim_point)
+        else:
+            self.voxel_in_feature_channel = self.point_feature_channel
+            self.mean_vfe = None
+
         self.voxel_feature_channel = 32
-        self.voxel_encoder = SparseUnet(self.point_feature_channel,
+        self.voxel_encoder = SparseUnet(self.voxel_in_feature_channel,
                                         self.voxel_feature_channel,
                                         dataset.grid_size)
 
@@ -95,8 +104,12 @@ class SPNet(nn.Module):
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
         # encode voxel features
-        point_voxel_ids = batch_dict['point_voxel_ids']
-        batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
+        if self.use_multi_sweeps:
+            batch_dict = self.mean_vfe(batch_dict)
+        else:
+            point_voxel_ids = batch_dict['point_voxel_ids']
+            batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
+
         batch_dict = self.voxel_encoder(batch_dict)
         point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 

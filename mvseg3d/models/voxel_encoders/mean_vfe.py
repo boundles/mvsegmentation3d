@@ -4,7 +4,7 @@ import torch.nn as nn
 
 class MeanVFE(nn.Module):
     def __init__(self, voxel_feature_channel):
-        super().__init__()
+        super(MeanVFE, self).__init__()
         self._voxel_feature_channel = voxel_feature_channel
 
     @property
