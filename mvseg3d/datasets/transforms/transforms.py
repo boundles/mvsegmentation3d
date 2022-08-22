@@ -123,6 +123,7 @@ class RandomGlobalTranslation(object):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
 
+
 class RandomFlip(object):
     def __call__(self, data_dict):
         points = data_dict['points']
@@ -135,6 +136,20 @@ class RandomFlip(object):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
+
+
+def get_sub_indices_pos(sub_indices, all_indices):
+    sub_indices_dic = {}
+    for i, idx in enumerate(sub_indices):
+        sub_indices_dic[idx] = i
+
+    pos_in_all_indices = []
+    pos_in_sub_indices = []
+    for i, idx in enumerate(all_indices):
+        if idx in sub_indices_dic:
+            pos_in_all_indices.append(i)
+            pos_in_sub_indices.append(sub_indices_dic[idx])
+    return pos_in_all_indices, pos_in_sub_indices
 
 
 class PointShuffle(object):
@@ -185,20 +200,6 @@ class PointSample(object):
         self.sample_range = sample_range
         self.replace = replace
 
-    @staticmethod
-    def get_sub_indices_pos(sub_indices, all_indices):
-        sub_indices_dic = {}
-        for i, idx in enumerate(sub_indices):
-            sub_indices_dic[idx] = i
-
-        pos_in_all_indices = []
-        pos_in_sub_indices = []
-        for i, idx in enumerate(all_indices):
-            if idx in sub_indices_dic:
-                pos_in_all_indices.append(i)
-                pos_in_sub_indices.append(sub_indices_dic[idx])
-        return pos_in_all_indices, pos_in_sub_indices
-
     def __call__(self, data_dict):
         """Call function to sample points to in indoor scenes.
 
@@ -222,7 +223,7 @@ class PointSample(object):
         labels = data_dict.get('labels', None)
 
         if cur_indices is not None:
-            pos_in_all_indices, pos_in_sub_indices = self.get_sub_indices_pos(cur_indices, point_indices)
+            pos_in_all_indices, pos_in_sub_indices = get_sub_indices_pos(cur_indices, point_indices)
             cur_indices = np.array(pos_in_sub_indices)
             data_dict['point_indices'] = np.array(pos_in_all_indices)
         else:
