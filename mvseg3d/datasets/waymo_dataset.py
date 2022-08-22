@@ -314,7 +314,7 @@ class WaymoDataset(Dataset):
                     coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
                     coors.append(coor_pad)
                 ret[key] = np.concatenate(coors, axis=0)
-            elif key in ['points_ri', 'point_image_features', 'labels', 'voxels', 'voxel_labels']:
+            elif key in ['points_ri', 'point_image_features', 'labels', 'voxels', 'voxel_num_points', 'voxel_labels']:
                 ret[key] = np.concatenate(val, axis=0)
             elif key in ['filename']:
                 ret[key] = val
