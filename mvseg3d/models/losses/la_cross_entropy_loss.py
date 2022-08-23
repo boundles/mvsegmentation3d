@@ -21,7 +21,7 @@ class LACrossEntropyLoss(nn.Module):
                 inputs,
                 targets):
         base_probs = torch.exp(-self.class_weight)
-        inputs = inputs + torch.log(base_probs ** self.tau + 1e-12).to(input.device)
+        inputs = inputs + torch.log(base_probs ** self.tau + 1e-12).to(inputs.device)
         loss = self.cross_entropy(inputs, targets)
         return loss
 

@@ -11,7 +11,9 @@ def build_criterion(cfg, dataset):
         if loss_name == 'ce':
             criterion = nn.CrossEntropyLoss(ignore_index=dataset.ignore_index)
         elif loss_name == 'la':
-            criterion = LACrossEntropyLoss(class_weight=dataset.class_weight, ignore_index=dataset.ignore_index)
+            assert len(dataset.class_weight) == dataset.num_classes
+            class_weight = torch.FloatTensor(dataset.class_weight).cuda()
+            criterion = LACrossEntropyLoss(class_weight=class_weight, ignore_index=dataset.ignore_index)
         elif loss_name == 'lovasz':
             criterion = LovaszLoss(ignore_index=dataset.ignore_index)
         else:
