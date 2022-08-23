@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from mvseg3d.models import LovaszLoss, WarmupPolyLR
+from mvseg3d.models import LovaszLoss, LACrossEntropyLoss, WarmupPolyLR
 
 
 def build_criterion(cfg, dataset):
@@ -10,6 +10,8 @@ def build_criterion(cfg, dataset):
     for loss_name in cfg.MODEL.LOSSES:
         if loss_name == 'ce':
             criterion = nn.CrossEntropyLoss(ignore_index=dataset.ignore_index)
+        elif loss_name == 'la':
+            criterion = LACrossEntropyLoss(class_weight=dataset.class_weight, ignore_index=dataset.ignore_index)
         elif loss_name == 'lovasz':
             criterion = LovaszLoss(ignore_index=dataset.ignore_index)
         else:
