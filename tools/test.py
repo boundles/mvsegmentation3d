@@ -32,7 +32,7 @@ def parse_args():
 
 def semseg_for_one_frame(model, data_dict):
     points_ri = data_dict['points_ri']
-    frame_id = data_dict['filename']
+    frame_id = data_dict['filename'][0]
 
     load_data_to_gpu(data_dict)
     with torch.no_grad():
