@@ -31,13 +31,14 @@ def parse_args():
     return args
 
 def semseg_for_one_frame(model, data_dict):
+    points_ri = data_dict['points_ri']
+    frame_id = data_dict['filename']
+
     load_data_to_gpu(data_dict)
     with torch.no_grad():
         result = model(data_dict)
     pred_labels = torch.argmax(result['point_out'], dim=1).cpu()
 
-    points_ri = data_dict['points_ri']
-    frame_id = data_dict['filename']
     seg_frame = construct_seg_frame(pred_labels, points_ri, frame_id)
     return seg_frame
 
