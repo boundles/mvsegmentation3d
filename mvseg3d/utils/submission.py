@@ -2,7 +2,7 @@ import zlib
 import numpy as np
 
 from waymo_open_dataset import dataset_pb2 as open_dataset
-from waymo_open_dataset.protos import segmentation_submission_pb2
+from waymo_open_dataset.protos import segmentation_submission_pb2, segmentation_metrics_pb2
 
 def compress_array(array: np.ndarray, is_int32: bool = False):
     """Compress a numpy array to ZLIP compressed serialized MatrixFloat/Int32.
