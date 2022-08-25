@@ -294,9 +294,9 @@ class WaymoDataset(Dataset):
         if self.test_mode:
             point_indices = input_dict.get('point_indices', None)
             if point_indices is not None:
-                input_dict['points_ri'] = points[point_indices][:, -3:]
+                input_dict['points_ri'] = points[point_indices][:, -3:].astype(np.int32)
             else:
-                input_dict['points_ri'] = points[:, -3:]
+                input_dict['points_ri'] = points[:, -3:].astype(np.int32)
         else:
             labels = self.load_label(filename)
             input_dict['labels'] = labels
