@@ -42,7 +42,17 @@ class SPNet(nn.Module):
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
-            self.point_feature_channel = self.point_feature_channel + dataset.dim_image_feature
+            self.image_feature_channel = 32
+            self.image_encoder = nn.Sequential(
+                nn.Linear(dataset.dim_image_feature, self.image_feature_channel, bias=False),
+                nn.BatchNorm1d(self.image_feature_channel),
+                nn.ReLU(inplace=True)
+            )
+        else:
+            self.image_feature_channel = 0
+            self.image_encoder = None
+
+        self.point_feature_channel += self.image_feature_channel
 
         self.use_multi_sweeps = dataset.use_multi_sweeps
         if self.use_multi_sweeps:
@@ -101,6 +111,7 @@ class SPNet(nn.Module):
         # fusion image features
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
+            point_image_features = self.image_encoder(point_image_features)
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
         # encode voxel features
