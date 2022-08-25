@@ -32,7 +32,7 @@ __C.DATASET.AUG_DROP_RATIO = 0.5
 
 # model config
 __C.MODEL = edict()
-__C.MODEL.LOSSES = {'la': 1.0, 'lovasz': 1.0}
+__C.MODEL.LOSSES = {'ohem_ce': 1.0, 'lovasz': 1.0}
 __C.MODEL.OHEM_KEEP_RATIO = 0.3
 __C.MODEL.AUX_LOSS_WEIGHT = 0.4
 

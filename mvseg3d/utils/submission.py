@@ -4,6 +4,7 @@ import numpy as np
 from waymo_open_dataset import dataset_pb2 as open_dataset
 from waymo_open_dataset.protos import segmentation_submission_pb2, segmentation_metrics_pb2
 
+
 def compress_array(array: np.ndarray, is_int32: bool = False):
     """Compress a numpy array to ZLIP compressed serialized MatrixFloat/Int32.
 
@@ -21,6 +22,7 @@ def compress_array(array: np.ndarray, is_int32: bool = False):
     m.shape.dims.extend(list(array.shape))
     m.data.extend(array.reshape([-1]).tolist())
     return zlib.compress(m.SerializeToString())
+
 
 def construct_seg_frame(pred_labels, points_ri, filename):
     top_lidar_row_num = 64
@@ -54,6 +56,7 @@ def construct_seg_frame(pred_labels, points_ri, filename):
         range_image_pred_ri2, is_int32=True)
     segmentation_frame.segmentation_labels.append(laser_semseg)
     return segmentation_frame
+
 
 def write_submission_file(segmentation_frame_list, out_file):
     # create the submission file, which can be uploaded to the eval server.

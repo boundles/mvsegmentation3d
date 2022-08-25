@@ -47,8 +47,7 @@ class WaymoDataset(Dataset):
                                               transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
                                               transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
                                               transforms.PointShuffle(),
-                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO, cfg.DATASET.AUG_SAMPLE_RANGE),
-                                              transforms.RandomDropPointsColor(cfg.DATASET.AUG_DROP_RATIO)])
+                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO, cfg.DATASET.AUG_SAMPLE_RANGE)])
 
     @property
     def dim_point(self):
