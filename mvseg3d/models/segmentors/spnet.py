@@ -64,7 +64,7 @@ class SPNet(nn.Module):
             nn.ReLU(inplace=True)
         )
 
-        self.se = FlattenSELayer(self.fusion_feature_channel)
+        self.afs = FlattenSELayer(self.fusion_feature_channel)
 
         self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 32, bias=False),
                                         nn.BatchNorm1d(32),
@@ -117,9 +117,9 @@ class SPNet(nn.Module):
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
-        # channel attention
+        # adaptive feature selection
         point_batch_indices = batch_dict['points'][:, 0]
-        point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
+        point_fusion_features = self.afs(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)
