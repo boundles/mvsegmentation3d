@@ -118,7 +118,7 @@ class SparseUnet(nn.Module):
             SparseBasicBlock(32, 32, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm1')
         )
 
-        # [1504, 1504, 72] -> [752, 752, 36]
+        # [2000, 2000, 64] -> [1000, 1000, 32]
         self.conv2 = spconv.SparseSequential(
             ConvModule(32, 64, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
                        indice_key='spconv2'),
@@ -126,7 +126,7 @@ class SparseUnet(nn.Module):
             SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
         )
 
-        # [752, 752, 36] -> [376, 376, 18]
+        # [1000, 1000, 32] -> [500, 500, 16]
         self.conv3 = spconv.SparseSequential(
             ConvModule(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
                        indice_key='spconv3'),
@@ -134,7 +134,7 @@ class SparseUnet(nn.Module):
             SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
         )
 
-        # [376, 376, 18] -> [188, 188, 9]
+        # [500, 500, 16] -> [250, 250, 8]
         self.conv4 = spconv.SparseSequential(
             ConvModule(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
                        indice_key='spconv4'),
@@ -146,13 +146,13 @@ class SparseUnet(nn.Module):
         self.context = ContextLayer(dilations=[1, 6, 12, 18], in_channels=256, channels=128,
                                     act_fn=act_fn, norm_fn=norm_fn, indice_key='subm4-aspp')
 
-        # [188, 188, 9] -> [376, 376, 18]
+        # [250, 250, 8] -> [500, 500, 16]
         self.up4 = UpBlock(256, 128, norm_fn, act_fn, conv_type='inverseconv', layer_id=4)
-        # [376, 376, 18] -> [752, 752, 36]
+        # [500, 500, 16] -> [1000, 1000, 32]
         self.up3 = UpBlock(128, 64, norm_fn, act_fn, conv_type='inverseconv', layer_id=3)
-        # [752, 752, 36] -> [1504, 1504, 72]
+        # [1000, 1000, 32] -> [2000, 2000, 64]
         self.up2 = UpBlock(64, 32, norm_fn, act_fn, conv_type='inverseconv', layer_id=2)
-        # [1504, 1504, 72] -> [1504, 1504, 72]
+        # [2000, 2000, 64] -> [2000, 2000, 64]
         self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
         self.aux_voxel_feature_channel = 32
