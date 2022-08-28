@@ -12,7 +12,10 @@ def extract_image_features(model, image_dir, filename):
     for camera_id in range(5):
         image_file = os.path.join(image_dir, str(camera_id), filename + '.png')
         try:
-            img = mmcv.imread(image_file, channel_order='rgb')
+            file_client = mmcv.FileClient()
+            img_bytes = file_client.get(image_file)
+            img = mmcv.imfrombytes(img_bytes, flag='color', backend="cv2")
+            img = img[..., ::-1].astype(np.float32)
         except:
             print('read image file: %s failed' % image_file)
             continue
@@ -58,7 +61,7 @@ if __name__ == '__main__':
     # data dirs
     lidar_dir = os.path.join(data_dir, split, 'lidar')
     image_dir = os.path.join(data_dir, split, 'image')
-    feature_dir = os.path.join(data_dir, split, 'image_dense_feature')
+    feature_dir = os.path.join(data_dir, split, 'image_feature')
 
     # init model
     config_file = os.path.join(work_dir, 'segformer_mit-b3_8x1_769x769_160k_waymo.py')
