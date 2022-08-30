@@ -155,8 +155,6 @@ class SparseUnet(nn.Module):
         # [2000, 2000, 64] -> [2000, 2000, 64]
         self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
-        self.aux_voxel_feature_channel = 32
-
     def forward(self, batch_dict):
         """
         Args:

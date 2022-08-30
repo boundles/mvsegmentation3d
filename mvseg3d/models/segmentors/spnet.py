@@ -72,8 +72,8 @@ class SPNet(nn.Module):
                                         nn.Dropout(0.1),
                                         nn.Linear(32, dataset.num_classes, bias=False))
 
-        self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 32, bias=False),
+        self.voxel_classifier = nn.Sequential(
+            nn.Linear(self.voxel_feature_channel, 32, bias=False),
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
             nn.Dropout(0.1),
