@@ -224,7 +224,9 @@ class WaymoDataset(Dataset):
             voxel_labels = np.ones(voxels.shape[0], dtype=np.uint8) * self.ignore_index
             for voxel_id in voxel_label_counter:
                 counter = voxel_label_counter[voxel_id]
-                voxel_labels[voxel_id] = np.argmax(counter)
+                # keep voxel label with the same point label
+                if np.sum(np.unique(counter) > 0) == 1:
+                    voxel_labels[voxel_id] = np.argmax(counter)
 
             data_dict['voxel_labels'] = voxel_labels
 
