@@ -13,36 +13,27 @@ class SPNet(nn.Module):
     def __init__(self, dataset):
         super(SPNet, self).__init__()
 
-        self.point_feature_channel = 32
-        if dataset.use_cylinder:
-            dim_point = dataset.dim_point + 2
-            self.point_encoder = nn.Sequential(
-                nn.BatchNorm1d(dim_point),
-                nn.Linear(dim_point, 32, bias=False),
-                nn.BatchNorm1d(32),
-                nn.ReLU(inplace=True),
-                nn.Linear(32, 64, bias=False),
-                nn.BatchNorm1d(64),
-                nn.ReLU(inplace=True),
-                nn.Linear(64, self.point_feature_channel, bias=False),
-                nn.BatchNorm1d(self.point_feature_channel),
-                nn.ReLU(inplace=True))
-        else:
-            dim_point = dataset.dim_point
-            self.point_encoder = nn.Sequential(
-                nn.Linear(dim_point, 32, bias=False),
-                nn.BatchNorm1d(32),
-                nn.ReLU(inplace=True),
-                nn.Linear(32, 64, bias=False),
-                nn.BatchNorm1d(64),
-                nn.ReLU(inplace=True),
-                nn.Linear(64, self.point_feature_channel, bias=False),
-                nn.BatchNorm1d(self.point_feature_channel),
-                nn.ReLU(inplace=True))
-
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
-            self.point_feature_channel = self.point_feature_channel + dataset.dim_image_feature
+            dim_point = dataset.dim_point + dataset.dim_image_feature
+        else:
+            dim_point = dataset.dim_point
+
+        if dataset.use_cylinder:
+            dim_point = dim_point + 2
+
+        self.point_feature_channel = 64
+        self.point_encoder = nn.Sequential(
+            nn.Linear(dim_point, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, 128, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, 256, bias=False),
+            nn.BatchNorm1d(256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, self.point_feature_channel))
 
         self.use_multi_sweeps = dataset.use_multi_sweeps
         if self.use_multi_sweeps:
@@ -96,12 +87,13 @@ class SPNet(nn.Module):
 
     def forward(self, batch_dict):
         points = batch_dict['points'][:, 1:]
-        point_per_features = self.point_encoder(points)
 
-        # fusion image features
+        # decorating points with pixel-level semantic score
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
-            point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
+            points = torch.cat([points, point_image_features], dim=1)
+
+        point_per_features = self.point_encoder(points)
 
         # encode voxel features
         point_voxel_ids = batch_dict['point_voxel_ids']
@@ -119,7 +111,7 @@ class SPNet(nn.Module):
 
         # adaptive feature selection
         point_batch_indices = batch_dict['points'][:, 0]
-        point_fusion_features = self.afs(point_fusion_features, point_batch_indices)
+        point_fusion_features = point_fusion_features + self.afs(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)
