@@ -43,9 +43,10 @@ class WaymoDataset(Dataset):
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
-        self.transforms = transforms.Compose([transforms.RandomFlip(),
+        self.transforms = transforms.Compose([transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
                                               transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
-                                              transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
+                                              transforms.RandomGlobalTranslation(cfg.DATASET.AUG_TRANSLATE_STD),
+                                              transforms.RandomFlip(),
                                               transforms.PointShuffle(),
                                               transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO, cfg.DATASET.AUG_SAMPLE_RANGE)])
 
