@@ -50,12 +50,18 @@ class SPNet(nn.Module):
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, self.fusion_feature_channel, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 256, bias=False),
+            nn.BatchNorm1d(256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, 128, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
 
-        self.afs = FlattenSELayer(self.fusion_feature_channel)
+        self.se = FlattenSELayer(self.fusion_feature_channel)
 
         self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 32, bias=False),
                                         nn.BatchNorm1d(32),
@@ -63,8 +69,8 @@ class SPNet(nn.Module):
                                         nn.Dropout(0.1),
                                         nn.Linear(32, dataset.num_classes, bias=False))
 
-        self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 32, bias=False),
+        self.voxel_classifier = nn.Sequential(
+            nn.Linear(self.voxel_feature_channel, 32, bias=False),
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
             nn.Dropout(0.1),
@@ -109,16 +115,16 @@ class SPNet(nn.Module):
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
-        # adaptive feature selection
+        # se block for channel attention
         point_batch_indices = batch_dict['points'][:, 0]
-        point_fusion_features = point_fusion_features + self.afs(point_fusion_features, point_batch_indices)
+        point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)
         result['point_out'] = point_out
 
-        aux_voxel_features = batch_dict['aux_voxel_features']
-        aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
-        result['aux_voxel_out'] = aux_voxel_out
+        voxel_features = batch_dict['voxel_features']
+        voxel_out = self.voxel_classifier(voxel_features)
+        result['voxel_out'] = voxel_out
 
         return result
