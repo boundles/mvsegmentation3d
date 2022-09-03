@@ -120,18 +120,23 @@ class WaymoDataset(Dataset):
         sensor2local_matrix = np.loadtxt(pose_file)
         return sensor2local_matrix
 
-    def load_image_features(self, num_points, filename):
+    def load_image_features(self, filename):
         # load image feature
         image_feature_file = self.get_image_feature_path(filename)
         image_feature = np.load(image_feature_file, allow_pickle=True).item()
 
         # assemble point image features
-        point_image_features = np.zeros((num_points, self.dim_image_feature), dtype=np.float32)
+        point_image_features = []
+        point_indices_in_fov = []
         for k in image_feature:
-            point_image_features[k] = image_feature[k]
-        return point_image_features
+            point_image_features.append(image_feature[k])
+            point_indices_in_fov.append(k)
 
-    def load_points(self, filename):
+        point_image_features = np.stack(point_image_features)
+        point_indices_in_fov = np.array(point_indices_in_fov)
+        return point_image_features, point_indices_in_fov
+
+    def load_points(self, filename, valid_indices=None):
         lidar_file = self.get_lidar_path(filename)
         # (N, 15): [x, y, z, range, intensity, elongation, 6-dim camera project, range col, row and index]
         # when test mode, otherwise (N, 12) without range col, row and index
@@ -141,12 +146,16 @@ class WaymoDataset(Dataset):
         lidar_points[:, 3] = 0
         # normalize intensity
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
+
+        if valid_indices is not None:
+            lidar_points = lidar_points[valid_indices]
         return lidar_points
 
-    def load_points_from_multi_sweeps(self, filename, num_sweeps=3, max_num_sweeps=5, pad_empty_sweeps=False):
+    def load_points_from_multi_sweeps(self, filename, valid_indices, num_sweeps=3,
+                                      max_num_sweeps=5, pad_empty_sweeps=False):
         # current frame
         file_idx, frame_idx, timestamp = self.parse_info_from_filename(filename)
-        points = self.load_points(filename)
+        points = self.load_points(filename, valid_indices)
         points[:, 3] = 0
         point_indices = np.arange(points.shape[0])
         ts = timestamp / 1e6
@@ -192,13 +201,16 @@ class WaymoDataset(Dataset):
         return point_indices, points
 
 
-    def load_label(self, filename):
+    def load_label(self, filename, valid_indices=None):
         label_file = self.get_label_path(filename)
         semantic_labels = np.load(label_file)[:, 1]  # (N, 1)
 
         # convert unlabeled to ignored label (0 to 255)
         semantic_labels -= 1
         semantic_labels[semantic_labels == -1] = 255
+
+        if valid_indices is not None:
+            semantic_labels = semantic_labels[valid_indices]
         return semantic_labels
 
     def prepare_voxel_labels(self, data_dict):
@@ -273,23 +285,21 @@ class WaymoDataset(Dataset):
             'filename': filename
         }
 
+        if self.cfg.DATASET.USE_IMAGE_FEATURE:
+            point_image_features, point_indices_in_fov = self.load_image_features(filename)
+            input_dict['point_image_features'] = point_image_features
+        else:
+            point_indices_in_fov = None
+
         if self.cfg.DATASET.USE_MULTI_SWEEPS:
-            point_indices, points = self.load_points_from_multi_sweeps(filename, self.cfg.DATASET.NUM_SWEEPS,
+            point_indices, points = self.load_points_from_multi_sweeps(filename, point_indices_in_fov,
+                                                                       self.cfg.DATASET.NUM_SWEEPS,
                                                                        self.cfg.DATASET.MAX_NUM_SWEEPS)
             input_dict['points'] = points[:, :self.dim_point]
             input_dict['point_indices'] = point_indices
         else:
-            points = self.load_points(filename)
+            points = self.load_points(filename, point_indices_in_fov)
             input_dict['points'] = points[:, :self.dim_point]
-
-        if self.cfg.DATASET.USE_IMAGE_FEATURE:
-            point_indices = input_dict.get('point_indices', None)
-            if point_indices is not None:
-                point_image_features = self.load_image_features(point_indices.shape[0], filename)
-                input_dict['point_image_features'] = point_image_features
-            else:
-                point_image_features = self.load_image_features(input_dict['points'].shape[0], filename)
-                input_dict['point_image_features'] = point_image_features
 
         if self.test_mode:
             point_indices = input_dict.get('point_indices', None)
@@ -298,7 +308,7 @@ class WaymoDataset(Dataset):
             else:
                 input_dict['points_ri'] = points[:, -3:].astype(np.int32)
         else:
-            labels = self.load_label(filename)
+            labels = self.load_label(filename, point_indices_in_fov)
             input_dict['labels'] = labels
 
         data_dict = self.prepare_data(data_dict=input_dict)
