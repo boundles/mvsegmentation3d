@@ -13,17 +13,13 @@ class SPNet(nn.Module):
     def __init__(self, dataset):
         super(SPNet, self).__init__()
 
-        self.use_image_feature = dataset.use_image_feature
-        if self.use_image_feature:
-            dim_point = dataset.dim_point + dataset.dim_image_feature
-        else:
-            dim_point = dataset.dim_point
-
+        dim_point = dataset.dim_point
         if dataset.use_cylinder:
             dim_point = dim_point + 2
 
         self.point_feature_channel = 64
         self.point_encoder = nn.Sequential(
+            nn.BatchNorm1d(dim_point),
             nn.Linear(dim_point, 64, bias=False),
             nn.BatchNorm1d(64),
             nn.ReLU(inplace=True),
@@ -34,6 +30,10 @@ class SPNet(nn.Module):
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
             nn.Linear(256, self.point_feature_channel))
+
+        self.use_image_feature = dataset.use_image_feature
+        if self.use_image_feature:
+            self.point_feature_channel += dataset.dim_image_feature
 
         self.use_multi_sweeps = dataset.use_multi_sweeps
         if self.use_multi_sweeps:
@@ -91,13 +91,12 @@ class SPNet(nn.Module):
 
     def forward(self, batch_dict):
         points = batch_dict['points'][:, 1:]
+        point_per_features = self.point_encoder(points)
 
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
-            points = torch.cat([points, point_image_features], dim=1)
-
-        point_per_features = self.point_encoder(points)
+            point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
         # encode voxel features
         point_voxel_ids = batch_dict['point_voxel_ids']
