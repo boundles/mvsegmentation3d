@@ -116,10 +116,11 @@ class SPNet(nn.Module):
                 nn.init.xavier_uniform_(m.weight.data)
 
     def forward(self, batch_dict):
+        # point features
         points = batch_dict['points'][:, 1:]
         point_per_features = self.point_encoder(points)
 
-        # decorating points with pixel-level semantic score
+        # image features
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
 
@@ -136,7 +137,7 @@ class SPNet(nn.Module):
         batch_dict = self.voxel_encoder(batch_dict)
         point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
-        # attention fusion image features
+        # attention image features
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
         if self.use_image_feature:
             point_image_features = self.ia_layer(point_fusion_features, point_image_features)
