@@ -72,8 +72,9 @@ class SPNet(nn.Module):
                                         self.voxel_feature_channel,
                                         dataset.grid_size)
 
-        self.ia_layer = ImageAttentionLayer(point_channels=(self.point_feature_channel + self.voxel_feature_channel),
-                                            image_channels=self.image_feature_channel)
+        if self.use_image_feature:
+            self.ia_layer = ImageAttentionLayer(point_channels=self.point_feature_channel + self.voxel_feature_channel,
+                                                image_channels=self.image_feature_channel)
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
