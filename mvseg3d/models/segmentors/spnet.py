@@ -139,10 +139,10 @@ class SPNet(nn.Module):
         # attention fusion image features
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
         if self.use_image_feature:
-            point_image_features = self.ia_layer(point_per_features, point_image_features)
+            point_image_features = self.ia_layer(point_fusion_features, point_image_features)
             point_fusion_features = torch.cat([point_fusion_features, point_image_features], dim=1)
 
-        # feature encoder
+        # encode fusion features
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         result = OrderedDict()
