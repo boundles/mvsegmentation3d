@@ -64,7 +64,6 @@ class SPNet(nn.Module):
             self.mean_vfe = MeanVFE(dim_point)
             self.voxel_in_feature_channel = self.mean_vfe.voxel_feature_channel
         else:
-            self.mean_vfe = None
             self.voxel_in_feature_channel = self.point_feature_channel + self.image_feature_channel
 
         self.voxel_feature_channel = 32
@@ -78,7 +77,7 @@ class SPNet(nn.Module):
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 256, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
             nn.Linear(256, 128, bias=False),
