@@ -2,8 +2,8 @@ numba
 tqdm
 easydict
 spconv-cu113
-torch==1.7.1
-torchvision==0.8.2
-torchaudio==0.7.2
-torch-scatter==2.0.7
+torch
+torchvision
+torchaudio
+torch-scatter
 waymo-open-dataset-tf-2-6-0
