@@ -108,52 +108,48 @@ class SparseUnet(nn.Module):
         act_fn = nn.ReLU(inplace=True)
 
         self.conv_input = spconv.SparseSequential(
-            spconv.SubMConv3d(input_channels, 32, 3, padding=1, bias=False, indice_key='subm1'),
-            norm_fn(32),
+            spconv.SubMConv3d(input_channels, 64, 3, padding=1, bias=False, indice_key='subm1'),
+            norm_fn(64),
             act_fn
         )
 
         self.conv1 = spconv.SparseSequential(
-            SparseBasicBlock(32, 32, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm1'),
-            SparseBasicBlock(32, 32, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm1')
+            SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm1'),
+            SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm1')
         )
 
         # [1504, 1504, 72] -> [752, 752, 36]
         self.conv2 = spconv.SparseSequential(
-            ConvModule(32, 64, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+            ConvModule(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
                        indice_key='spconv2'),
-            SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2'),
-            SparseBasicBlock(64, 64, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2'),
+            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm2')
         )
 
         # [752, 752, 36] -> [376, 376, 18]
         self.conv3 = spconv.SparseSequential(
-            ConvModule(64, 128, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+            ConvModule(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
                        indice_key='spconv3'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
-            SparseBasicBlock(128, 128, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
+            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm3'),
+            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm3')
         )
 
         # [376, 376, 18] -> [188, 188, 9]
         self.conv4 = spconv.SparseSequential(
-            ConvModule(128, 256, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
+            ConvModule(256, 512, 3, norm_fn=norm_fn, act_fn=act_fn, stride=2, padding=1, conv_type='spconv',
                        indice_key='spconv4'),
-            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
-            SparseBasicBlock(256, 256, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
+            SparseBasicBlock(512, 512, norm_fn=norm_fn, act_fn=act_fn, indice_key='subm4'),
+            SparseBasicBlock(512, 512, norm_fn=norm_fn, act_fn=act_fn, with_se=True, indice_key='subm4')
         )
 
-        # context layer
-        self.context = ContextLayer(dilations=[1, 6, 12, 18], in_channels=256, channels=128,
-                                    act_fn=act_fn, norm_fn=norm_fn, indice_key='subm4-aspp')
-
         # [188, 188, 9] -> [376, 376, 18]
-        self.up4 = UpBlock(256, 128, norm_fn, act_fn, conv_type='inverseconv', layer_id=4)
+        self.up4 = UpBlock(512, 256, norm_fn, act_fn, conv_type='inverseconv', layer_id=4)
         # [376, 376, 18] -> [752, 752, 36]
-        self.up3 = UpBlock(128, 64, norm_fn, act_fn, conv_type='inverseconv', layer_id=3)
+        self.up3 = UpBlock(256, 128, norm_fn, act_fn, conv_type='inverseconv', layer_id=3)
         # [752, 752, 36] -> [1504, 1504, 72]
-        self.up2 = UpBlock(64, 32, norm_fn, act_fn, conv_type='inverseconv', layer_id=2)
+        self.up2 = UpBlock(128, 64, norm_fn, act_fn, conv_type='inverseconv', layer_id=2)
         # [1504, 1504, 72] -> [1504, 1504, 72]
-        self.up1 = UpBlock(32, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
+        self.up1 = UpBlock(64, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
     def forward(self, batch_dict):
         """
