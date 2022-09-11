@@ -8,12 +8,13 @@ import torch.optim
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.spnet import SPNet
-from mvseg3d.core.metrics import IOUMetric
+from mvseg3d.models.builder import build_criterion, build_optimizer, build_scheduler
+from mvseg3d.core.evaluation import IOUMetric
 from mvseg3d.utils.logging import get_root_logger
-from mvseg3d.utils import distributed_utils
+from mvseg3d.utils.distributed import init_dist, get_dist_info
 from mvseg3d.utils.config import cfg, cfg_from_file
 from mvseg3d.utils.data_utils import load_data_to_gpu
-from mvseg3d.utils.train_utils import build_criterion, build_optimizer, build_scheduler, set_random_seed
+from mvseg3d.utils.random import set_random_seed, init_random_seed
 
 
 def parse_args():
@@ -22,13 +23,14 @@ def parse_args():
     parser.add_argument('--data_dir', type=str, help='the data directory')
     parser.add_argument('--save_dir', type=str, help='the saved directory')
     parser.add_argument('--pretrained_path', type=str, default=None, help='pretrained_path')
-    parser.add_argument('--batch_size', default=4, type=int)
-    parser.add_argument('--num_workers', default=2, type=int)
+    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--num_workers', default=4, type=int)
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm'], default='none')
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')
     parser.add_argument('--epochs', default=30, type=int)
+    parser.add_argument('--seed', type=int, default=None, help='random seed')
     parser.add_argument('--cudnn_benchmark', action='store_true', default=False, help='whether to use cudnn')
-    parser.add_argument('--fix_random_seed', action='store_true', default=False, help='set random seed for reproducibility')
+    parser.add_argument('--deterministic', action='store_true', default=False, help='whether to use deterministic')
     parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')
     parser.add_argument('--no_validate', action='store_true', help='whether not to evaluate the checkpoint during training')
     parser.add_argument('--eval_epoch_interval', default=2, type=int)
@@ -61,36 +63,51 @@ def save_checkpoint(model, optimizer, lr_scheduler, save_dir, epoch, logger):
     torch.save(checkpoint, os.path.join(save_dir, 'epoch_%s.pth' % str(epoch)))
     torch.save(checkpoint, os.path.join(save_dir, 'latest.pth'))
 
+def compute_loss(pred_result, data_dict, criterion):
+    loss = 0
+
+    point_gt_labels = data_dict['labels']
+    point_pred_labels = pred_result['point_out']
+    for loss_func, loss_weight in criterion:
+        loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
+
+    voxel_gt_labels = data_dict['voxel_labels']
+    voxel_pred_labels = pred_result['voxel_out']
+    for loss_func, loss_weight in criterion:
+        loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
+
+    return loss
+
 def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
     iou_metric = IOUMetric(class_names)
     model.eval()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
-        with torch.no_grad():
-            out = model(data_dict)
 
-        gt_labels = data_dict['labels']
-        loss = criterion(out, gt_labels)
+        with torch.no_grad():
+            result = model(data_dict)
+
+        loss = compute_loss(result, data_dict, criterion)
 
         if step % args.log_iter_interval == 0:
             logger.info(
                 'Evaluate on epoch %d - Iter [%d/%d] loss: %f' % (epoch, step, len(data_loader), loss.cpu().item()))
 
-        pred_labels = torch.argmax(out, dim=1).cpu()
-        gt_labels = gt_labels.cpu()
+        pred_labels = torch.argmax(result['point_out'], dim=1).cpu()
+        gt_labels = data_dict['labels'].cpu()
         iou_metric.add(pred_labels, gt_labels)
 
     metric_result = iou_metric.get_metric()
     logger.info('Metrics on validation dataset: %s' % str(metric_result))
 
-def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, rank, epoch, logger):
+def train_epoch(args, data_loader, model, criterion, optimizer, lr_scheduler, epoch, logger):
     model.train()
     for step, data_dict in enumerate(data_loader, 1):
         load_data_to_gpu(data_dict)
-        out = model(data_dict)
 
-        labels = data_dict['labels']
-        loss = criterion(out, labels)
+        result = model(data_dict)
+
+        loss = compute_loss(result, data_dict, criterion)
 
         optimizer.zero_grad()
         loss.backward()
@@ -117,7 +134,7 @@ def train_segmentor(args, start_epoch, data_loaders, train_sampler, class_names,
         cur_epoch = epoch + 1
 
         # train for one epoch
-        train_epoch(args, data_loaders['train'], model, criterion, optimizer, lr_scheduler, rank, cur_epoch, logger)
+        train_epoch(args, data_loaders['train'], model, criterion, optimizer, lr_scheduler, cur_epoch, logger)
 
         # save checkpoint
         if rank == 0 and args.auto_resume:
@@ -131,24 +148,19 @@ def main():
     # parse args
     args = parse_args()
 
-    cfg_from_file(args.cfg_file)
-
     # whether to distributed training
     if args.launcher == 'none':
         distributed = False
         rank = 0
     else:
         distributed = True
-        distributed_utils.init_dist(args.launcher)
+        init_dist(args.launcher)
         # gpu_ids is used to calculate iter when resuming checkpoint
-        rank, world_size = distributed_utils.get_dist_info()
+        rank, world_size = get_dist_info()
 
     # set cudnn_benchmark
     if args.cudnn_benchmark:
         torch.backends.cudnn.benchmark = True
-
-    if args.fix_random_seed:
-        set_random_seed(666)
 
     # create saved directory
     os.makedirs(args.save_dir, exist_ok=True)
@@ -157,6 +169,16 @@ def main():
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = os.path.join(args.save_dir, f'{timestamp}.log')
     logger = get_root_logger(name="mvseg3d", log_file=log_file)
+
+    # set random seed
+    seed = init_random_seed(args.seed)
+    logger.info(f'Set random seed to {seed}, '
+                f'deterministic: {args.deterministic}')
+    set_random_seed(seed, deterministic=args.deterministic)
+
+    # config
+    cfg_from_file(args.cfg_file)
+    logger.info(cfg)
 
     # load data
     train_dataset = WaymoDataset(cfg, args.data_dir, 'training')
@@ -170,6 +192,7 @@ def main():
         batch_size=args.batch_size,
         dist=distributed,
         num_workers=args.num_workers,
+        seed=seed,
         training=True)
 
     val_set, val_loader, sampler = build_dataloader(
@@ -177,6 +200,7 @@ def main():
         batch_size=args.batch_size,
         dist=distributed,
         num_workers=args.num_workers,
+        seed=seed,
         training=False)
 
     data_loaders = {'train': train_loader, 'val': val_loader}
@@ -214,7 +238,9 @@ def main():
 
     model.train()  # before wrap to DistributedDataParallel to support fixed some parameters
     if distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank % torch.cuda.device_count()])
+        model = torch.nn.parallel.DistributedDataParallel(model,
+                                                          device_ids=[rank % torch.cuda.device_count()],
+                                                          find_unused_parameters=True)
 
     # loss function
     criterion = build_criterion(cfg, train_dataset)

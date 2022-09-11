@@ -2,7 +2,6 @@ import numpy as np
 
 from . import transform_utils
 
-from mvseg3d.utils.data_utils import get_sub_indices_pos
 
 class Compose(object):
     """Composes several transforms together.
@@ -124,6 +123,7 @@ class RandomGlobalTranslation(object):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
 
+
 class RandomFlip(object):
     def __call__(self, data_dict):
         points = data_dict['points']
@@ -136,6 +136,20 @@ class RandomFlip(object):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
+
+
+def get_sub_indices_pos(sub_indices, all_indices):
+    sub_indices_dic = {}
+    for i, idx in enumerate(sub_indices):
+        sub_indices_dic[idx] = i
+
+    pos_in_all_indices = []
+    pos_in_sub_indices = []
+    for i, idx in enumerate(all_indices):
+        if idx in sub_indices_dic:
+            pos_in_all_indices.append(i)
+            pos_in_sub_indices.append(sub_indices_dic[idx])
+    return pos_in_all_indices, pos_in_sub_indices
 
 
 class PointShuffle(object):

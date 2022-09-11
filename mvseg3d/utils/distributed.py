@@ -1,4 +1,5 @@
 import os
+
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -18,13 +19,11 @@ def init_dist(launcher, backend='nccl'):
         raise ValueError(f'Invalid launcher type: {launcher}')
 
 def get_dist_info():
-    if torch.__version__ < '1.0':
-        initialized = dist._initialized
+    if dist.is_available():
+        initialized = dist.is_initialized()
     else:
-        if dist.is_available():
-            initialized = dist.is_initialized()
-        else:
-            initialized = False
+        initialized = False
+
     if initialized:
         rank = dist.get_rank()
         world_size = dist.get_world_size()

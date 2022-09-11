@@ -1,5 +1,6 @@
 import os
 import glob
+
 import numpy as np
 from collections import defaultdict
 
@@ -7,6 +8,7 @@ from torch.utils.data import Dataset
 
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
+from mvseg3d.utils.geometry import cart2polar
 
 
 class WaymoDataset(Dataset):
@@ -25,7 +27,7 @@ class WaymoDataset(Dataset):
         self.file_idx_to_name_map = dict()
         self.lidar_filenames = self.get_filenames('lidar')
         for filename in self.lidar_filenames:
-            file_idx, timestamp, frame_idx = self.parse_info_from_filename(filename)
+            file_idx, frame_idx, timestamp = self.parse_info_from_filename(filename)
             self.file_idx_to_name_map[(file_idx, frame_idx)] = filename
 
         if self.split == 'training':
@@ -41,16 +43,24 @@ class WaymoDataset(Dataset):
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
-        self.transforms = transforms.Compose([transforms.RandomFlip(),
+        self.transforms = transforms.Compose([transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
                                               transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
-                                              transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
+                                              transforms.RandomGlobalTranslation(cfg.DATASET.AUG_TRANSLATE_STD),
+                                              transforms.RandomFlip(),
                                               transforms.PointShuffle(),
-                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO, cfg.DATASET.AUG_SAMPLE_RANGE),
-                                              transforms.RandomDropPointsColor(cfg.DATASET.AUG_DROP_RATIO)])
+                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO, cfg.DATASET.AUG_SAMPLE_RANGE)])
 
     @property
     def dim_point(self):
         return self.cfg.DATASET.DIM_POINT
+
+    @property
+    def use_multi_sweeps(self):
+        return self.cfg.DATASET.USE_MULTI_SWEEPS
+
+    @property
+    def use_cylinder(self):
+        return self.cfg.DATASET.USE_CYLINDER
 
     @property
     def num_classes(self):
@@ -99,11 +109,11 @@ class WaymoDataset(Dataset):
 
     @staticmethod
     def parse_info_from_filename(filename):
-        infos = filename.split('-')
-        file_idx = infos[0]
-        timestamp = np.int64(infos[1])
-        frame_idx = int(infos[2])
-        return file_idx, timestamp, frame_idx
+        splits = filename.split('-')
+        file_idx = splits[0]
+        timestamp = np.int64(splits[1])
+        frame_idx = int(splits[2])
+        return file_idx, frame_idx, timestamp
 
     def load_pose(self, filename):
         pose_file = self.get_pose_path(filename)
@@ -133,9 +143,9 @@ class WaymoDataset(Dataset):
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points
 
-    def load_points_from_multi_sweeps(self, filename, num_sweeps=3, max_num_sweeps=10, pad_empty_sweeps=False):
+    def load_points_from_multi_sweeps(self, filename, num_sweeps=3, max_num_sweeps=5, pad_empty_sweeps=False):
         # current frame
-        file_idx, timestamp, frame_idx = self.parse_info_from_filename(filename)
+        file_idx, frame_idx, timestamp = self.parse_info_from_filename(filename)
         points = self.load_points(filename)
         points[:, 3] = 0
         point_indices = np.arange(points.shape[0])
@@ -143,30 +153,31 @@ class WaymoDataset(Dataset):
         transform_matrix = self.load_pose(filename)
 
         # history sweep filenames
-        sweep_filenames = []
-        for i in range(0, max_num_sweeps):
+        history_sweep_filenames = []
+        for i in range(0, max_num_sweeps - 1):
             sweep_frame_idx = frame_idx - i - 1
             if sweep_frame_idx >= 0:
                 sweep_filename = self.file_idx_to_name_map[(file_idx, sweep_frame_idx)]
-                sweep_filenames.append(sweep_filename)
+                history_sweep_filenames.append(sweep_filename)
 
+        history_num_sweeps = num_sweeps - 1
         sweep_points_list = [points]
-        if pad_empty_sweeps and len(sweep_filenames) == 0:
-            for i in range(num_sweeps):
+        if pad_empty_sweeps and len(history_sweep_filenames) == 0:
+            for i in range(history_num_sweeps):
                 sweep_points_list.append(points)
         else:
-            if len(sweep_filenames) <= num_sweeps:
-                choices = np.arange(len(sweep_filenames))
+            if len(history_sweep_filenames) <= history_num_sweeps:
+                choices = np.arange(len(history_sweep_filenames))
             elif self.test_mode:
-                choices = np.arange(num_sweeps)
+                choices = np.arange(history_num_sweeps)
             else:
                 choices = np.random.choice(
-                    len(sweep_filenames), num_sweeps, replace=False)
+                    len(history_sweep_filenames), history_num_sweeps, replace=False)
 
             for idx in choices:
-                sweep_filename = sweep_filenames[idx]
+                sweep_filename = history_sweep_filenames[idx]
                 points_sweep = self.load_points(sweep_filename)
-                timestamp = self.parse_info_from_filename(sweep_filename)[1]
+                timestamp = self.parse_info_from_filename(sweep_filename)[-1]
                 sweep_ts = timestamp / 1e6
                 sweep_transform_matrix = self.load_pose(sweep_filename)
                 sensor2lidar = np.linalg.inv(transform_matrix) @ sweep_transform_matrix
@@ -190,6 +201,34 @@ class WaymoDataset(Dataset):
         semantic_labels[semantic_labels == -1] = 255
         return semantic_labels
 
+    def prepare_voxel_labels(self, data_dict):
+        assert self.ignore_index == 255
+        label_size = 256
+        voxel_label_counter = dict()
+        voxels = data_dict.get('voxels', None)
+        point_voxel_ids = data_dict.get('point_voxel_ids', None)
+        labels = data_dict.get('labels', None)
+        if voxels is not None and point_voxel_ids is not None and labels is not None:
+            for i in range(point_voxel_ids.shape[0]):
+                voxel_id = point_voxel_ids[i]
+                label = labels[i]
+                if voxel_id != -1:
+                    if voxel_id not in voxel_label_counter:
+                        counter = np.zeros((label_size,), dtype=np.uint16)
+                        counter[label] += 1
+                        voxel_label_counter[voxel_id] = counter
+                    else:
+                        counter = voxel_label_counter[voxel_id]
+                        counter[label] += 1
+                        voxel_label_counter[voxel_id] = counter
+
+            voxel_labels = np.ones(voxels.shape[0], dtype=np.uint8) * self.ignore_index
+            for voxel_id in voxel_label_counter:
+                counter = voxel_label_counter[voxel_id]
+                voxel_labels[voxel_id] = np.argmax(counter)
+
+            data_dict['voxel_labels'] = voxel_labels
+
     def prepare_data(self, data_dict):
         """
         Args:
@@ -207,6 +246,11 @@ class WaymoDataset(Dataset):
         if self.split == 'training' and self.cfg.DATASET.AUG_DATA:
             data_dict = self.transforms(data_dict)
 
+        if self.cfg.DATASET.USE_CYLINDER:
+            points = data_dict['points']
+            polar_points = cart2polar(points)
+            data_dict['points'] = np.concatenate((polar_points, points[:, :2], points[:, 3:]), axis=1)
+
         voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxels'] = voxels
         data_dict['voxel_coords'] = coords
@@ -217,6 +261,8 @@ class WaymoDataset(Dataset):
         if point_indices is not None:
             data_dict['points'] = data_dict['points'][point_indices]
             data_dict['point_voxel_ids'] = data_dict['point_voxel_ids'][point_indices]
+
+        self.prepare_voxel_labels(data_dict)
 
         return data_dict
 
@@ -230,22 +276,27 @@ class WaymoDataset(Dataset):
         if self.cfg.DATASET.USE_MULTI_SWEEPS:
             point_indices, points = self.load_points_from_multi_sweeps(filename, self.cfg.DATASET.NUM_SWEEPS,
                                                                        self.cfg.DATASET.MAX_NUM_SWEEPS)
+            input_dict['points'] = points[:, :self.dim_point]
             input_dict['point_indices'] = point_indices
         else:
             points = self.load_points(filename)
-
-        input_dict['points'] = points[:, :self.dim_point]
+            input_dict['points'] = points[:, :self.dim_point]
 
         if self.cfg.DATASET.USE_IMAGE_FEATURE:
-            point_image_features = self.load_image_features(points.shape[0], filename)
-            input_dict['point_image_features'] = point_image_features
+            point_indices = input_dict.get('point_indices', None)
+            if point_indices is not None:
+                point_image_features = self.load_image_features(point_indices.shape[0], filename)
+                input_dict['point_image_features'] = point_image_features
+            else:
+                point_image_features = self.load_image_features(input_dict['points'].shape[0], filename)
+                input_dict['point_image_features'] = point_image_features
 
         if self.test_mode:
             point_indices = input_dict.get('point_indices', None)
             if point_indices is not None:
-                input_dict['points_ri'] = points[point_indices][-3:]
+                input_dict['points_ri'] = points[point_indices][:, -3:].astype(np.int32)
             else:
-                input_dict['points_ri'] = points[-3:]
+                input_dict['points_ri'] = points[:, -3:].astype(np.int32)
         else:
             labels = self.load_label(filename)
             input_dict['labels'] = labels
@@ -268,7 +319,7 @@ class WaymoDataset(Dataset):
                     coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
                     coors.append(coor_pad)
                 ret[key] = np.concatenate(coors, axis=0)
-            elif key in ['voxels', 'voxel_num_points', 'points_ri', 'point_image_features', 'labels']:
+            elif key in ['points_ri', 'point_image_features', 'labels', 'voxels', 'voxel_num_points', 'voxel_labels']:
                 ret[key] = np.concatenate(val, axis=0)
             elif key in ['filename']:
                 ret[key] = val

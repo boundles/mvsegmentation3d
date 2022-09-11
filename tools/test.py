@@ -9,8 +9,9 @@ import torch.optim
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
 from mvseg3d.models.segmentors.spnet import SPNet
+from mvseg3d.utils.config import cfg_from_file, cfg
 from mvseg3d.utils.logging import get_logger
-from mvseg3d.utils import submission_utils
+from mvseg3d.utils.submission import construct_seg_frame, write_submission_file
 from mvseg3d.utils.data_utils import load_data_to_gpu
 
 from waymo_open_dataset.protos import segmentation_metrics_pb2
@@ -18,6 +19,7 @@ from waymo_open_dataset.protos import segmentation_metrics_pb2
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Test a 3d segmentor')
+    parser.add_argument('--cfg_file', type=str, default=None, help='specify the config for training')
     parser.add_argument('--data_dir', type=str, help='the data directory')
     parser.add_argument('--save_dir', type=str, help='the saved directory')
     parser.add_argument('--batch_size', default=1, type=int)
@@ -29,14 +31,15 @@ def parse_args():
     return args
 
 def semseg_for_one_frame(model, data_dict):
+    points_ri = data_dict['points_ri']
+    frame_id = data_dict['filename'][0]
+
     load_data_to_gpu(data_dict)
     with torch.no_grad():
-        out = model(data_dict)
-    pred_labels = torch.argmax(out, dim=1).cpu()
+        result = model(data_dict)
+    pred_labels = torch.argmax(result['point_out'], dim=1).cpu()
 
-    points_ri = data_dict['points_ri']
-    frame_id = data_dict['filename']
-    seg_frame = submission_utils.construct_seg_frame(pred_labels, points_ri, frame_id)
+    seg_frame = construct_seg_frame(pred_labels, points_ri, frame_id)
     return seg_frame
 
 def inference(args, data_loader, model, logger):
@@ -48,7 +51,7 @@ def inference(args, data_loader, model, logger):
         segmentation_frame_list.frames.append(segmentation_frame)
 
     submission_file = os.path.join(args.save_dir, 'wod_test_set_pred_semantic_seg.bin')
-    submission_utils.write_submission_file(segmentation_frame_list, submission_file)
+    write_submission_file(segmentation_frame_list, submission_file)
 
     logger.info('Inference finished!')
 
@@ -65,8 +68,12 @@ def main():
     log_file = os.path.join(args.save_dir, f'{timestamp}.log')
     logger = get_logger("mvseg3d", log_file)
 
+    # config
+    cfg_from_file(args.cfg_file)
+    logger.info(cfg)
+
     # load data
-    test_dataset = WaymoDataset(args.data_dir, 'testing', use_image_feature=True, test_mode=True)
+    test_dataset = WaymoDataset(cfg, args.data_dir, 'testing', test_mode=True)
     logger.info('Loaded %d testing samples' % len(test_dataset))
 
     test_set, test_loader, sampler = build_dataloader(

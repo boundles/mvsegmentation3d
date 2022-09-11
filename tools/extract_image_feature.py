@@ -1,5 +1,4 @@
 import mmcv
-import glob
 import os
 import sys
 import numpy as np
@@ -13,7 +12,10 @@ def extract_image_features(model, image_dir, filename):
     for camera_id in range(5):
         image_file = os.path.join(image_dir, str(camera_id), filename + '.png')
         try:
-            img = mmcv.imread(image_file, channel_order='rgb')
+            file_client = mmcv.FileClient()
+            img_bytes = file_client.get(image_file)
+            img = mmcv.imfrombytes(img_bytes, flag='color', backend="cv2")
+            img = img[..., ::-1].astype(np.float32)
         except:
             print('read image file: %s failed' % image_file)
             continue
@@ -80,15 +82,21 @@ if __name__ == '__main__':
         lidar_file = os.path.join(lidar_dir, filename + '.npy')
         lidar = np.load(lidar_file)
         for i in range(lidar.shape[0]):
+            camera_id = None
+            image_x = None
+            image_y = None
+
             point = lidar[i, :]
-            camera_id0 = int(point[6]) - 1
-            image_x0 = int(point[7])
-            image_y0 = int(point[8])
-            camera_id1 = int(point[9]) - 1
-            image_x1 = int(point[10])
-            image_y1 = int(point[11])
-            if camera_id0 in image_feature_maps:
-                point_image_features[i] = image_feature_maps[camera_id0][:, image_y0, image_x0]
-            elif camera_id1 in image_feature_maps:
-                point_image_features[i] = image_feature_maps[camera_id1][:, image_y1, image_x1]
+            if (int(point[6]) - 1) in image_feature_maps:
+                camera_id = int(point[6]) - 1
+                image_x = int(point[7])
+                image_y = int(point[8])
+            elif (int(point[9]) - 1) in image_feature_maps:
+                camera_id = int(point[9]) - 1
+                image_x = int(point[10])
+                image_y = int(point[11])
+
+            if camera_id and image_x and image_y:
+                point_image_features[i] = image_feature_maps[camera_id][:, image_y, image_x]
+
         np.save(feature_file, point_image_features)

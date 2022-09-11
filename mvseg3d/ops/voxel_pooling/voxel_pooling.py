@@ -4,19 +4,22 @@ from torch.cuda.amp import custom_bwd, custom_fwd
 
 from . import voxel_pooling_ext
 
+from torch_scatter import scatter
 
-class VoxelPoolingFunction(Function):
+
+class VoxelAvgPoolingFunction(Function):
     @staticmethod
     @custom_fwd(cast_inputs=torch.half)
     def forward(ctx, feats: torch.Tensor, coords: torch.Tensor,
                 counts: torch.Tensor) -> torch.Tensor:
         """
-            :param ctx:
-            :param feats: FloatTensor[N, C]
-            :param coords: the coordinates of points, IntTensor[N,]
-            :param counts: point num of per voxel, IntTensor[M,]
-            :return:
-                FloatTensor[M, C]
+        Args:
+            ctx: context
+            feats: FloatTensor[N, C]
+            coords: the coordinates of points, IntTensor[N,]
+            counts: point num of per voxel, IntTensor[M,]
+        Returns:
+            FloatTensor[M, C]
         """
         feats = feats.contiguous()
         coords = coords.contiguous().int()
@@ -56,4 +59,21 @@ class VoxelPoolingFunction(Function):
 
         return grad_feats, None, None
 
-voxel_pooling = VoxelPoolingFunction.apply
+class VoxelMaxPooling(object):
+    def __call__(self, feats, coords):
+        """
+        Args:
+            feats: FloatTensor[N, C]
+            coords: the coordinates of points, LongTensor[N,]
+        Returns:
+            FloatTensor[M, C]
+        """
+        mask = (coords != -1)
+        out = scatter(feats[mask], coords[mask], dim=0, reduce='max')
+        return out
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+voxel_avg_pooling = VoxelAvgPoolingFunction.apply
+voxel_max_pooling = VoxelMaxPooling()
