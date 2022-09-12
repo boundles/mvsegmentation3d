@@ -20,7 +20,7 @@ class WaymoDataset(Dataset):
         self.test_mode = test_mode
 
         if self.test_mode:
-            self.filenames = self.get_filenames('image_feature')
+            self.filenames = self.get_filenames('image_dense_feature')
         else:
             self.filenames = self.get_filenames('label')
 
@@ -96,7 +96,7 @@ class WaymoDataset(Dataset):
         return lidar_file
 
     def get_image_feature_path(self, filename):
-        image_feature_file = os.path.join(self.root, self.split, 'image_feature', filename + '.npy')
+        image_feature_file = os.path.join(self.root, self.split, 'image_dense_feature', filename + '.npy')
         return image_feature_file
 
     def get_pose_path(self, filename):
