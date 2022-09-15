@@ -20,16 +20,16 @@ class SPNet(nn.Module):
         self.point_feature_channel = 64
         self.point_encoder = nn.Sequential(
             nn.BatchNorm1d(dim_point),
-            nn.Linear(dim_point, 128, bias=False),
+            nn.Linear(dim_point, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, 128, bias=False),
             nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
             nn.Linear(128, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, self.point_feature_channel))
+            nn.Linear(256, self.point_feature_channel))
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
@@ -50,35 +50,35 @@ class SPNet(nn.Module):
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, 256, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, self.fusion_feature_channel, bias=False),
+            nn.Linear(256, 128, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
-        self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 64, bias=False),
-                                        nn.BatchNorm1d(64),
+        self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 32, bias=False),
+                                        nn.BatchNorm1d(32),
                                         nn.Dropout(0.1),
-                                        nn.Linear(64, dataset.num_classes, bias=False))
+                                        nn.Linear(32, dataset.num_classes, bias=False))
 
         self.voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 64, bias=False),
-            nn.BatchNorm1d(64),
+            nn.Linear(self.voxel_feature_channel, 32, bias=False),
+            nn.BatchNorm1d(32),
             nn.Dropout(0.1),
-            nn.Linear(64, dataset.num_classes, bias=False))
+            nn.Linear(32, dataset.num_classes, bias=False))
 
         self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 64, bias=False),
-            nn.BatchNorm1d(64),
+            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 32, bias=False),
+            nn.BatchNorm1d(32),
             nn.Dropout(0.1),
-            nn.Linear(64, dataset.num_classes, bias=False))
+            nn.Linear(32, dataset.num_classes, bias=False))
 
         self.weight_initialization()
 
