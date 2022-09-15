@@ -76,7 +76,7 @@ def compute_loss(pred_result, data_dict, criterion):
     for loss_func, loss_weight in criterion:
         loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
-    if 'aux_voxel_out' in data_dict:
+    if 'aux_voxel_out' in pred_result:
         voxel_gt_labels = data_dict['voxel_labels']
         aux_voxel_pred_labels = pred_result['aux_voxel_out']
         for loss_func, loss_weight in criterion:
