@@ -1,91 +1,42 @@
-import torch
 import torch.nn as nn
 
-from torch_scatter import scatter
+import spconv
 
-from mvseg3d.utils.spconv_utils import replace_feature, ConvModule
-
-
-class PointPooling(nn.Module):
-    def __init__(self, in_channels, channels):
-        super(PointPooling, self).__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(in_channels, channels, bias=False),
-            nn.BatchNorm1d(channels),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        indices = x.indices[:, 0].long()
-        out = scatter(x.features, indices, dim=0, reduce='mean')
-        out = self.fc(out)
-        out = out[indices]
-        return out
-
-
-class ASPPModule(nn.ModuleList):
-    """Atrous Spatial Pyramid Pooling (ASPP) Module.
-
-    Args:
-        dilations (tuple[int]): Dilation rate of each layer.
-        in_channels (int): Input channels.
-        channels (int): Channels after modules, before conv_seg.
-        norm_fn: Norm layer.
-        act_fn: Activation layer.
-    """
-
-    def __init__(self, dilations, in_channels, channels, norm_fn, act_fn, indice_key):
-        super(ASPPModule, self).__init__()
-        self.dilations = dilations
-        self.in_channels = in_channels
-        self.channels = channels
-        self.norm_fn = norm_fn
-        self.act_fn = act_fn
-        self.aspp_modules = []
-        for dilation in dilations:
-            self.aspp_modules.append(
-                ConvModule(
-                    self.in_channels,
-                    self.channels,
-                    1 if dilation == 1 else 3,
-                    dilation=dilation,
-                    padding=0 if dilation == 1 else dilation,
-                    norm_fn=norm_fn,
-                    act_fn=act_fn,
-                    indice_key=indice_key + str(dilation)))
-        self.aspp_modules = nn.ModuleList(self.aspp_modules)
-
-    def forward(self, x):
-        """Forward function."""
-        aspp_outs = []
-
-        for aspp_module in self.aspp_modules:
-            aspp_out = aspp_module(x)
-            aspp_outs.append(aspp_out)
-
-        return aspp_outs
+from mvseg3d.utils.spconv_utils import replace_feature
 
 
 class ContextLayer(nn.Module):
-    def __init__(self, dilations, in_channels, channels, act_fn, norm_fn, indice_key):
+    def __init__(self, in_channels, channels, stride=1, indice_key=None):
         super(ContextLayer, self).__init__()
-        self.aspp_modules = ASPPModule(dilations, in_channels, channels, norm_fn=norm_fn,
-                                       act_fn=act_fn, indice_key=indice_key)
-        self.bottleneck = nn.Sequential(
-            nn.Linear(len(dilations) * channels, in_channels, bias=False),
-            nn.BatchNorm1d(in_channels),
-            nn.ReLU(inplace=True)
-        )
+        self.conv1 = spconv.SubMConv3d(in_channels, channels, kernel_size=(3, 1, 1), stride=stride,
+                                       padding=(1, 0, 0), bias=False, indice_key=indice_key)
+        self.bn0 = nn.BatchNorm1d(channels)
+        self.act1 = nn.Sigmoid()
+
+        self.conv2 = spconv.SubMConv3d(in_channels, channels, kernel_size=(1, 3, 1), stride=stride,
+                                       padding=(0, 1, 0), bias=False, indice_key=indice_key)
+        self.bn2 = nn.BatchNorm1d(channels)
+        self.act2 = nn.Sigmoid()
+
+        self.conv3 = spconv.SubMConv3d(in_channels, channels, kernel_size=(1, 1, 3), stride=stride,
+                                       padding=(0, 0, 1), bias=False, indice_key=indice_key)
+        self.bn3 = nn.BatchNorm1d(channels)
+        self.act3 = nn.Sigmoid()
 
     def forward(self, x):
-        """Forward function.
-        Args:
-            x (SparseTensor): The input with features: shape (N, C)
-        Returns:
-            Features with context information
-        """
-        aspp_outs = [aspp_out.features for aspp_out in self.aspp_modules(x)]
-        aspp_outs = torch.cat(aspp_outs, dim=1)
-        aspp_outs = self.bottleneck(aspp_outs)
-        x = replace_feature(x, aspp_outs)
-        return x
+        out1 = self.conv1(x)
+        out1 = replace_feature(out1, self.bn0(out1.features))
+        out1 = replace_feature(out1, self.act1(out1.features))
+
+        out2 = self.conv2(x)
+        out2 = replace_feature(out2, self.bn2(out2.features))
+        out2 = replace_feature(out2, self.act2(out2.features))
+
+        out3 = self.conv3(x)
+        out3 = replace_feature(out3, self.bn3(out3.features))
+        out3 = replace_feature(out3, self.act3(out3.features))
+
+        out = replace_feature(out1, out1.features + out2.features + out3.features)
+        out = replace_feature(out, out.features * x.features)
+
+        return out

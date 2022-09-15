@@ -74,6 +74,12 @@ class SPNet(nn.Module):
             nn.Dropout(0.1),
             nn.Linear(64, dataset.num_classes, bias=False))
 
+        self.aux_voxel_classifier = nn.Sequential(
+            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.Dropout(0.1),
+            nn.Linear(64, dataset.num_classes, bias=False))
+
         self.weight_initialization()
 
     def weight_initialization(self):
@@ -123,5 +129,9 @@ class SPNet(nn.Module):
         voxel_features = batch_dict['voxel_features']
         voxel_out = self.voxel_classifier(voxel_features)
         result['voxel_out'] = voxel_out
+
+        aux_voxel_features = batch_dict['aux_voxel_features']
+        aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
+        result['aux_voxel_out'] = aux_voxel_out
 
         return result

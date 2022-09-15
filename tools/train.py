@@ -76,6 +76,12 @@ def compute_loss(pred_result, data_dict, criterion):
     for loss_func, loss_weight in criterion:
         loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
+    if 'aux_voxel_out' in data_dict:
+        voxel_gt_labels = data_dict['voxel_labels']
+        aux_voxel_pred_labels = pred_result['aux_voxel_out']
+        for loss_func, loss_weight in criterion:
+            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(aux_voxel_pred_labels, voxel_gt_labels) * loss_weight
+
     return loss
 
 def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
@@ -240,7 +246,7 @@ def main():
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(model,
                                                           device_ids=[rank % torch.cuda.device_count()],
-                                                          find_unused_parameters=True)
+                                                          find_unused_parameters=False)
 
     # loss function
     criterion = build_criterion(cfg, train_dataset)
