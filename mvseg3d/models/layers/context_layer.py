@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-import spconv
+import spconv.pytorch as spconv
 
 from mvseg3d.utils.spconv_utils import replace_feature
 
