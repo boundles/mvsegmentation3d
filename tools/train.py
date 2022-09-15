@@ -246,7 +246,7 @@ def main():
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(model,
                                                           device_ids=[rank % torch.cuda.device_count()],
-                                                          find_unused_parameters=False)
+                                                          find_unused_parameters=True)
 
     # loss function
     criterion = build_criterion(cfg, train_dataset)
