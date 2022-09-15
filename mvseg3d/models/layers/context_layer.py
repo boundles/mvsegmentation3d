@@ -10,7 +10,7 @@ class ContextLayer(nn.Module):
         super(ContextLayer, self).__init__()
         self.conv1 = spconv.SubMConv3d(in_channels, channels, kernel_size=(3, 1, 1), stride=stride,
                                        padding=(1, 0, 0), bias=False, indice_key=indice_key)
-        self.bn0 = nn.BatchNorm1d(channels)
+        self.bn1 = nn.BatchNorm1d(channels)
         self.act1 = nn.Sigmoid()
 
         self.conv2 = spconv.SubMConv3d(in_channels, channels, kernel_size=(1, 3, 1), stride=stride,
@@ -24,9 +24,9 @@ class ContextLayer(nn.Module):
         self.act3 = nn.Sigmoid()
 
     def forward(self, x):
-        out1 = self.conv1(x)
-        out1 = replace_feature(out1, self.bn0(out1.features))
-        out1 = replace_feature(out1, self.act1(out1.features))
+        out = self.conv1(x)
+        out = replace_feature(out, self.bn1(out.features))
+        out = replace_feature(out, self.act1(out.features))
 
         out2 = self.conv2(x)
         out2 = replace_feature(out2, self.bn2(out2.features))
@@ -36,7 +36,7 @@ class ContextLayer(nn.Module):
         out3 = replace_feature(out3, self.bn3(out3.features))
         out3 = replace_feature(out3, self.act3(out3.features))
 
-        out = replace_feature(out1, out1.features + out2.features + out3.features)
+        out = replace_feature(out, out.features + out2.features + out3.features)
         out = replace_feature(out, out.features * x.features)
 
         return out

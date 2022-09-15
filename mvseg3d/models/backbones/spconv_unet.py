@@ -151,7 +151,7 @@ class SparseUnet(nn.Module):
         # [1504, 1504, 72] -> [1504, 1504, 72]
         self.up1 = UpBlock(64, output_channels, norm_fn, act_fn, conv_type='subm', layer_id=1)
 
-        self.context_layer = ContextLayer(output_channels, output_channels, indice_key='context')
+        self.context_layer = ContextLayer(output_channels, output_channels, indice_key='subm1-context')
 
         self.aux_voxel_feature_channel = 64
 
