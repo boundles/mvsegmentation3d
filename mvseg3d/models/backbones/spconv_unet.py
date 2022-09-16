@@ -192,6 +192,5 @@ class SparseUnet(nn.Module):
         x_conv1 = self.context_layer(x_conv1)
 
         batch_dict['voxel_features'] = x_conv1.features
-        batch_dict['aux_voxel_features'] = x_conv2.features
 
         return batch_dict
