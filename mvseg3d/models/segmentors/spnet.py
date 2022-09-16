@@ -50,35 +50,29 @@ class SPNet(nn.Module):
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 256, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 512, bias=False),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 128, bias=False),
-            nn.BatchNorm1d(128),
-            nn.ReLU(inplace=True),
-            nn.Linear(128, self.fusion_feature_channel, bias=False),
+            nn.Linear(256, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
-        self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 32, bias=False),
-                                        nn.BatchNorm1d(32),
+        self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 48, bias=False),
+                                        nn.BatchNorm1d(48),
                                         nn.Dropout(0.1),
-                                        nn.Linear(32, dataset.num_classes, bias=False))
-
-        self.voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
-            nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
+                                        nn.Linear(48, dataset.num_classes, bias=False))
 
         self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
+            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 48, bias=False),
+            nn.BatchNorm1d(48),
             nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
+            nn.Linear(48, dataset.num_classes, bias=False))
 
         self.weight_initialization()
 
@@ -125,10 +119,6 @@ class SPNet(nn.Module):
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)
         result['point_out'] = point_out
-
-        voxel_features = batch_dict['voxel_features']
-        voxel_out = self.voxel_classifier(voxel_features)
-        result['voxel_out'] = voxel_out
 
         aux_voxel_features = batch_dict['aux_voxel_features']
         aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
