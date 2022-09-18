@@ -178,7 +178,7 @@ class SparseUnet(nn.Module):
         super(SparseUnet, self).__init__()
         self.sparse_shape = grid_size[::-1]
 
-        self.orm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
+        self.norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         self.act_fn = nn.ReLU(inplace=True)
 
         self.conv_input = spconv.SparseSequential(
@@ -277,7 +277,7 @@ class SparseBottleneckUnet(nn.Module):
         super(SparseBottleneckUnet, self).__init__()
         self.sparse_shape = grid_size[::-1]
 
-        self.orm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
+        self.norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         self.act_fn = nn.ReLU(inplace=True)
 
         self.conv_input = spconv.SparseSequential(
