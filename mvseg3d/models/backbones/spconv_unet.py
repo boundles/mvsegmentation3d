@@ -71,7 +71,7 @@ class SparseBottleneck(spconv.SparseModule):
     Bottleneck block implemented with submanifold sparse convolution.
     """
 
-    expansion = 4
+    expansion = 2
 
     def __init__(self, inplanes, planes, stride=1, with_se=False, with_sa=False,
                  norm_fn=None, act_fn=None, indice_key=None):
@@ -288,44 +288,44 @@ class SparseBottleneckUnet(nn.Module):
 
         self.conv1 = spconv.SparseSequential(
             SparseBottleneck(32, 32, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm1'),
-            SparseBottleneck(128, 32, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm1')
+            SparseBottleneck(64, 32, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm1')
         )
 
         # [1504, 1504, 72] -> [752, 752, 36]
         self.conv2 = spconv.SparseSequential(
-            ConvModule(128, 64, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
+            ConvModule(64, 64, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                        conv_type='spconv', indice_key='spconv2'),
             SparseBottleneck(64, 64, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm2'),
-            SparseBottleneck(256, 64, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm2'),
-            SparseBottleneck(256, 64, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm2')
+            SparseBottleneck(128, 64, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm2'),
+            SparseBottleneck(128, 64, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm2')
         )
 
         # [752, 752, 36] -> [376, 376, 18]
         self.conv3 = spconv.SparseSequential(
-            ConvModule(256, 128, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
+            ConvModule(128, 128, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                        conv_type='spconv', indice_key='spconv3'),
             SparseBottleneck(128, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm3'),
-            SparseBottleneck(512, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm3'),
-            SparseBottleneck(512, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm3'),
-            SparseBottleneck(512, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm3')
+            SparseBottleneck(256, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm3'),
+            SparseBottleneck(256, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm3'),
+            SparseBottleneck(256, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, with_se=True, indice_key='subm3')
         )
 
         # [376, 376, 18] -> [188, 188, 9]
         self.conv4 = spconv.SparseSequential(
-            ConvModule(512, 256, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
+            ConvModule(256, 256, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                        conv_type='spconv', indice_key='spconv4'),
             SparseBottleneck(256, 256, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm4'),
-            SparseBottleneck(1024, 256, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm4')
+            SparseBottleneck(512, 256, norm_fn=self.norm_fn, act_fn=self.act_fn, with_se=True, indice_key='subm4')
         )
 
         # [188, 188, 9] -> [376, 376, 18]
-        self.up4 = UpBlock(1024, 512, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=4)
+        self.up4 = UpBlock(512, 256, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=4)
         # [376, 376, 18] -> [752, 752, 36]
-        self.up3 = UpBlock(512, 256, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=3)
+        self.up3 = UpBlock(256, 128, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=3)
         # [752, 752, 36] -> [1504, 1504, 72]
-        self.up2 = UpBlock(256, 128, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=2)
+        self.up2 = UpBlock(128, 64, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=2)
         # [1504, 1504, 72] -> [1504, 1504, 72]
-        self.up1 = UpBlock(128, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
+        self.up1 = UpBlock(64, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
     def forward(self, batch_dict):
         """
