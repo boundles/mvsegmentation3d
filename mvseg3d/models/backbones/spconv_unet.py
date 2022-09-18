@@ -112,7 +112,7 @@ class SparseBottleneck(spconv.SparseModule):
             self.sa = None
 
     def forward(self, x):
-        identity = x.features
+        identity = x
 
         out = self.conv1(x)
         out = replace_feature(out, self.bn1(out.features))
