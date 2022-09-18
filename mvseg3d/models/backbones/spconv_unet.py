@@ -102,12 +102,12 @@ class SparseBottleneck(spconv.SparseModule):
 
         # spatial and channel attention
         if with_se:
-            self.se = FlattenSELayer(planes)
+            self.se = FlattenSELayer(planes * self.expansion)
         else:
             self.se = None
 
         if with_sa:
-            self.sa = SALayer(planes, indice_key=indice_key)
+            self.sa = SALayer(planes * self.expansion, indice_key=indice_key)
         else:
             self.sa = None
 
