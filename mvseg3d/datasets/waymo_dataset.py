@@ -24,16 +24,14 @@ class WaymoDataset(Dataset):
         else:
             self.filenames = self.get_filenames('label')
 
-        self.file_idx_to_name_map = dict()
+        self.file_idx_to_name = dict()
         self.lidar_filenames = self.get_filenames('lidar')
         for filename in self.lidar_filenames:
             file_idx, frame_idx, timestamp = self.parse_info_from_filename(filename)
-            self.file_idx_to_name_map[(file_idx, frame_idx)] = filename
+            self.file_idx_to_name[(file_idx, frame_idx)] = filename
 
-        if self.split == 'training':
-            mode = 'train'
-        else:
-            mode = 'test'
+
+        mode = 'train' if self.split == 'training' else 'test'
         self.voxel_generator = VoxelGenerator(voxel_size=cfg.DATASET.VOXEL_SIZE,
                                               point_cloud_range=cfg.DATASET.POINT_CLOUD_RANGE,
                                               max_num_points=cfg.DATASET.MAX_NUM_POINTS,
@@ -48,7 +46,7 @@ class WaymoDataset(Dataset):
                                               transforms.RandomGlobalTranslation(cfg.DATASET.AUG_TRANSLATE_STD),
                                               transforms.RandomFlip(),
                                               transforms.PointShuffle(),
-                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO, cfg.DATASET.AUG_SAMPLE_RANGE)])
+                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLING_RATIO, cfg.DATASET.AUG_SAMPLING_RANGE)])
 
     @property
     def dim_point(self):
@@ -157,7 +155,7 @@ class WaymoDataset(Dataset):
         for i in range(0, max_num_sweeps - 1):
             sweep_frame_idx = frame_idx - i - 1
             if sweep_frame_idx >= 0:
-                sweep_filename = self.file_idx_to_name_map[(file_idx, sweep_frame_idx)]
+                sweep_filename = self.file_idx_to_name[(file_idx, sweep_frame_idx)]
                 history_sweep_filenames.append(sweep_filename)
 
         history_num_sweeps = num_sweeps - 1
@@ -251,14 +249,14 @@ class WaymoDataset(Dataset):
             polar_points = cart2polar(points)
             data_dict['points'] = np.concatenate((polar_points, points[:, :2], points[:, 3:]), axis=1)
 
-        voxels, coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
+        voxels, voxel_coords, num_points_per_voxel, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxels'] = voxels
-        data_dict['voxel_coords'] = coords
+        data_dict['voxel_coords'] = voxel_coords
         data_dict['voxel_num_points'] = num_points_per_voxel
         data_dict['point_voxel_ids'] = point_voxel_ids
 
-        point_indices = data_dict.get('point_indices', None)
-        if point_indices is not None:
+        if self.cfg.DATASET.USE_MULTI_SWEEPS:
+            point_indices = data_dict['point_indices']
             data_dict['points'] = data_dict['points'][point_indices]
             data_dict['point_voxel_ids'] = data_dict['point_voxel_ids'][point_indices]
 
@@ -276,24 +274,24 @@ class WaymoDataset(Dataset):
         if self.cfg.DATASET.USE_MULTI_SWEEPS:
             point_indices, points = self.load_points_from_multi_sweeps(filename, self.cfg.DATASET.NUM_SWEEPS,
                                                                        self.cfg.DATASET.MAX_NUM_SWEEPS)
-            input_dict['points'] = points[:, :self.dim_point]
             input_dict['point_indices'] = point_indices
         else:
             points = self.load_points(filename)
-            input_dict['points'] = points[:, :self.dim_point]
+
+        input_dict['points'] = points[:, :self.dim_point]
 
         if self.cfg.DATASET.USE_IMAGE_FEATURE:
-            point_indices = input_dict.get('point_indices', None)
-            if point_indices is not None:
+            if self.cfg.DATASET.USE_MULTI_SWEEPS:
+                point_indices = input_dict['point_indices']
                 point_image_features = self.load_image_features(point_indices.shape[0], filename)
-                input_dict['point_image_features'] = point_image_features
             else:
                 point_image_features = self.load_image_features(input_dict['points'].shape[0], filename)
-                input_dict['point_image_features'] = point_image_features
+
+            input_dict['point_image_features'] = point_image_features
 
         if self.test_mode:
-            point_indices = input_dict.get('point_indices', None)
-            if point_indices is not None:
+            if self.cfg.DATASET.USE_MULTI_SWEEPS:
+                point_indices = input_dict['point_indices']
                 input_dict['points_ri'] = points[point_indices][:, -3:].astype(np.int32)
             else:
                 input_dict['points_ri'] = points[:, -3:].astype(np.int32)

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import MeanVFE
-from mvseg3d.models.backbones import SparseBottleneckUnet
+from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
 from mvseg3d.ops import voxel_to_point, voxel_max_pooling
 
@@ -44,9 +44,9 @@ class SPNet(nn.Module):
             self.voxel_in_feature_channel = self.point_feature_channel
 
         self.voxel_feature_channel = 64
-        self.voxel_encoder = SparseBottleneckUnet(self.voxel_in_feature_channel,
-                                                  self.voxel_feature_channel,
-                                                  dataset.grid_size)
+        self.voxel_encoder = SparseUnet(self.voxel_in_feature_channel,
+                                        self.voxel_feature_channel,
+                                        dataset.grid_size)
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(

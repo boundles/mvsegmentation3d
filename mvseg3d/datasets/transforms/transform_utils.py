@@ -105,7 +105,7 @@ def points_random_sampling(points,
 
     Args:
         points (np.ndarray): 3D Points.
-        sample_ratio (float): Ratio of samples to be sampled.
+        sample_ratio (int): Ratio of samples to be sampled.
         sample_range (float, optional): Indicating the range where the
             points will be sampled. Defaults to None.
         replace (bool, optional): Sampling with or without replacement.
@@ -117,7 +117,7 @@ def points_random_sampling(points,
             - points (np.ndarray): 3D Points.
             - choices (np.ndarray, optional): The generated random samples.
     """
-    num_samples = int(points.shape[0] * sample_ratio)
+    num_samples = int(sample_ratio * points.shape[0])
     point_range = range(len(points))
     if sample_range is not None and not replace:
         # Only sampling the near points when len(points) >= num_samples
@@ -126,8 +126,7 @@ def points_random_sampling(points,
         near_inds = np.where(dist < sample_range)[0]
         # in case there are too many far points
         if len(far_inds) > num_samples:
-            far_inds = np.random.choice(
-                far_inds, num_samples, replace=False)
+            far_inds = np.random.choice(far_inds, num_samples, replace=False)
         point_range = near_inds
         num_samples -= len(far_inds)
     choices = np.random.choice(point_range, num_samples, replace=replace)

@@ -1,3 +1,3 @@
-from .spconv_unet import SparseUnet, SparseBottleneckUnet
+from .spconv_unet import SparseUnet
 
-__all__ = ['SparseUnet', 'SparseBottleneckUnet']
+__all__ = ['SparseUnet']
