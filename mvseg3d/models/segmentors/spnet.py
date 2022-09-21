@@ -65,13 +65,15 @@ class SPNet(nn.Module):
 
         self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 64, bias=False),
                                         nn.BatchNorm1d(64),
-                                        nn.Dropout(),
+                                        nn.ReLU(True),
+                                        nn.Dropout(0.1),
                                         nn.Linear(64, dataset.num_classes, bias=False))
 
         self.voxel_classifier = nn.Sequential(
             nn.Linear(self.voxel_feature_channel, 64, bias=False),
             nn.BatchNorm1d(64),
-            nn.Dropout(),
+            nn.ReLU(True),
+            nn.Dropout(0.1),
             nn.Linear(64, dataset.num_classes, bias=False))
 
         self.weight_initialization()

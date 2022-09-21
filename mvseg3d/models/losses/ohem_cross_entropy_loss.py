@@ -7,7 +7,6 @@ class OHEMCrossEntropyLoss(nn.Module):
                  keep_ratio=None,
                  ignore_index=255,
                  class_weight=None,
-                 label_smoothing=0.1,
                  loss_name='loss_ohem_cross_entropy'):
         super(OHEMCrossEntropyLoss, self).__init__()
 
@@ -15,7 +14,6 @@ class OHEMCrossEntropyLoss(nn.Module):
         self.ignore_index = ignore_index
         self.class_weight = class_weight
         self.cross_entropy = nn.CrossEntropyLoss(reduction='none',
-                                                 label_smoothing=label_smoothing,
                                                  weight=self.class_weight,
                                                  ignore_index=self.ignore_index)
         self._loss_name = loss_name
