@@ -64,7 +64,9 @@ __device__ int get_bt_idx(int idx, const int *offset)
 }
 
 
-__global__ void knn_query_cuda_kernel(int m, int nsample, const float *__restrict__ xyz, const float *__restrict__ new_xyz, const int *__restrict__ offset, const int *__restrict__ new_offset, int *__restrict__ idx, float *__restrict__ dist2) {
+__global__ void knn_query_cuda_kernel(int m, int nsample, const float *__restrict__ xyz, const float *__restrict__ new_xyz,
+                                      const int *__restrict__ offset, const int *__restrict__ new_offset, int *__restrict__ idx,
+                                      float *__restrict__ dist2) {
     // input: xyz (n, 3) new_xyz (m, 3)
     // output: idx (m, nsample) dist2 (m, nsample)
     int pt_idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -110,9 +112,22 @@ __global__ void knn_query_cuda_kernel(int m, int nsample, const float *__restric
 }
 
 
-void knn_query_cuda_launcher(int m, int nsample, const float *xyz, const float *new_xyz, const int *offset, const int *new_offset, int *idx, float *dist2) {
+void knn_query_cuda_launcher(int m, int nsample, const float *xyz, const float *new_xyz, const int *offset,
+                             const int *new_offset, int *idx, float *dist2) {
     // input: new_xyz: (m, 3), xyz: (n, 3), idx: (m, nsample)
     dim3 blocks(DIVUP(m, THREADS_PER_BLOCK));
     dim3 threads(THREADS_PER_BLOCK);
     knn_query_cuda_kernel<<<blocks, threads, 0>>>(m, nsample, xyz, new_xyz, offset, new_offset, idx, dist2);
+}
+
+void knn_query_cuda(int m, int nsample, at::Tensor xyz_tensor, at::Tensor new_xyz_tensor, at::Tensor offset_tensor,
+                    at::Tensor new_offset_tensor, at::Tensor idx_tensor, at::Tensor dist2_tensor)
+{
+    const float *xyz = xyz_tensor.data_ptr<float>();
+    const float *new_xyz = new_xyz_tensor.data_ptr<float>();
+    const int *offset = offset_tensor.data_ptr<int>();
+    const int *new_offset = new_offset_tensor.data_ptr<int>();
+    int *idx = idx_tensor.data_ptr<int>();
+    float *dist2 = dist2_tensor.data_ptr<float>();
+    knn_query_cuda_launcher(m, nsample, xyz, new_xyz, offset, new_offset, idx, dist2);
 }
