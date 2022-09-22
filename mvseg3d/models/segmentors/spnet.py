@@ -3,7 +3,7 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-from mvseg3d.models.voxel_encoders import MeanVFE
+from mvseg3d.models.voxel_encoders import VFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
 from mvseg3d.ops import voxel_to_point, voxel_max_pooling
@@ -37,10 +37,10 @@ class SPNet(nn.Module):
 
         self.use_multi_sweeps = dataset.use_multi_sweeps
         if self.use_multi_sweeps:
-            self.mean_vfe = MeanVFE(dim_point)
+            self.vfe = VFE(dim_point, reduce='mean')
             self.voxel_in_feature_channel = self.mean_vfe.voxel_feature_channel
         else:
-            self.mean_vfe = None
+            self.vfe = VFE(self.point_feature_channel, reduce='max')
             self.voxel_in_feature_channel = self.point_feature_channel
 
         self.voxel_feature_channel = 64
@@ -93,7 +93,11 @@ class SPNet(nn.Module):
 
     def forward(self, batch_dict):
         points = batch_dict['points'][:, 1:]
-        point_per_features = self.point_encoder(points)
+        if self.use_multi_sweeps:
+            cur_point_indices = (points[:, 3] == 0)
+            point_per_features = self.point_encoder(points[cur_point_indices])
+        else:
+            point_per_features = self.point_encoder(points)
 
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
@@ -103,9 +107,10 @@ class SPNet(nn.Module):
         # encode voxel features
         point_voxel_ids = batch_dict['point_voxel_ids']
         if self.use_multi_sweeps:
-            batch_dict['voxel_features'] = self.mean_vfe(batch_dict)
+            batch_dict['voxel_features'] = self.vfe(points, point_voxel_ids)
+            point_voxel_ids = point_voxel_ids[cur_point_indices]
         else:
-            batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
+            batch_dict['voxel_features'] = self.vfe(point_per_features, point_voxel_ids)
 
         batch_dict = self.voxel_encoder(batch_dict)
         point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
@@ -115,7 +120,10 @@ class SPNet(nn.Module):
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # se block for channel attention
-        point_batch_indices = batch_dict['points'][:, 0]
+        if self.use_multi_sweeps:
+            point_batch_indices = batch_dict['points'][:, 0][cur_point_indices]
+        else:
+            point_batch_indices = batch_dict['points'][:, 0]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()

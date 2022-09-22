@@ -3,7 +3,6 @@ DATASET:
   USE_MULTI_SWEEPS: True
   NUM_SWEEPS: 3
   MAX_NUM_SWEEPS: 5
-  MAX_NUM_POINTS: 30
   CLASS_NAMES: ['Car', 'Truck', 'Bus', 'Other Vehicle', 'MotorCyclist', 'Bicyclist', 'Pedestrian', 'Sign',
                 'Traffic Light', 'Pole', 'Construction Cone', 'Bicycle', 'MotorCycle', 'Building', 'Vegetation',
                 'Tree Trunk', 'Curb', 'Road', 'Lane Marker', 'Other Ground', 'Walkable', 'SideWalk']

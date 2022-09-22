@@ -66,7 +66,7 @@ def save_checkpoint(model, optimizer, lr_scheduler, save_dir, epoch, logger):
 def compute_loss(pred_result, data_dict, criterion):
     loss = 0
 
-    point_gt_labels = data_dict['labels']
+    point_gt_labels = data_dict['point_labels']
     point_pred_labels = pred_result['point_out']
     for loss_func, loss_weight in criterion:
         loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
@@ -94,7 +94,7 @@ def evaluate(args, data_loader, model, criterion, class_names, epoch, logger):
                 'Evaluate on epoch %d - Iter [%d/%d] loss: %f' % (epoch, step, len(data_loader), loss.cpu().item()))
 
         pred_labels = torch.argmax(result['point_out'], dim=1).cpu()
-        gt_labels = data_dict['labels'].cpu()
+        gt_labels = data_dict['point_labels'].cpu()
         iou_metric.add(pred_labels, gt_labels)
 
     metric_result = iou_metric.get_metric()

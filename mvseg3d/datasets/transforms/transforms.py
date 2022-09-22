@@ -144,37 +144,34 @@ class PointShuffle(object):
 
         data_dict['points'] = data_dict['points'][point_indices]
 
-        cur_indices = data_dict.get('point_indices', None)
+        cur_point_indices = data_dict.get('cur_point_indices', None)
         point_image_features = data_dict.get('point_image_features', None)
-        labels = data_dict.get('labels', None)
+        point_labels = data_dict.get('point_labels', None)
 
-        if cur_indices is not None:
-            pos_in_all_indices, pos_in_sub_indices = self.get_sub_indices_pos(cur_indices, point_indices)
-            cur_indices = np.array(pos_in_sub_indices)
-            data_dict['point_indices'] = np.array(pos_in_all_indices)
+        if cur_point_indices is not None:
+            cur_shuffled_indices = self.get_cur_shuffled_indices(cur_point_indices, point_indices)
+            data_dict['cur_point_indices'] = (data_dict['points'][:, 3] == 0).nonzero()[0]
         else:
-            cur_indices = point_indices
+            cur_shuffled_indices = point_indices
 
         if point_image_features is not None:
-            data_dict['point_image_features'] = point_image_features[cur_indices]
+            data_dict['point_image_features'] = point_image_features[cur_shuffled_indices]
 
-        if labels is not None:
-            data_dict['labels'] = labels[cur_indices]
+        if point_labels is not None:
+            data_dict['point_labels'] = point_labels[cur_shuffled_indices]
 
         return data_dict
 
     @staticmethod
-    def get_sub_indices_pos(sub_indices, all_indices):
-        sub_indices_dic = {}
-        for i, idx in enumerate(sub_indices):
-            sub_indices_dic[idx] = i
+    def get_cur_shuffled_indices(cur_point_indices, point_indices):
+        point_to_cur_index = {}
+        for i, point_index in enumerate(cur_point_indices):
+            point_to_cur_index[point_index] = i
 
-        pos_in_all_indices = []
-        pos_in_sub_indices = []
-        for i, idx in enumerate(all_indices):
-            pos_in_all_indices.append(i)
-            pos_in_sub_indices.append(sub_indices_dic[idx])
-        return pos_in_all_indices, pos_in_sub_indices
+        cur_shuffled_indices = []
+        for i, point_index in enumerate(point_indices):
+            cur_shuffled_indices.append(point_to_cur_index[point_index])
+        return np.array(cur_shuffled_indices)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -199,7 +196,7 @@ class PointSample(object):
         self.replace = replace
 
     def __call__(self, data_dict):
-        """Call function to sample points to in indoor scenes.
+        """Call function to sample points.
 
         Args:
             data_dict (dict): Result dict from loading pipeline.
@@ -216,38 +213,35 @@ class PointSample(object):
             return_choices=True)
         data_dict['points'] = points
 
-        cur_indices = data_dict.get('point_indices', None)
+        cur_point_indices = data_dict.get('cur_point_indices', None)
         point_image_features = data_dict.get('point_image_features', None)
-        labels = data_dict.get('labels', None)
+        point_labels = data_dict.get('point_labels', None)
 
-        if cur_indices is not None:
-            pos_in_all_indices, pos_in_sub_indices = self.get_sub_indices_pos(cur_indices, point_indices)
-            cur_indices = np.array(pos_in_sub_indices)
-            data_dict['point_indices'] = np.array(pos_in_all_indices)
+        if cur_point_indices is not None:
+            cur_shuffled_indices = self.get_cur_shuffled_indices(cur_point_indices, point_indices)
+            data_dict['cur_point_indices'] = (data_dict['points'][:, 3] == 0).nonzero()[0]
         else:
-            cur_indices = point_indices
+            cur_shuffled_indices = point_indices
 
         if point_image_features is not None:
-            data_dict['point_image_features'] = point_image_features[cur_indices]
+            data_dict['point_image_features'] = point_image_features[cur_shuffled_indices]
 
-        if labels is not None:
-            data_dict['labels'] = labels[cur_indices]
+        if point_labels is not None:
+            data_dict['point_labels'] = point_labels[cur_shuffled_indices]
 
         return data_dict
 
     @staticmethod
-    def get_sub_indices_pos(sub_indices, all_indices):
-        sub_indices_dic = {}
-        for i, idx in enumerate(sub_indices):
-            sub_indices_dic[idx] = i
+    def get_cur_shuffled_indices(cur_point_indices, point_indices):
+        point_to_cur_index = {}
+        for i, point_index in enumerate(cur_point_indices):
+            point_to_cur_index[point_index] = i
 
-        pos_in_all_indices = []
-        pos_in_sub_indices = []
-        for i, idx in enumerate(all_indices):
-            if idx in sub_indices_dic:
-                pos_in_all_indices.append(i)
-                pos_in_sub_indices.append(sub_indices_dic[idx])
-        return pos_in_all_indices, pos_in_sub_indices
+        cur_shuffled_indices = []
+        for i, point_index in enumerate(point_indices):
+            if point_index in point_to_cur_index:
+                cur_shuffled_indices.append(point_to_cur_index[point_index])
+        return np.array(cur_shuffled_indices)
 
     def __repr__(self):
         """str: Return a string that describes the module."""
@@ -257,6 +251,7 @@ class PointSample(object):
         repr_str += f' replace={self.replace})'
 
         return repr_str
+
 
 if __name__ == '__main__':
     batch_dict = {'points': np.ones((100, 3))}
