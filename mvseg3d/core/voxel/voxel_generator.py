@@ -1,6 +1,7 @@
 import numba
 import numpy as np
 
+
 class VoxelGenerator(object):
     """Voxel generator in numpy implementation.
     Args:
