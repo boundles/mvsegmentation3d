@@ -38,11 +38,10 @@ class SPNet(nn.Module):
         self.use_multi_sweeps = dataset.use_multi_sweeps
         if self.use_multi_sweeps:
             self.vfe = VFE(dim_point, reduce='mean')
-            self.voxel_in_feature_channel = self.mean_vfe.voxel_feature_channel
         else:
             self.vfe = VFE(self.point_feature_channel, reduce='max')
-            self.voxel_in_feature_channel = self.point_feature_channel
 
+        self.voxel_in_feature_channel = self.vfe.voxel_feature_channel
         self.voxel_feature_channel = 64
         self.voxel_encoder = SparseUnet(self.voxel_in_feature_channel,
                                         self.voxel_feature_channel,
