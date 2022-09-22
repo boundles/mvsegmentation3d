@@ -71,7 +71,7 @@ setuptools.setup(
             module='mvseg3d.ops.knn_query',
             extra_include_path=['/usr/local/cuda/include'],
             sources=['src/knn_query.cpp'],
-            sources_cuda=['src/knn_query_cuda.cu']),
+            sources_cuda=['src/knn_query_cuda.cu'])
     ],
     cmdclass={'build_ext': BuildExtension},
     zip_safe=False

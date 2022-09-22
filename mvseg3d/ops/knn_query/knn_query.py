@@ -20,4 +20,4 @@ class KNNQuery(Function):
         return idx, torch.sqrt(dist2)
 
 
-knnquery = KNNQuery.apply
+knn_query = KNNQuery.apply

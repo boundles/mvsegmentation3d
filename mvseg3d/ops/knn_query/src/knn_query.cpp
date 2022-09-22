@@ -18,3 +18,7 @@ void knn_query_cuda(int m, int nsample, at::Tensor xyz_tensor, at::Tensor new_xy
     float *dist2 = dist2_tensor.data_ptr<float>();
     knn_query_cuda_launcher(m, nsample, xyz, new_xyz, offset, new_offset, idx, dist2);
 }
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("knn_query_cuda", &knn_query_cuda);
+}
