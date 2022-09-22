@@ -169,7 +169,7 @@ class WaymoDataset(Dataset):
             for idx in choices:
                 sweep_filename = history_sweep_filenames[idx]
                 points_sweep = self.load_points(sweep_filename)
-                timestamp = self.parse_info_from_filename(sweep_filename)[-1]
+                timestamp = self.parse_filename(sweep_filename)[-1]
                 sweep_ts = timestamp / 1e6
                 sweep_transform_matrix = self.load_pose(sweep_filename)
                 sensor2lidar = np.linalg.inv(transform_matrix) @ sweep_transform_matrix
