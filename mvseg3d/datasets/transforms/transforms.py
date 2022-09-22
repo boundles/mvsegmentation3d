@@ -137,6 +137,7 @@ class RandomFlip(object):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
 
+
 class PointShuffle(object):
     def __call__(self, data_dict):
         point_indices = np.array(range(data_dict['points'].shape[0]))
@@ -170,11 +171,13 @@ class PointShuffle(object):
 
         cur_shuffled_indices = []
         for i, point_index in enumerate(point_indices):
-            cur_shuffled_indices.append(point_to_cur_index[point_index])
+            if point_index in point_to_cur_index:
+                cur_shuffled_indices.append(point_to_cur_index[point_index])
         return np.array(cur_shuffled_indices)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
+
 
 class PointSample(object):
     """Point sample.
