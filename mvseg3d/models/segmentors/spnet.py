@@ -107,12 +107,15 @@ class SPNet(nn.Module):
         point_voxel_ids = batch_dict['point_voxel_ids']
         if self.use_multi_sweeps:
             batch_dict['voxel_features'] = self.vfe(points, point_voxel_ids)
-            point_voxel_ids = point_voxel_ids[cur_point_indices]
         else:
             batch_dict['voxel_features'] = self.vfe(point_per_features, point_voxel_ids)
-
         batch_dict = self.voxel_encoder(batch_dict)
-        point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
+
+        # point features from encoded voxel feature
+        if self.use_multi_sweeps:
+            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids[cur_point_indices])
+        else:
+            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
         # fusion voxel features
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
