@@ -66,6 +66,12 @@ setuptools.setup(
             extra_include_path=['/usr/local/cuda/include'],
             sources=['src/voxel_pooling.cpp'],
             sources_cuda=['src/voxel_pooling_cuda.cu']),
+        make_cuda_ext(
+            name='knn_query_ext',
+            module='mvseg3d.ops.knn_query',
+            extra_include_path=['/usr/local/cuda/include'],
+            sources=['src/knn_query.cpp'],
+            sources_cuda=['src/knn_query_cuda.cu']),
     ],
     cmdclass={'build_ext': BuildExtension},
     zip_safe=False
