@@ -17,4 +17,5 @@ void knn_query_cuda_launcher(int m, int nsample, const float *xyz, const float *
 #ifdef __cplusplus
 }
 #endif
+
 #endif
