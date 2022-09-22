@@ -30,7 +30,6 @@ class WaymoDataset(Dataset):
         mode = 'train' if self.split == 'training' else 'test'
         self.voxel_generator = VoxelGenerator(voxel_size=cfg.DATASET.VOXEL_SIZE,
                                               point_cloud_range=cfg.DATASET.POINT_CLOUD_RANGE,
-                                              max_num_points=cfg.DATASET.MAX_NUM_POINTS,
                                               max_voxels=cfg.DATASET.MAX_VOXELS[mode])
 
         self.grid_size = self.voxel_generator.grid_size
