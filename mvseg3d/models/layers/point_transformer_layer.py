@@ -25,8 +25,8 @@ class PointTransformerLayer(nn.Module):
     def forward(self, pxo) -> torch.Tensor:
         p, x, o = pxo  # (n, 3), (n, c), (b)
         x_q, x_k, x_v = self.linear_q(x), self.linear_k(x), self.linear_v(x)  # (n, c)
-        x_k = query_and_group(self.n_sample, p, p, x_k, None, o, o, use_xyz=True)  # (n, n_sample, 3+c)
-        x_v = query_and_group(self.n_sample, p, p, x_v, None, o, o, use_xyz=False)  # (n, n_sample, c)
+        x_k = query_and_group(self.n_sample, p.contiguous(), p.contiguous(), x_k.contiguous(), None, o, o, use_xyz=True)  # (n, n_sample, 3+c)
+        x_v = query_and_group(self.n_sample, p.contiguous(), p.contiguous(), x_v.contiguous(), None, o, o, use_xyz=False)  # (n, n_sample, c)
         p_r, x_k = x_k[:, :, 0:3], x_k[:, :, 3:]
         for i, layer in enumerate(self.linear_p):
             # (n, n_sample, c)
