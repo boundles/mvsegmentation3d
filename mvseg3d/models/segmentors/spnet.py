@@ -49,13 +49,13 @@ class SPNet(nn.Module):
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, 256, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, self.fusion_feature_channel, bias=False),
+            nn.Linear(256, 128, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
@@ -123,18 +123,18 @@ class SPNet(nn.Module):
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
-        if self.use_multi_sweeps:
-            pxo = (points[cur_point_indices][:, 0:3], point_fusion_features, batch_dict['point_id_offset'].int())
-        else:
-            pxo = (points[:, 0:3], point_fusion_features, batch_dict['point_id_offset'].int())
-        point_fusion_features = self.transformer_decoder(pxo)
-
         # se block for channel attention
         if self.use_multi_sweeps:
             point_batch_indices = batch_dict['points'][:, 0][cur_point_indices]
         else:
             point_batch_indices = batch_dict['points'][:, 0]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
+
+        if self.use_multi_sweeps:
+            pxo = (points[cur_point_indices][:, 0:3], point_fusion_features, batch_dict['point_id_offset'].int())
+        else:
+            pxo = (points[:, 0:3], point_fusion_features, batch_dict['point_id_offset'].int())
+        point_fusion_features = self.transformer_decoder(pxo)
 
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)

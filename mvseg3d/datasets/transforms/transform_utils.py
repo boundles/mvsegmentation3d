@@ -95,9 +95,8 @@ def random_translation_along_z(points, offset_std):
 
 
 def points_random_sampling(points,
-                           sample_ratio,
+                           num_samples,
                            sample_range=None,
-                           replace=False,
                            return_choices=False):
     """Points random sampling.
 
@@ -105,11 +104,9 @@ def points_random_sampling(points,
 
     Args:
         points (np.ndarray): 3D Points.
-        sample_ratio (int): Ratio of samples to be sampled.
+        num_samples (int): Count of samples to be sampled.
         sample_range (float, optional): Indicating the range where the
             points will be sampled. Defaults to None.
-        replace (bool, optional): Sampling with or without replacement.
-            Defaults to False.
         return_choices (bool, optional): Whether return choice.
             Defaults to False.
     Returns:
@@ -117,11 +114,12 @@ def points_random_sampling(points,
             - points (np.ndarray): 3D Points.
             - choices (np.ndarray, optional): The generated random samples.
     """
-    num_samples = int(sample_ratio * points.shape[0])
+    if num_samples > points.shape[0]:
+        num_samples = points.shape[0]
     point_range = range(len(points))
-    if sample_range is not None and not replace:
+    if sample_range is not None:
         # Only sampling the near points when len(points) >= num_samples
-        dist = np.linalg.norm(points[:, :2], axis=1)
+        dist = np.linalg.norm(points[:, :3], axis=1)
         far_inds = np.where(dist >= sample_range)[0]
         near_inds = np.where(dist < sample_range)[0]
         # in case there are too many far points
@@ -129,8 +127,8 @@ def points_random_sampling(points,
             far_inds = np.random.choice(far_inds, num_samples, replace=False)
         point_range = near_inds
         num_samples -= len(far_inds)
-    choices = np.random.choice(point_range, num_samples, replace=replace)
-    if sample_range is not None and not replace:
+    choices = np.random.choice(point_range, num_samples, replace=False)
+    if sample_range is not None:
         choices = np.concatenate((far_inds, choices))
         # Shuffle points after sampling
         np.random.shuffle(choices)

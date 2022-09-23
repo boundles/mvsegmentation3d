@@ -46,20 +46,17 @@ class PointTransformerBlock(nn.Module):
 
     def __init__(self, in_planes, planes, share_planes=8, nsample=16):
         super(PointTransformerBlock, self).__init__()
-        self.linear1 = nn.Linear(in_planes, planes, bias=False)
+        self.transformer1 = PointTransformerLayer(in_planes, planes, share_planes, nsample)
         self.bn1 = nn.BatchNorm1d(planes)
-        self.transformer2 = PointTransformerLayer(planes, planes, share_planes, nsample)
-        self.bn2 = nn.BatchNorm1d(planes)
-        self.linear3 = nn.Linear(planes, planes * self.expansion, bias=False)
-        self.bn3 = nn.BatchNorm1d(planes * self.expansion)
+        self.linear2 = nn.Linear(planes, planes * self.expansion, bias=False)
+        self.bn2 = nn.BatchNorm1d(planes * self.expansion)
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, pxo):
         p, x, o = pxo  # (n, 3), (n, c), (b)
         identity = x
-        x = self.relu(self.bn1(self.linear1(x)))
-        x = self.relu(self.bn2(self.transformer2([p, x, o])))
-        x = self.bn3(self.linear3(x))
+        x = self.relu(self.bn1(self.transformer1([p, x, o])))
+        x = self.bn2(self.linear2(x))
         x += identity
         x = self.relu(x)
         return x
