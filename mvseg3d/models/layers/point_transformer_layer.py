@@ -6,7 +6,7 @@ from mvseg3d.utils.pointops_utils import query_and_group
 
 class PointTransformerLayer(nn.Module):
     def __init__(self, in_planes, out_planes, share_planes=8, n_sample=16):
-        super(PointTransformerLayer).__init__()
+        super(PointTransformerLayer, self).__init__()
         self.mid_planes = mid_planes = out_planes // 1
         self.out_planes = out_planes
         self.share_planes = share_planes
