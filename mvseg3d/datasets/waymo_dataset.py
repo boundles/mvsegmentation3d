@@ -183,7 +183,6 @@ class WaymoDataset(Dataset):
         points = np.concatenate(sweep_points_list, axis=0)
         return points
 
-
     def load_label(self, filename):
         label_file = self.get_label_path(filename)
         semantic_labels = np.load(label_file)[:, 1]  # (N, 1)
@@ -292,6 +291,11 @@ class WaymoDataset(Dataset):
             input_dict['point_labels'] = labels
 
         data_dict = self.prepare_data(data_dict=input_dict)
+
+        if self.cfg.DATASET.USE_MULTI_SWEEPS:
+            data_dict['cur_point_count'] = input_dict['cur_point_indices'].shape[0]
+        else:
+            data_dict['cur_point_count'] = input_dict['points'].shape[0]
         return data_dict
 
     @staticmethod
@@ -321,6 +325,13 @@ class WaymoDataset(Dataset):
             point_voxel_ids[point_voxel_ids != -1] += voxel_id_offset
             voxel_id_offset += voxel_coords_list[i].shape[0]
         ret['point_voxel_ids'] = np.concatenate(point_voxel_ids_list, axis=0)
+
+        cur_point_count_list = data_dict['cur_point_count']
+        point_id_offset, count = [], 0
+        for cur_point_count in cur_point_count_list:
+            count += cur_point_count
+            point_id_offset.append(count)
+        ret['point_id_offset'] = np.concatenate(point_id_offset, axis=0)
 
         batch_size = len(batch_list)
         ret['batch_size'] = batch_size

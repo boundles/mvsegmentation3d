@@ -5,8 +5,8 @@ import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import VFE
 from mvseg3d.models.backbones import SparseUnet
-from mvseg3d.models.layers import FlattenSELayer
-from mvseg3d.ops import voxel_to_point, voxel_max_pooling
+from mvseg3d.models.layers import FlattenSELayer, PointTransformerBlock
+from mvseg3d.ops import voxel_to_point
 
 
 class SPNet(nn.Module):
@@ -59,6 +59,8 @@ class SPNet(nn.Module):
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
+
+        self.transformer_decoder = PointTransformerBlock(self.fusion_feature_channel, self.fusion_feature_channel)
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
@@ -120,6 +122,12 @@ class SPNet(nn.Module):
         # fusion voxel features
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
+
+        if self.use_multi_sweeps:
+            pxo = (points[cur_point_indices][:, 0:3], point_fusion_features, batch_dict['point_id_offset'].int())
+        else:
+            pxo = (points[:, 0:3], point_fusion_features, batch_dict['point_id_offset'].int())
+        point_fusion_features = self.transformer_decoder(pxo)
 
         # se block for channel attention
         if self.use_multi_sweeps:

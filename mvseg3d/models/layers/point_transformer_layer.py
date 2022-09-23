@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from modules.pointops.functions import pointops
+from mvseg3d.utils.pointops_utils import query_and_group
 
 
 class PointTransformerLayer(nn.Module):
@@ -25,8 +25,8 @@ class PointTransformerLayer(nn.Module):
     def forward(self, pxo) -> torch.Tensor:
         p, x, o = pxo  # (n, 3), (n, c), (b)
         x_q, x_k, x_v = self.linear_q(x), self.linear_k(x), self.linear_v(x)  # (n, c)
-        x_k = pointops.queryandgroup(self.n_sample, p, p, x_k, None, o, o, use_xyz=True)  # (n, n_sample, 3+c)
-        x_v = pointops.queryandgroup(self.n_sample, p, p, x_v, None, o, o, use_xyz=False)  # (n, n_sample, c)
+        x_k = query_and_group(self.n_sample, p, p, x_k, None, o, o, use_xyz=True)  # (n, n_sample, 3+c)
+        x_v = query_and_group(self.n_sample, p, p, x_v, None, o, o, use_xyz=False)  # (n, n_sample, c)
         p_r, x_k = x_k[:, :, 0:3], x_k[:, :, 3:]
         for i, layer in enumerate(self.linear_p):
             # (n, n_sample, c)
@@ -39,4 +39,27 @@ class PointTransformerLayer(nn.Module):
         n, n_sample, c = x_v.shape
         s = self.share_planes
         x = ((x_v + p_r).view(n, n_sample, s, c // s) * w.unsqueeze(2)).sum(1).view(n, c)
+        return x
+
+class PointTransformerBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, in_planes, planes, share_planes=8, nsample=16):
+        super(PointTransformerBlock, self).__init__()
+        self.linear1 = nn.Linear(in_planes, planes, bias=False)
+        self.bn1 = nn.BatchNorm1d(planes)
+        self.transformer2 = PointTransformerLayer(planes, planes, share_planes, nsample)
+        self.bn2 = nn.BatchNorm1d(planes)
+        self.linear3 = nn.Linear(planes, planes * self.expansion, bias=False)
+        self.bn3 = nn.BatchNorm1d(planes * self.expansion)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, pxo):
+        p, x, o = pxo  # (n, 3), (n, c), (b)
+        identity = x
+        x = self.relu(self.bn1(self.linear1(x)))
+        x = self.relu(self.bn2(self.transformer2([p, x, o])))
+        x = self.bn3(self.linear3(x))
+        x += identity
+        x = self.relu(x)
         return x
