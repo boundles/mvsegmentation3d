@@ -293,9 +293,9 @@ class WaymoDataset(Dataset):
         data_dict = self.prepare_data(data_dict=input_dict)
 
         if self.cfg.DATASET.USE_MULTI_SWEEPS:
-            data_dict['cur_point_count'] = input_dict['cur_point_indices'].shape[0]
+            data_dict['cur_point_count'] = data_dict['cur_point_indices'].shape[0]
         else:
-            data_dict['cur_point_count'] = input_dict['points'].shape[0]
+            data_dict['cur_point_count'] = data_dict['points'].shape[0]
         return data_dict
 
     @staticmethod
@@ -331,7 +331,7 @@ class WaymoDataset(Dataset):
         for cur_point_count in cur_point_count_list:
             count += cur_point_count
             point_id_offset.append(count)
-        ret['point_id_offset'] = np.concatenate(point_id_offset, axis=0)
+        ret['point_id_offset'] = np.array(point_id_offset)
 
         batch_size = len(batch_list)
         ret['batch_size'] = batch_size
