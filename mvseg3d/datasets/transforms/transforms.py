@@ -212,7 +212,6 @@ class PointSample(object):
             points,
             self.num_samples,
             self.sample_range,
-            self.replace,
             return_choices=True)
         data_dict['points'] = points
 
