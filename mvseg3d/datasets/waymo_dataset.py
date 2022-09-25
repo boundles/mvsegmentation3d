@@ -41,7 +41,8 @@ class WaymoDataset(Dataset):
                                               transforms.RandomGlobalTranslation(cfg.DATASET.AUG_TRANSLATE_STD),
                                               transforms.RandomFlip(),
                                               transforms.PointShuffle(),
-                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO, cfg.DATASET.AUG_SAMPLE_RANGE)])
+                                              transforms.PointSample(cfg.DATASET.AUG_SAMPLE_RATIO_RANGE,
+                                                                     cfg.DATASET.AUG_SAMPLE_MAX_DISTANCE)])
 
     @property
     def dim_point(self):
@@ -318,7 +319,7 @@ class WaymoDataset(Dataset):
             elif key in ['filename']:
                 ret[key] = val
 
-        voxel_id_offset = [], count = 0
+        voxel_id_offset, count = [], 0
         point_voxel_ids_list = data_dict['point_voxel_ids']
         voxel_coords_list = data_dict['voxel_coords']
         for i, point_voxel_ids in enumerate(point_voxel_ids_list):
