@@ -5,8 +5,8 @@ import torch.nn as nn
 
 from mvseg3d.models.voxel_encoders import VFE
 from mvseg3d.models.backbones import SparseUnet
-from mvseg3d.models.layers import FlattenSELayer, PointTransformerBlock
-from mvseg3d.ops import voxel_to_point
+from mvseg3d.models.layers import FlattenSELayer
+from mvseg3d.utils.pointops_utils import interpolation
 
 
 class SPNet(nn.Module):
@@ -45,7 +45,9 @@ class SPNet(nn.Module):
         self.voxel_feature_channel = 64
         self.voxel_encoder = SparseUnet(self.voxel_in_feature_channel,
                                         self.voxel_feature_channel,
-                                        dataset.grid_size)
+                                        dataset.grid_size,
+                                        dataset.voxel_size,
+                                        dataset.point_cloud_range)
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
@@ -59,8 +61,6 @@ class SPNet(nn.Module):
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
-
-        self.transformer_decoder = PointTransformerBlock(self.fusion_feature_channel, self.fusion_feature_channel)
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
@@ -115,9 +115,17 @@ class SPNet(nn.Module):
 
         # point features from encoded voxel feature
         if self.use_multi_sweeps:
-            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids[cur_point_indices])
+            point_voxel_features = interpolation(batch_dict['voxel_centers'],
+                                                 points[cur_point_indices][:, 0:3].contiguous(),
+                                                 batch_dict['voxel_features'],
+                                                 batch_dict['voxel_id_offset'].int(),
+                                                 batch_dict['point_id_offset'].int())
         else:
-            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
+            point_voxel_features = interpolation(batch_dict['voxel_centers'],
+                                                 points[:, 0:3].contiguous(),
+                                                 batch_dict['voxel_features'],
+                                                 batch_dict['voxel_id_offset'].int(),
+                                                 batch_dict['point_id_offset'].int())
 
         # fusion voxel features
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
@@ -129,12 +137,6 @@ class SPNet(nn.Module):
         else:
             point_batch_indices = batch_dict['points'][:, 0]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
-
-        if self.use_multi_sweeps:
-            pxo = (points[cur_point_indices][:, 0:3], point_fusion_features, batch_dict['point_id_offset'].int())
-        else:
-            pxo = (points[:, 0:3], point_fusion_features, batch_dict['point_id_offset'].int())
-        point_fusion_features = self.transformer_decoder(pxo)
 
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)

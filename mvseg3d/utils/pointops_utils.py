@@ -23,3 +23,20 @@ def query_and_group(nsample, xyz, new_xyz, feat, idx, offset, new_offset, use_xy
         return torch.cat((grouped_xyz, grouped_feat), -1)  # (m, nsample, 3+c)
     else:
         return grouped_feat
+
+
+def interpolation(xyz, new_xyz, feat, offset, new_offset, k=3):
+    """
+    input: xyz: (m, 3), new_xyz: (n, 3), feat: (m, c), offset: (b), new_offset: (b)
+    output: (n, c)
+    """
+    assert xyz.is_contiguous() and new_xyz.is_contiguous() and feat.is_contiguous()
+    idx, dist = knn_query(k, xyz, new_xyz, offset, new_offset)  # (n, 3), (n, 3)
+    dist_recip = 1.0 / (dist + 1e-8)  # (n, 3)
+    norm = torch.sum(dist_recip, dim=1, keepdim=True)
+    weight = dist_recip / norm  # (n, 3)
+
+    new_feat = torch.cuda.FloatTensor(new_xyz.shape[0], feat.shape[1]).zero_()
+    for i in range(k):
+        new_feat += feat[idx[:, i].long(), :] * weight[:, i].unsqueeze(-1)
+    return new_feat

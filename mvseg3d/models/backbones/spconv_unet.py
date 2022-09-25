@@ -5,6 +5,7 @@ import torch.nn as nn
 
 import spconv.pytorch as spconv
 
+from mvseg3d.utils.geometry import get_voxel_centers
 from mvseg3d.utils.spconv_utils import replace_feature, ConvModule
 from mvseg3d.models.layers import FlattenSELayer, SALayer
 
@@ -99,9 +100,11 @@ class SparseUnet(nn.Module):
     From Points to Parts: 3D Object Detection from Point Cloud with Part-aware and Part-aggregation Network
     """
 
-    def __init__(self, input_channels, output_channels, grid_size):
+    def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range):
         super(SparseUnet, self).__init__()
         self.sparse_shape = grid_size[::-1]
+        self.voxel_size = voxel_size
+        self.point_cloud_range = point_cloud_range
 
         self.norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         self.act_fn = nn.ReLU(inplace=True)
@@ -186,6 +189,12 @@ class SparseUnet(nn.Module):
         x_conv2 = self.up2(x_conv3, x_conv2)
         x_conv1 = self.up1(x_conv2, x_conv1)
 
+        voxel_centers = get_voxel_centers(
+            x_conv1.indices[:, 1:], downsample_scale=1, voxel_size=self.voxel_size,
+            point_cloud_range=self.point_cloud_range
+        )
+
         batch_dict['voxel_features'] = x_conv1.features
+        batch_dict['voxel_centers'] = voxel_centers
 
         return batch_dict

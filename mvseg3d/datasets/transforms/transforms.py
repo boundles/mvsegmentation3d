@@ -185,7 +185,7 @@ class PointSample(object):
     Sampling data to a certain number.
 
     Args:
-        num_samples (float): Count of points to be sampled.
+        sample_ratio (List[float]): Ratio range of points to be sampled.
         sample_range (float, optional): The range where to sample points.
             If not None, the points with depth larger than `sample_range` are
             prior to be sampled. Defaults to None.
@@ -193,8 +193,8 @@ class PointSample(object):
             replacement. Defaults to False.
     """
 
-    def __init__(self, num_samples, sample_range=None, replace=False):
-        self.num_samples = num_samples
+    def __init__(self, sample_ratio, sample_range=None, replace=False):
+        self.sample_ratio = sample_ratio
         self.sample_range = sample_range
         self.replace = replace
 
@@ -207,10 +207,12 @@ class PointSample(object):
             dict: Results after sampling, 'points', 'point_image_features', 'point_indices',
                 and 'labels' keys are updated in the result dict.
         """
+        sample_ratio = np.random.uniform(self.sample_ratio[0], self.sample_ratio[1])
         points = data_dict['points']
+        num_samples = int(points.shape[0] * sample_ratio)
         points, point_indices = transform_utils.points_random_sampling(
             points,
-            self.num_samples,
+            num_samples,
             self.sample_range,
             return_choices=True)
         data_dict['points'] = points
