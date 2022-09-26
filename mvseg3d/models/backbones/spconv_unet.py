@@ -5,7 +5,6 @@ import torch.nn as nn
 
 import spconv.pytorch as spconv
 
-from mvseg3d.utils.geometry import get_voxel_centers
 from mvseg3d.utils.spconv_utils import replace_feature, ConvModule
 from mvseg3d.models.layers import FlattenSELayer, SALayer
 
@@ -153,8 +152,6 @@ class SparseUnet(nn.Module):
         # [1504, 1504, 72] -> [1504, 1504, 72]
         self.up1 = UpBlock(64, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
-        self.aux_voxel_feature_channel = 64
-
     def forward(self, batch_dict):
         """
         Args:
@@ -189,12 +186,6 @@ class SparseUnet(nn.Module):
         x_conv2 = self.up2(x_conv3, x_conv2)
         x_conv1 = self.up1(x_conv2, x_conv1)
 
-        voxel_centers = get_voxel_centers(
-            x_conv1.indices[:, 1:], downsample_scale=1, voxel_size=self.voxel_size,
-            point_cloud_range=self.point_cloud_range
-        )
-
         batch_dict['voxel_features'] = x_conv1.features
-        batch_dict['voxel_centers'] = voxel_centers
 
         return batch_dict

@@ -6,7 +6,7 @@ import torch.nn as nn
 from mvseg3d.models.voxel_encoders import VFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
-from mvseg3d.utils.pointops_utils import interpolation
+from mvseg3d.ops import voxel_to_point
 
 
 class SPNet(nn.Module):
@@ -51,13 +51,13 @@ class SPNet(nn.Module):
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 256, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 512, bias=False),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 128, bias=False),
-            nn.BatchNorm1d(128),
-            nn.ReLU(inplace=True),
-            nn.Linear(128, self.fusion_feature_channel, bias=False),
+            nn.Linear(256, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
@@ -115,17 +115,9 @@ class SPNet(nn.Module):
 
         # point features from encoded voxel feature
         if self.use_multi_sweeps:
-            point_voxel_features = interpolation(batch_dict['voxel_centers'],
-                                                 points[cur_point_indices][:, 0:3].contiguous(),
-                                                 batch_dict['voxel_features'],
-                                                 batch_dict['voxel_id_offset'].int(),
-                                                 batch_dict['point_id_offset'].int())
+            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids[cur_point_indices])
         else:
-            point_voxel_features = interpolation(batch_dict['voxel_centers'],
-                                                 points[:, 0:3].contiguous(),
-                                                 batch_dict['voxel_features'],
-                                                 batch_dict['voxel_id_offset'].int(),
-                                                 batch_dict['point_id_offset'].int())
+            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
         # fusion voxel features
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
