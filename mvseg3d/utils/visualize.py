@@ -41,13 +41,10 @@ def draw_points(palette, data_dict, output_dir):
 def draw_voxels(palette, voxel_size, pc_cloud_range, data_dict, output_dir):
     pcd = geometry.PointCloud()
 
-    voxel_coords = data_dict['voxel_coords']
-    if isinstance(voxel_coords, torch.Tensor):
-        voxel_coords = voxel_coords.cpu().numpy()
-
+    voxel_coords = torch.from_numpy(data_dict['voxel_coords'])
     voxel_centers = get_voxel_centers(voxel_coords, 1.0, voxel_size, pc_cloud_range)
 
-    points = voxel_centers.copy()
+    points = voxel_centers.numpy().copy()
     pcd.points = o3d.utility.Vector3dVector(points[:, :3])
 
     voxel_labels = data_dict['voxel_labels']
