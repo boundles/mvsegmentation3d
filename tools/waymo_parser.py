@@ -94,7 +94,7 @@ class WaymoParser(object):
             if c.name == open_dataset.LaserName.TOP:
                 xgrid, ygrid = np.meshgrid(range(TOP_LIDAR_COL_NUM), range(TOP_LIDAR_ROW_NUM))
                 col_row_inds_top = np.stack([xgrid, ygrid], axis=-1)
-                sl_points_ri= col_row_inds_top[np.where(range_image_mask)]
+                sl_points_ri = col_row_inds_top[np.where(range_image_mask)]
                 sl_points_ri = np.column_stack((sl_points_ri, ri_index * np.ones((sl_points_ri.shape[0], 1))))
             else:
                 num_valid_point = tf.math.reduce_sum(tf.cast(range_image_mask, tf.int32))
@@ -236,20 +236,18 @@ class WaymoParser(object):
         cp_cloud = np.concatenate([cp_points_0, cp_points_1], axis=0)
         point_cloud = np.concatenate([point_cloud, cp_cloud], axis=1)
 
-        # save misc
-        if self.test_mode:
-            # point range index of first return
-            points_ri_0 = self.convert_range_image_to_point_cloud_ri(
-                frame, range_images, ri_index=0)
-            points_ri_0 = np.concatenate(points_ri_0, axis=0)
+        # point range index of first return
+        points_ri_0 = self.convert_range_image_to_point_cloud_ri(
+            frame, range_images, ri_index=0)
+        points_ri_0 = np.concatenate(points_ri_0, axis=0)
 
-            # point range index of second return
-            points_ri_1 = self.convert_range_image_to_point_cloud_ri(
-                frame, range_images, ri_index=1)
-            points_ri_1 = np.concatenate(points_ri_1, axis=0)
+        # point range index of second return
+        points_ri_1 = self.convert_range_image_to_point_cloud_ri(
+            frame, range_images, ri_index=1)
+        points_ri_1 = np.concatenate(points_ri_1, axis=0)
 
-            points_ri = np.concatenate([points_ri_0, points_ri_1], axis=0)
-            point_cloud = np.concatenate([point_cloud, points_ri], axis=1)
+        points_ri = np.concatenate([points_ri_0, points_ri_1], axis=0)
+        point_cloud = np.concatenate([point_cloud, points_ri], axis=1)
 
         pc_path = f'{self.point_cloud_save_dir}/{file_id}' + \
                   f'{str(frame_idx).zfill(3)}'

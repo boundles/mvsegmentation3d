@@ -130,8 +130,7 @@ class WaymoDataset(Dataset):
 
     def load_points(self, filename):
         lidar_file = self.get_lidar_path(filename)
-        # (N, 15): [x, y, z, range, intensity, elongation, 6-dim camera project, range col, row and index]
-        # when test mode, otherwise (N, 12) without range col, row and index
+        # (x, y, z, range, intensity, elongation, 6-dim camera project, range col, row and index): [N, 15]
         lidar_points = np.load(lidar_file)
 
         # set range value to be zero
@@ -357,5 +356,4 @@ if __name__ == '__main__':
     dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
     for step, sample in enumerate(dataset):
         print(step, sample['points'].shape, sample['point_labels'].shape)
-
         draw_points(dataset.palette, sample, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2/visualize/points')
