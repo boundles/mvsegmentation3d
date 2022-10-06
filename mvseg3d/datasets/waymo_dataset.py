@@ -239,10 +239,10 @@ class WaymoDataset(Dataset):
         Returns:
             data_dict:
                 points: (N, ndim)
-                labels: optional, (N)
-                voxels: optional (num_voxels, max_points, ndim)
-                voxel_num_points: optional (num_voxels)
+                point_labels: optional, (N)
+                voxel_coords: optional, (num_voxels, 3)
                 point_voxel_ids: optional, (N)
+                voxel_labels: optional, (num_voxels)
         """
         if self.split == 'training' and self.cfg.DATASET.AUG_DATA:
             data_dict = self.transforms(data_dict)
@@ -349,12 +349,16 @@ if __name__ == '__main__':
     from mvseg3d.utils.config import cfg
     from mvseg3d.utils.visualize import draw_points, draw_voxels
 
+    visualization = False
     cfg.DATASET.PALETTE = [[0, 0, 142], [0, 0, 70], [0, 60, 100], [61, 133, 198], [180, 0, 0], [255, 0, 0], [220, 20, 60], [246, 178, 107],
                            [250, 170, 30], [153, 153, 153], [230, 145, 56], [119, 11, 32], [0, 0, 230], [70, 70, 70], [107, 142, 35],
                            [190, 153, 153], [196, 196, 196], [128, 64, 128], [234, 209, 220], [217, 210, 233], [81, 0, 81], [244, 35, 232]]
 
-    dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
+    data_dir = '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2'
+    dataset = WaymoDataset(cfg, data_dir, 'validation')
     for step, sample in enumerate(dataset):
         print(step, sample['points'].shape, sample['point_labels'].shape)
-        draw_points(dataset.palette, sample, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2/visualize/points')
-        draw_voxels(dataset.palette, dataset.voxel_size, dataset.point_cloud_range, sample, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2/visualize/voxels')
+
+        if visualization:
+            draw_points(dataset.palette, sample, os.path.join(data_dir, 'visualize/points'))
+            draw_voxels(dataset.palette, dataset.voxel_size, dataset.point_cloud_range, sample, os.path.join(data_dir, 'visualize/voxels'))
