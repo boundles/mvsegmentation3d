@@ -256,7 +256,7 @@ class WaymoDataset(Dataset):
         data_dict['voxel_coords'] = voxel_coords
         data_dict['point_voxel_ids'] = point_voxel_ids
 
-        voxel_centers = get_voxel_centers(voxel_coords, 1.0, self.voxel_size, self.point_cloud_range)
+        voxel_centers = get_voxel_centers(voxel_coords, 1.0, self.voxel_size, self.point_cloud_range).numpy()
         points = data_dict['points']
         center_to_point = points[:, :3] - voxel_centers[point_voxel_ids]
         data_dict['points'] = np.concatenate((points[:, :3], center_to_point, points[:, 3:]), axis=1)
