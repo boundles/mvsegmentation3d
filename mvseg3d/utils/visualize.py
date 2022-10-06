@@ -67,12 +67,3 @@ def draw_voxels(palette, voxel_size, pc_cloud_range, data_dict, output_dir):
 
     output_file = os.path.join(output_dir, data_dict['filename'])
     o3d.io.write_point_cloud(output_file, pcd)
-
-
-if __name__ == '__main__':
-    from mvseg3d.datasets.waymo_dataset import WaymoDataset
-    from mvseg3d.utils.config import cfg
-
-    dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
-    for step, sample in enumerate(dataset):
-        draw_points(dataset.palette, sample, 'vis/points')

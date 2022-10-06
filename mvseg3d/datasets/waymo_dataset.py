@@ -348,7 +348,10 @@ class WaymoDataset(Dataset):
 
 if __name__ == '__main__':
     from mvseg3d.utils.config import cfg
+    from mvseg3d.utils.visualize import draw_points
 
     dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
     for step, sample in enumerate(dataset):
         print(step, sample['points'].shape, sample['point_labels'].shape)
+
+        draw_points(dataset.palette, sample, 'vis/points')
