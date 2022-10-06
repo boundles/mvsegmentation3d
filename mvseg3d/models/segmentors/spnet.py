@@ -15,7 +15,9 @@ class SPNet(nn.Module):
 
         dim_point = dataset.dim_point
         if dataset.use_cylinder:
-            dim_point = dim_point + 2
+            dim_point = dim_point + 5
+        else:
+            dim_point = dim_point + 3
 
         self.point_feature_channel = 64
         self.point_encoder = nn.Sequential(

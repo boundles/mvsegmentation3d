@@ -1,14 +1,14 @@
 import os
 import glob
-
-import numpy as np
 from collections import defaultdict
 
+import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
-from mvseg3d.utils.geometry import cart2polar
+from mvseg3d.utils.geometry import cart2polar, get_voxel_centers
 
 
 class WaymoDataset(Dataset):
@@ -255,6 +255,11 @@ class WaymoDataset(Dataset):
         voxel_coords, point_voxel_ids = self.voxel_generator.generate(data_dict['points'])
         data_dict['voxel_coords'] = voxel_coords
         data_dict['point_voxel_ids'] = point_voxel_ids
+
+        voxel_centers = get_voxel_centers(voxel_coords, 1.0, self.voxel_size, self.point_cloud_range)
+        points = data_dict['points']
+        center_to_point = points[:, :3] - voxel_centers[point_voxel_ids]
+        data_dict['points'] = np.concatenate((points[:, :3], center_to_point, points[:, 3:]), axis=1)
 
         self.prepare_voxel_labels(data_dict)
 

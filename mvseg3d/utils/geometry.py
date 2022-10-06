@@ -56,6 +56,8 @@ def farthest_point_sample(xyz, npoint):
 
 
 def get_voxel_centers(voxel_coords, downsample_scale, voxel_size, point_cloud_range):
+    if isinstance(voxel_coords, np.ndarray):
+        voxel_coords = torch.from_numpy(voxel_coords)
     assert voxel_coords.shape[1] == 3
     voxel_centers = voxel_coords[:, [2, 1, 0]].float()  # (xyz)
     voxel_size = torch.tensor(voxel_size, device=voxel_centers.device).float() * downsample_scale

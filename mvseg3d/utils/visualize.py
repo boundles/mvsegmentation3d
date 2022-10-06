@@ -41,7 +41,7 @@ def draw_points(palette, data_dict, output_dir):
 def draw_voxels(palette, voxel_size, pc_cloud_range, data_dict, output_dir):
     pcd = geometry.PointCloud()
 
-    voxel_coords = torch.from_numpy(data_dict['voxel_coords'])
+    voxel_coords = data_dict['voxel_coords']
     voxel_centers = get_voxel_centers(voxel_coords, 1.0, voxel_size, pc_cloud_range)
 
     points = voxel_centers.numpy().copy()

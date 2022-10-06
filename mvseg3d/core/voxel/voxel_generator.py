@@ -145,17 +145,14 @@ def _points_to_voxel_reverse_kernel(points,
     grid_size = np.round(grid_size, 0, grid_size).astype(np.int32)
     coor = np.zeros(shape=(3, ), dtype=np.int32)
     voxel_num = 0
-    failed = False
     for i in range(N):
-        failed = False
         for j in range(ndim):
             c = np.floor((points[i, j] - coors_range[j]) / voxel_size[j])
-            if c < 0 or c >= grid_size[j]:
-                failed = True
-                break
+            if c < 0:
+                c = 0
+            elif c >= grid_size[j]:
+                c = (grid_size[j] - 1)
             coor[ndim_minus_1 - j] = c
-        if failed:
-            continue
         voxelidx = coor_to_voxelidx[coor[0], coor[1], coor[2]]
         if voxelidx == -1:
             voxelidx = voxel_num
@@ -207,17 +204,14 @@ def _points_to_voxel_kernel(points,
     # upper_bound = coors_range[3:]
     coor = np.zeros(shape=(3, ), dtype=np.int32)
     voxel_num = 0
-    failed = False
     for i in range(N):
-        failed = False
         for j in range(ndim):
             c = np.floor((points[i, j] - coors_range[j]) / voxel_size[j])
-            if c < 0 or c >= grid_size[j]:
-                failed = True
-                break
+            if c < 0:
+                c = 0
+            elif c >= grid_size[j]:
+                c = (grid_size[j] - 1)
             coor[j] = c
-        if failed:
-            continue
         voxelidx = coor_to_voxelidx[coor[0], coor[1], coor[2]]
         if voxelidx == -1:
             voxelidx = voxel_num
