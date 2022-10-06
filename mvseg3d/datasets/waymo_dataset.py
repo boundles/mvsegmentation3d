@@ -350,8 +350,13 @@ if __name__ == '__main__':
     from mvseg3d.utils.config import cfg
     from mvseg3d.utils.visualize import draw_points
 
+    cfg.DATASET.PALETTE =[[0, 0, 142], [0, 0, 70], [0, 60, 100], [61, 133, 198], [180, 0, 0], [255, 0, 0], [220, 20, 60],
+                          [246, 178, 107], [250, 170, 30], [153, 153, 153], [230, 145, 56], [119, 11, 32], [0, 0, 230],
+                          [70, 70, 70], [107, 142, 35], [220, 220, 0], [196, 196, 196], [128, 64, 128], [234, 209, 220],
+                          [217, 210, 233], [102, 102, 102], [244, 35, 232]]
+
     dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
     for step, sample in enumerate(dataset):
         print(step, sample['points'].shape, sample['point_labels'].shape)
 
-        draw_points(dataset.palette, sample, 'vis/points')
+        draw_points(dataset.palette, sample, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2/visualize/points')

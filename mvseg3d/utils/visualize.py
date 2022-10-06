@@ -34,7 +34,7 @@ def draw_points(palette, data_dict, output_dir):
         points_colors /= 255.0
     pcd.colors = o3d.utility.Vector3dVector(points_colors)
 
-    output_file = os.path.join(output_dir, data_dict['filename'])
+    output_file = os.path.join(output_dir, data_dict['filename'] + '.pcd')
     o3d.io.write_point_cloud(output_file, pcd)
 
 
@@ -65,5 +65,5 @@ def draw_voxels(palette, voxel_size, pc_cloud_range, data_dict, output_dir):
         voxel_colors /= 255.0
     pcd.colors = o3d.utility.Vector3dVector(voxel_colors)
 
-    output_file = os.path.join(output_dir, data_dict['filename'])
+    output_file = os.path.join(output_dir, data_dict['filename'] + '.pcd')
     o3d.io.write_point_cloud(output_file, pcd)
