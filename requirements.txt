@@ -7,3 +7,4 @@ torchvision
 torchaudio
 torch-scatter
 waymo-open-dataset-tf-2-6-0
+open3d

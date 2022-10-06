@@ -1,0 +1,78 @@
+import os
+
+import torch
+import numpy as np
+
+import open3d as o3d
+from open3d import geometry
+
+from mvseg3d.utils.geometry import get_voxel_centers
+
+
+def draw_points(palette, data_dict, output_dir):
+    pcd = geometry.PointCloud()
+
+    points = data_dict['points']
+    if isinstance(points, torch.Tensor):
+        points = points.cpu().numpy()
+
+    points = points.copy()
+    pcd.points = o3d.utility.Vector3dVector(points[:, :3])
+
+    point_labels = data_dict['point_labels']
+    if isinstance(point_labels, torch.Tensor):
+        point_labels = point_labels.cpu().numpy()
+
+    points_colors = np.zeros((point_labels.shape[0], 3), dtype=np.float32)
+    for i in range(point_labels.shape[0]):
+        if point_labels[i] == 255:
+            continue
+        points_colors[i] = np.array(palette[point_labels[i]])
+
+    # normalize to [0, 1] for open3d drawing
+    if not ((points_colors >= 0.0) & (points_colors <= 1.0)).all():
+        points_colors /= 255.0
+    pcd.colors = o3d.utility.Vector3dVector(points_colors)
+
+    output_file = os.path.join(output_dir, data_dict['filename'])
+    o3d.io.write_point_cloud(output_file, pcd)
+
+
+def draw_voxels(palette, voxel_size, pc_cloud_range, data_dict, output_dir):
+    pcd = geometry.PointCloud()
+
+    voxel_coords = data_dict['voxel_coords']
+    if isinstance(voxel_coords, torch.Tensor):
+        voxel_coords = voxel_coords.cpu().numpy()
+
+    voxel_centers = get_voxel_centers(voxel_coords, 1.0, voxel_size, pc_cloud_range)
+
+    points = voxel_centers.copy()
+    pcd.points = o3d.utility.Vector3dVector(points[:, :3])
+
+    voxel_labels = data_dict['voxel_labels']
+    if isinstance(voxel_labels, torch.Tensor):
+        voxel_labels = voxel_labels.cpu().numpy()
+
+    voxel_colors = np.zeros((voxel_labels.shape[0], 3), dtype=np.float32)
+    for i in range(voxel_labels.shape[0]):
+        if voxel_labels[i] == 255:
+            continue
+        voxel_colors[i] = np.array(palette[voxel_labels[i]])
+
+    # normalize to [0, 1] for open3d drawing
+    if not ((voxel_colors >= 0.0) & (voxel_colors <= 1.0)).all():
+        voxel_colors /= 255.0
+    pcd.colors = o3d.utility.Vector3dVector(voxel_colors)
+
+    output_file = os.path.join(output_dir, data_dict['filename'])
+    o3d.io.write_point_cloud(output_file, pcd)
+
+
+if __name__ == '__main__':
+    from mvseg3d.datasets.waymo_dataset import WaymoDataset
+    from mvseg3d.utils.config import cfg
+
+    dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
+    for step, sample in enumerate(dataset):
+        draw_points(dataset.palette, sample, 'vis/points')

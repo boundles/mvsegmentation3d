@@ -69,6 +69,10 @@ class WaymoDataset(Dataset):
         return self.cfg.DATASET.CLASS_WEIGHT
 
     @property
+    def palette(self):
+        return self.cfg.DATASET.PALETTE
+
+    @property
     def use_image_feature(self):
         return self.cfg.DATASET.USE_IMAGE_FEATURE
 
