@@ -84,10 +84,30 @@ class UpBlock(spconv.SparseModule):
         else:
             raise NotImplementedError
 
+    @staticmethod
+    def channel_reduction(x, out_channels):
+        """
+        Args:
+            x: x.features (N, C1)
+            out_channels: C2
+
+        Returns:
+
+        """
+        features = x.features
+        n, in_channels = features.shape
+        assert (in_channels % out_channels == 0) and (in_channels >= out_channels)
+
+        x = replace_feature(x, features.view(n, out_channels, -1).sum(dim=2))
+        return x
+
     def forward(self, x_bottom, x_lateral):
-        x = self.transform(x_bottom)
-        x = replace_feature(x, torch.cat([x_lateral.features, x.features], dim=1))
-        x = self.bottleneck(x)
+        x_trans = self.transform(x_lateral)
+        x = x_trans
+        x = replace_feature(x, torch.cat([x_bottom.features, x_trans.features], dim=1))
+        x_m = self.bottleneck(x)
+        x = self.channel_reduction(x, x_m.features.shape[1])
+        x = replace_feature(x, x_m.features + x.features)
         x = self.out(x)
         return x
 

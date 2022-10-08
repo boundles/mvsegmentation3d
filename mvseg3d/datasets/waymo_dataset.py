@@ -3,7 +3,6 @@ import glob
 from collections import defaultdict
 
 import numpy as np
-import torch
 from torch.utils.data import Dataset
 
 from mvseg3d.core import VoxelGenerator
@@ -259,7 +258,7 @@ class WaymoDataset(Dataset):
         voxel_centers = get_voxel_centers(voxel_coords, 1.0, self.voxel_size, self.point_cloud_range).numpy()
         points = data_dict['points']
         center_to_point = points[:, :3] - voxel_centers[point_voxel_ids]
-        data_dict['points'] = np.concatenate((points[:, :3], center_to_point, points[:, 3:]), axis=1)
+        data_dict['points'] = np.concatenate((points, center_to_point), axis=1)
 
         self.prepare_voxel_labels(data_dict)
 
