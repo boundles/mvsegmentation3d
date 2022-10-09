@@ -1,6 +1,5 @@
 DATASET:
   USE_CYLINDER: True
-  USE_IMAGE_FEATURE: False
   POINT_CLOUD_RANGE: [0, -3.1415926, -2, 75.2, 3.1415926, 5.2]
   VOXEL_SIZE: [0.05, 0.012, 0.1]
   CLASS_NAMES: ['Car', 'Truck', 'Bus', 'Other Vehicle', 'MotorCyclist', 'Bicyclist', 'Pedestrian', 'Sign',

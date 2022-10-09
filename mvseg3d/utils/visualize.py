@@ -10,6 +10,9 @@ from mvseg3d.utils.geometry import get_voxel_centers
 
 
 def draw_points(palette, data_dict, output_dir):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     pcd = geometry.PointCloud()
 
     points = data_dict['points']
@@ -39,6 +42,9 @@ def draw_points(palette, data_dict, output_dir):
 
 
 def draw_voxels(palette, voxel_size, pc_cloud_range, data_dict, output_dir):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     pcd = geometry.PointCloud()
 
     voxel_coords = data_dict['voxel_coords']

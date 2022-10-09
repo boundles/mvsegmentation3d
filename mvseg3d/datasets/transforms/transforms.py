@@ -150,8 +150,7 @@ class PointShuffle(object):
         point_labels = data_dict.get('point_labels', None)
 
         if cur_point_indices is not None:
-            cur_shuffled_indices = self.get_cur_shuffled_indices(cur_point_indices, point_indices)
-            data_dict['cur_point_indices'] = (data_dict['points'][:, 3] == 0).nonzero()[0]
+            cur_shuffled_indices, data_dict['cur_point_indices'] = self.get_shuffled_indices(cur_point_indices, point_indices)
         else:
             cur_shuffled_indices = point_indices
 
@@ -164,16 +163,18 @@ class PointShuffle(object):
         return data_dict
 
     @staticmethod
-    def get_cur_shuffled_indices(cur_point_indices, point_indices):
+    def get_shuffled_indices(cur_point_indices, point_indices):
         point_to_cur_index = {}
         for i, point_index in enumerate(cur_point_indices):
             point_to_cur_index[point_index] = i
 
         cur_shuffled_indices = []
+        glb_shuffled_indices = []
         for i, point_index in enumerate(point_indices):
             if point_index in point_to_cur_index:
                 cur_shuffled_indices.append(point_to_cur_index[point_index])
-        return np.array(cur_shuffled_indices)
+                glb_shuffled_indices.append(i)
+        return np.array(cur_shuffled_indices), np.array(glb_shuffled_indices)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -221,8 +222,7 @@ class PointSample(object):
         point_labels = data_dict.get('point_labels', None)
 
         if cur_point_indices is not None:
-            cur_shuffled_indices = self.get_cur_shuffled_indices(cur_point_indices, point_indices)
-            data_dict['cur_point_indices'] = (data_dict['points'][:, 3] == 0).nonzero()[0]
+            cur_shuffled_indices, data_dict['cur_point_indices'] = self.get_shuffled_indices(cur_point_indices, point_indices)
         else:
             cur_shuffled_indices = point_indices
 
@@ -235,16 +235,18 @@ class PointSample(object):
         return data_dict
 
     @staticmethod
-    def get_cur_shuffled_indices(cur_point_indices, point_indices):
+    def get_shuffled_indices(cur_point_indices, point_indices):
         point_to_cur_index = {}
         for i, point_index in enumerate(cur_point_indices):
             point_to_cur_index[point_index] = i
 
         cur_shuffled_indices = []
+        glb_shuffled_indices = []
         for i, point_index in enumerate(point_indices):
             if point_index in point_to_cur_index:
                 cur_shuffled_indices.append(point_to_cur_index[point_index])
-        return np.array(cur_shuffled_indices)
+                glb_shuffled_indices.append(i)
+        return np.array(cur_shuffled_indices), np.array(glb_shuffled_indices)
 
     def __repr__(self):
         """str: Return a string that describes the module."""
