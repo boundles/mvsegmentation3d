@@ -7,7 +7,6 @@ cfg = __C
 
 # dataset config
 __C.DATASET = edict()
-__C.DATASET.USE_TOP_LIDAR = False
 __C.DATASET.USE_MULTI_SWEEPS = False
 __C.DATASET.MAX_NUM_SWEEPS = 5
 __C.DATASET.NUM_SWEEPS = 3
@@ -88,41 +87,3 @@ def _merge_a_into_b(a, b):
                 raise
         else:
             b[k] = v
-
-
-def cfg_from_list(cfg_list):
-    """Set config keys via list (e.g., from command line)."""
-    from ast import literal_eval
-    assert len(cfg_list) % 2 == 0
-    for k, v in zip(cfg_list[0::2], cfg_list[1::2]):
-        key_list = k.split('.')
-        d = __C
-        for subkey in key_list[:-1]:
-            assert subkey in d
-            d = d[subkey]
-        subkey = key_list[-1]
-        assert subkey in d
-        try:
-            value = literal_eval(v)
-        except:
-            # handle the case when v is a string literal
-            value = v
-        assert type(value) == type(d[subkey]), \
-            'type {} does not match original type {}'.format(type(value), type(d[subkey]))
-        d[subkey] = value
-
-
-def save_config_to_file(cfg, pre='cfg', logger=None):
-    for key, val in cfg.items():
-        if isinstance(cfg[key], edict):
-            if logger is not None:
-                logger.info('\n%s.%s = edict()' % (pre, key))
-            else:
-                print('\n%s.%s = edict()' % (pre, key))
-            save_config_to_file(cfg[key], pre=pre + '.' + key, logger=logger)
-            continue
-
-        if logger is not None:
-            logger.info('%s.%s: %s' % (pre, key, val))
-        else:
-            print('%s.%s: %s' % (pre, key, val))
