@@ -18,7 +18,10 @@ class WaymoDataset(Dataset):
         self.split = split
         self.test_mode = test_mode
 
-        self.filenames = self.get_filenames('image_feature')
+        if self.test_mode:
+            self.filenames = self.get_filenames('image_feature')
+        else:
+            self.filenames = self.get_filenames('label')
 
         self.file_idx_to_name = dict()
         self.lidar_filenames = self.get_filenames('lidar')
@@ -26,10 +29,8 @@ class WaymoDataset(Dataset):
             file_idx, frame_idx, timestamp = self.parse_filename(filename)
             self.file_idx_to_name[(file_idx, frame_idx)] = filename
 
-        mode = 'train' if self.split == 'training' else 'test'
         self.voxel_generator = VoxelGenerator(voxel_size=cfg.DATASET.VOXEL_SIZE,
-                                              point_cloud_range=cfg.DATASET.POINT_CLOUD_RANGE,
-                                              max_voxels=cfg.DATASET.MAX_VOXELS[mode])
+                                              point_cloud_range=cfg.DATASET.POINT_CLOUD_RANGE)
 
         self.grid_size = self.voxel_generator.grid_size
         self.voxel_size = self.voxel_generator.voxel_size
