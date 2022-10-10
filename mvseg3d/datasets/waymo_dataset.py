@@ -266,8 +266,6 @@ class WaymoDataset(Dataset):
         center_to_point = points[:, :3] - voxel_centers[point_voxel_ids]
         data_dict['points'] = np.concatenate((points, center_to_point), axis=1)
 
-        self.prepare_voxel_labels(data_dict)
-
         return data_dict
 
     def __getitem__(self, index):
@@ -301,6 +299,10 @@ class WaymoDataset(Dataset):
             input_dict['point_labels'] = self.load_label(filename)
 
         data_dict = self.prepare_data(data_dict=input_dict)
+
+        if not self.test_mode:
+            self.prepare_voxel_labels(data_dict)
+
         return data_dict
 
     @staticmethod
