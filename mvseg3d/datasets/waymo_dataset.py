@@ -21,10 +21,10 @@ class WaymoDataset(Dataset):
         if self.test_mode:
             self.filenames = self.get_filenames('image_feature')
         else:
-            self.filenames = self.get_filenames('label')
+            self.filenames = self.get_filenames('label_top')
 
         self.file_idx_to_name = dict()
-        self.lidar_filenames = self.get_filenames('lidar')
+        self.lidar_filenames = self.get_filenames('lidar_top')
         for filename in self.lidar_filenames:
             file_idx, frame_idx, timestamp = self.parse_filename(filename)
             self.file_idx_to_name[(file_idx, frame_idx)] = filename
@@ -89,7 +89,7 @@ class WaymoDataset(Dataset):
                 glob.glob(os.path.join(self.root, self.split, dir_name, '*.npy'))]
 
     def get_lidar_path(self, filename):
-        lidar_file = os.path.join(self.root, self.split, 'lidar', filename + '.npy')
+        lidar_file = os.path.join(self.root, self.split, 'lidar_top', filename + '.npy')
         return lidar_file
 
     def get_image_feature_path(self, filename):
@@ -101,7 +101,7 @@ class WaymoDataset(Dataset):
         return pose_file
 
     def get_label_path(self, filename):
-        label_file = os.path.join(self.root, self.split, 'label', filename + '.npy')
+        label_file = os.path.join(self.root, self.split, 'label_top', filename + '.npy')
         return label_file
 
     @staticmethod
