@@ -5,7 +5,6 @@ from tqdm import tqdm
 
 import torch
 import torch.optim
-import numpy as np
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
@@ -27,12 +26,11 @@ def parse_args():
     parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--cudnn_benchmark', action='store_true', default=False, help='whether to use cudnn')
     parser.add_argument('--log_iter_interval', default=5, type=int)
-    parser.add_argument('--use_post_fusion', action='store_true', default=False, help='whether to use post fusion')
     args = parser.parse_args()
 
     return args
 
-def semseg_for_one_frame(args, model, data_dict):
+def semseg_for_one_frame(model, data_dict):
     points_ri = data_dict['points_ri']
     frame_id = data_dict['filename'][0]
 
@@ -40,20 +38,6 @@ def semseg_for_one_frame(args, model, data_dict):
     with torch.no_grad():
         result = model(data_dict)
     pred_labels = torch.argmax(result['point_out'], dim=1).cpu()
-
-    if args.use_post_fusion:
-        image_feature_file = os.path.join(args.data_dir, 'image_feature', frame_id + '.npy')
-        image_feature = np.load(image_feature_file, allow_pickle=True).item()
-        for idx in image_feature.keys():
-            pred_label = pred_labels[idx].item()
-            pixel_label = np.argmax(image_feature[idx])
-            # construction cone
-            if pixel_label == 13 and pred_label in [7, 9]:
-                pred_labels[idx] = 10
-
-            # traffic light
-            if pixel_label == 17 and pred_label in [7]:
-                pred_labels[idx] = 8
 
     seg_frame = construct_seg_frame(pred_labels, points_ri, frame_id)
     return seg_frame
@@ -63,7 +47,7 @@ def inference(args, data_loader, model, logger):
     model.eval()
     segmentation_frame_list = segmentation_metrics_pb2.SegmentationFrameList()
     for step, data_dict in enumerate(tqdm(data_loader), 1):
-        segmentation_frame = semseg_for_one_frame(args, model, data_dict)
+        segmentation_frame = semseg_for_one_frame(model, data_dict)
         segmentation_frame_list.frames.append(segmentation_frame)
 
     submission_file = os.path.join(args.save_dir, 'wod_test_set_pred_semantic_seg.bin')
