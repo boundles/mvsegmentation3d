@@ -6,7 +6,7 @@ import numpy as np
 import open3d as o3d
 from open3d import geometry
 
-from mvseg3d.utils.geometry import get_voxel_centers
+from mvseg3d.utils.pointops_utils import get_voxel_centers
 
 
 def draw_points(palette, data_dict, output_dir):

@@ -172,6 +172,8 @@ class SparseUnet(nn.Module):
         # [1504, 1504, 72] -> [1504, 1504, 72]
         self.up1 = UpBlock(64, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
+        self.aux_voxel_feature_channel = 512
+
     def forward(self, batch_dict):
         """
         Args:
@@ -200,6 +202,10 @@ class SparseUnet(nn.Module):
         x_conv3 = self.conv3(x_conv2)
         x_conv4 = self.conv4(x_conv3)
 
+        # auxiliary features
+        batch_dict['aux_voxel_features'] = x_conv4.features
+        batch_dict['aux_voxel_coords'] = x_conv4.indices
+
         # decoder
         x_conv4 = self.up4(x_conv4, x_conv4)
         x_conv3 = self.up3(x_conv4, x_conv3)
@@ -207,5 +213,6 @@ class SparseUnet(nn.Module):
         x_conv1 = self.up1(x_conv2, x_conv1)
 
         batch_dict['voxel_features'] = x_conv1.features
+        batch_dict['voxel_coords'] = x_conv1.indices
 
         return batch_dict
