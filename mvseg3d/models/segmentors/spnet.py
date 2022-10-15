@@ -80,7 +80,7 @@ class SPNet(nn.Module):
             nn.Linear(64, dataset.num_classes, bias=False))
 
         self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(self.aux_voxel_feature_channel, 64, bias=False),
+            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 64, bias=False),
             nn.BatchNorm1d(64),
             nn.ReLU(True),
             nn.Dropout(0.1),
