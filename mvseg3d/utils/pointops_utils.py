@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 from mvseg3d.ops import knn_query
 
