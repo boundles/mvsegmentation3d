@@ -115,6 +115,8 @@ class UpBlock(spconv.SparseModule):
 
 class ContextBlock(spconv.SparseModule):
     def __init__(self, voxel_size, point_cloud_range, inplanes):
+        super(ContextBlock, self).__init__()
+
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
         self.point_transformer = PointTransformerBlock(inplanes, inplanes)
