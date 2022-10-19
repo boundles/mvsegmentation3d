@@ -228,7 +228,7 @@ class SparseUnet(nn.Module):
         x_conv2 = self.conv2(x_conv1)
         x_conv3 = self.conv3(x_conv2)
         x_conv4 = self.conv4(x_conv3)
-        x_conv4 = self.context(x_conv4)
+        x_conv4 = self.context(x_conv4, batch_size)
 
         # auxiliary features
         batch_dict['aux_voxel_features'] = x_conv4.features
