@@ -5,8 +5,9 @@ import torch.nn as nn
 
 import spconv.pytorch as spconv
 
+from mvseg3d.utils.pointops_utils import get_voxel_centers
 from mvseg3d.utils.spconv_utils import replace_feature, ConvModule
-from mvseg3d.models.layers import FlattenSELayer, SALayer
+from mvseg3d.models.layers import FlattenSELayer, SALayer, PointTransformerBlock
 
 
 class SparseBasicBlock(spconv.SparseModule):
@@ -112,6 +113,28 @@ class UpBlock(spconv.SparseModule):
         return x
 
 
+class ContextBlock(spconv.SparseModule):
+    def __init__(self, voxel_size, point_cloud_range, inplanes):
+        self.voxel_size = voxel_size
+        self.point_cloud_range = point_cloud_range
+        self.point_transformer = PointTransformerBlock(inplanes, inplanes)
+
+    def forward(self, x, batch_size):
+        with torch.no_grad():
+            voxel_coords = x.indices
+            voxel_centers = get_voxel_centers(voxel_coords[:, 1:], 1.0, self.voxel_size, self.point_cloud_range)
+
+            voxel_id_offset, count = [], 0
+            for i in range(batch_size):
+                count += torch.sum(voxel_coords[:, 0] == i)
+                voxel_id_offset.append(count)
+            voxel_id_offset = torch.tensor(voxel_id_offset, device=voxel_centers.device).int()
+
+        out = self.point_transformer((voxel_centers, x.features, voxel_id_offset))[1]
+        out = replace_feature(x, out)
+        return out
+
+
 class SparseUnet(nn.Module):
     """
     Sparse Convolution based UNet for point-wise feature learning.
@@ -163,6 +186,8 @@ class SparseUnet(nn.Module):
             SparseBasicBlock(512, 512, norm_fn=self.norm_fn, act_fn=self.act_fn, with_se=True, indice_key='subm4')
         )
 
+        self.context = ContextBlock(self.voxel_size, self.point_cloud_range, 512)
+
         # [188, 188, 9] -> [376, 376, 18]
         self.up4 = UpBlock(512, 256, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=4)
         # [376, 376, 18] -> [752, 752, 36]
@@ -201,6 +226,7 @@ class SparseUnet(nn.Module):
         x_conv2 = self.conv2(x_conv1)
         x_conv3 = self.conv3(x_conv2)
         x_conv4 = self.conv4(x_conv3)
+        x_conv4 = self.context(x_conv4)
 
         # auxiliary features
         batch_dict['aux_voxel_features'] = x_conv4.features
