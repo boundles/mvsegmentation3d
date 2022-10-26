@@ -15,9 +15,7 @@ class SPNet(nn.Module):
 
         dim_point = dataset.dim_point
         if dataset.use_cylinder:
-            dim_point = dim_point + 5
-        else:
-            dim_point = dim_point + 3
+            dim_point = dim_point + 2
 
         self.point_feature_channel = 64
         self.point_encoder = nn.Sequential(
@@ -33,10 +31,6 @@ class SPNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(512, self.point_feature_channel))
 
-        self.use_image_feature = dataset.use_image_feature
-        if self.use_image_feature:
-            self.point_feature_channel += dataset.dim_image_feature
-
         self.use_multi_sweeps = dataset.use_multi_sweeps
         if self.use_multi_sweeps:
             self.vfe = VFE(dim_point, reduce='mean')
@@ -50,6 +44,10 @@ class SPNet(nn.Module):
                                         dataset.grid_size,
                                         dataset.voxel_size,
                                         dataset.point_cloud_range)
+
+        self.use_image_feature = dataset.use_image_feature
+        if self.use_image_feature:
+            self.point_feature_channel += dataset.dim_image_feature
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
@@ -109,11 +107,6 @@ class SPNet(nn.Module):
         else:
             point_per_features = self.point_encoder(points)
 
-        # decorating points with pixel-level semantic score
-        if self.use_image_feature:
-            point_image_features = batch_dict['point_image_features']
-            point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
-
         # encode voxel features
         point_voxel_ids = batch_dict['point_voxel_ids']
         if self.use_multi_sweeps:
@@ -127,6 +120,11 @@ class SPNet(nn.Module):
             point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids[cur_point_indices])
         else:
             point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
+
+        # decorating points with pixel-level semantic score
+        if self.use_image_feature:
+            point_image_features = batch_dict['point_image_features']
+            point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
         # fusion voxel features
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
