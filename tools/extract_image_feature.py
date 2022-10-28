@@ -25,14 +25,14 @@ def extract_image_features(model, image_dir, filename):
     return image_feature_maps
 
 
-def get_image_list(work_dir, split, pathnames_file):
+def get_image_list(data_dir, split, pathnames_file):
     with open(pathnames_file, 'r') as fp:
         pathnames = fp.read().splitlines()
 
     test_set_frames = None
     if split == 'testing':
         test_set_frames = dict()
-        with open(os.path.join(work_dir, '3d_semseg_test_set_frames.txt'), 'r') as fp:
+        with open(os.path.join(data_dir, 'testing/3d_semseg_test_set_frames.txt'), 'r') as fp:
             lines = fp.read().splitlines()
             for line in lines:
                 infos = line.split(',')
@@ -64,12 +64,12 @@ if __name__ == '__main__':
     feature_dir = os.path.join(data_dir, split, 'image_feature')
 
     # init model
-    config_file = os.path.join(work_dir, 'segformer_mit-b3_8x1_769x769_160k_waymo.py')
+    config_file = os.path.join(work_dir, 'segformer_mit-b5_8x1_769x769_160k_waymo.py')
     checkpoint_file = os.path.join(work_dir, 'latest.pth')
     model = init_segmentor(config_file, checkpoint_file, device='cuda:0')
 
     # extract feature from image paths
-    image_pathnames = get_image_list(work_dir, split, pathnames_file)
+    image_pathnames = get_image_list(data_dir, split, pathnames_file)
     for image_pathname in tqdm(image_pathnames):
         # get file name from path
         filename = os.path.basename(image_pathname).replace('.npy', '')

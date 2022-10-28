@@ -1,4 +1,4 @@
-from .mean_vfe import MeanVFE
+from .vfe import VFE
 
 
-__all__ = ['MeanVFE']
+__all__ = ['VFE']

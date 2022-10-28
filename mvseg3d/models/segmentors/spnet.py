@@ -3,10 +3,10 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-from mvseg3d.models.voxel_encoders import MeanVFE
+from mvseg3d.models.voxel_encoders import VFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
-from mvseg3d.ops import voxel_to_point, voxel_max_pooling
+from mvseg3d.ops import voxel_to_point
 
 
 class SPNet(nn.Module):
@@ -20,59 +20,69 @@ class SPNet(nn.Module):
         self.point_feature_channel = 64
         self.point_encoder = nn.Sequential(
             nn.BatchNorm1d(dim_point),
-            nn.Linear(dim_point, 64, bias=False),
-            nn.BatchNorm1d(64),
-            nn.ReLU(inplace=True),
-            nn.Linear(64, 128, bias=False),
+            nn.Linear(dim_point, 128, bias=False),
             nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
             nn.Linear(128, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, self.point_feature_channel))
+            nn.Linear(256, 512, bias=False),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, self.point_feature_channel))
+
+        self.use_multi_sweeps = dataset.use_multi_sweeps
+        if self.use_multi_sweeps:
+            self.vfe = VFE(dim_point, reduce='mean')
+        else:
+            self.vfe = VFE(self.point_feature_channel, reduce='max')
+
+        self.voxel_in_feature_channel = self.vfe.voxel_feature_channel
+        self.voxel_feature_channel = 64
+        self.voxel_encoder = SparseUnet(self.voxel_in_feature_channel,
+                                        self.voxel_feature_channel,
+                                        dataset.grid_size,
+                                        dataset.voxel_size,
+                                        dataset.point_cloud_range)
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
             self.point_feature_channel += dataset.dim_image_feature
 
-        self.use_multi_sweeps = dataset.use_multi_sweeps
-        if self.use_multi_sweeps:
-            self.mean_vfe = MeanVFE(dim_point)
-            self.voxel_in_feature_channel = self.mean_vfe.voxel_feature_channel
-        else:
-            self.mean_vfe = None
-            self.voxel_in_feature_channel = self.point_feature_channel
-
-        self.voxel_feature_channel = 32
-        self.voxel_encoder = SparseUnet(self.voxel_in_feature_channel,
-                                        self.voxel_feature_channel,
-                                        dataset.grid_size)
-
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 256, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 512, bias=False),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 128, bias=False),
-            nn.BatchNorm1d(128),
-            nn.ReLU(inplace=True),
-            nn.Linear(128, self.fusion_feature_channel, bias=False),
+            nn.Linear(256, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
 
         self.se = FlattenSELayer(self.fusion_feature_channel)
 
-        self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 32, bias=False),
-                                        nn.BatchNorm1d(32),
+        self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 64, bias=False),
+                                        nn.BatchNorm1d(64),
+                                        nn.ReLU(True),
                                         nn.Dropout(0.1),
-                                        nn.Linear(32, dataset.num_classes, bias=False))
+                                        nn.Linear(64, dataset.num_classes, bias=False))
 
         self.voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 32, bias=False),
-            nn.BatchNorm1d(32),
+            nn.Linear(self.voxel_feature_channel, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(True),
             nn.Dropout(0.1),
-            nn.Linear(32, dataset.num_classes, bias=False))
+            nn.Linear(64, dataset.num_classes, bias=False))
+
+        self.aux_voxel_classifier = nn.Sequential(
+            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(True),
+            nn.Dropout(0.1),
+            nn.Linear(64, dataset.num_classes, bias=False))
 
         self.weight_initialization()
 
@@ -91,29 +101,40 @@ class SPNet(nn.Module):
 
     def forward(self, batch_dict):
         points = batch_dict['points'][:, 1:]
-        point_per_features = self.point_encoder(points)
+        if self.use_multi_sweeps:
+            cur_point_indices = (points[:, 3] == 0)
+            point_per_features = self.point_encoder(points[cur_point_indices])
+        else:
+            point_per_features = self.point_encoder(points)
+
+        # encode voxel features
+        point_voxel_ids = batch_dict['point_voxel_ids']
+        if self.use_multi_sweeps:
+            batch_dict['voxel_features'] = self.vfe(points, point_voxel_ids)
+        else:
+            batch_dict['voxel_features'] = self.vfe(point_per_features, point_voxel_ids)
+        batch_dict = self.voxel_encoder(batch_dict)
+
+        # point features from encoded voxel feature
+        if self.use_multi_sweeps:
+            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids[cur_point_indices])
+        else:
+            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
             point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
 
-        # encode voxel features
-        point_voxel_ids = batch_dict['point_voxel_ids']
-        if self.use_multi_sweeps:
-            batch_dict['voxel_features'] = self.mean_vfe(batch_dict)
-        else:
-            batch_dict['voxel_features'] = voxel_max_pooling(point_per_features, point_voxel_ids)
-
-        batch_dict = self.voxel_encoder(batch_dict)
-        point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
-
         # fusion voxel features
         point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # se block for channel attention
-        point_batch_indices = batch_dict['points'][:, 0]
+        if self.use_multi_sweeps:
+            point_batch_indices = batch_dict['points'][:, 0][cur_point_indices]
+        else:
+            point_batch_indices = batch_dict['points'][:, 0]
         point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
@@ -123,5 +144,12 @@ class SPNet(nn.Module):
         voxel_features = batch_dict['voxel_features']
         voxel_out = self.voxel_classifier(voxel_features)
         result['voxel_out'] = voxel_out
+
+        aux_voxel_features = batch_dict['aux_voxel_features']
+        aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
+        result['aux_voxel_out'] = aux_voxel_out
+
+        result['voxel_coords'] = batch_dict['voxel_coords']
+        result['aux_voxel_coords'] = batch_dict['aux_voxel_coords']
 
         return result

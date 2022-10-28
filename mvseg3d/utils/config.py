@@ -13,14 +13,13 @@ __C.DATASET.NUM_SWEEPS = 3
 __C.DATASET.USE_CYLINDER = False
 __C.DATASET.POINT_CLOUD_RANGE = [-75.2, -75.2, -2, 75.2, 75.2, 5.2]
 __C.DATASET.VOXEL_SIZE = [0.1, 0.1, 0.1]
-__C.DATASET.MAX_NUM_POINTS = 10
-__C.DATASET.MAX_VOXELS = {'train': 90000, 'test': 150000}
 __C.DATASET.DIM_POINT = 6
-__C.DATASET.USE_IMAGE_FEATURE = True
+__C.DATASET.USE_IMAGE_FEATURE = False
 __C.DATASET.DIM_IMAGE_FEATURE = 28
 __C.DATASET.NUM_CLASSES = 22
 __C.DATASET.CLASS_NAMES = []
 __C.DATASET.CLASS_WEIGHT = []
+__C.DATASET.PALETTE = []
 __C.DATASET.IGNORE_INDEX = 255
 
 __C.DATASET.AUG_DATA = True
@@ -29,7 +28,9 @@ __C.DATASET.AUG_SCALE_RANGE = [0.95, 1.05]
 __C.DATASET.AUG_TRANSLATE_STD = 0.5
 __C.DATASET.AUG_SAMPLE_RATIO = 0.95
 __C.DATASET.AUG_SAMPLE_RANGE = 50.0
-__C.DATASET.AUG_DROP_RATIO = 0.5
+__C.DATASET.AUG_COLOR_DROP_RATIO = 0.5
+
+__C.DATASET.VISUALIZE = False
 
 # model config
 __C.MODEL = edict()
@@ -85,41 +86,3 @@ def _merge_a_into_b(a, b):
                 raise
         else:
             b[k] = v
-
-
-def cfg_from_list(cfg_list):
-    """Set config keys via list (e.g., from command line)."""
-    from ast import literal_eval
-    assert len(cfg_list) % 2 == 0
-    for k, v in zip(cfg_list[0::2], cfg_list[1::2]):
-        key_list = k.split('.')
-        d = __C
-        for subkey in key_list[:-1]:
-            assert subkey in d
-            d = d[subkey]
-        subkey = key_list[-1]
-        assert subkey in d
-        try:
-            value = literal_eval(v)
-        except:
-            # handle the case when v is a string literal
-            value = v
-        assert type(value) == type(d[subkey]), \
-            'type {} does not match original type {}'.format(type(value), type(d[subkey]))
-        d[subkey] = value
-
-
-def save_config_to_file(cfg, pre='cfg', logger=None):
-    for key, val in cfg.items():
-        if isinstance(cfg[key], edict):
-            if logger is not None:
-                logger.info('\n%s.%s = edict()' % (pre, key))
-            else:
-                print('\n%s.%s = edict()' % (pre, key))
-            save_config_to_file(cfg[key], pre=pre + '.' + key, logger=logger)
-            continue
-
-        if logger is not None:
-            logger.info('%s.%s: %s' % (pre, key, val))
-        else:
-            print('%s.%s: %s' % (pre, key, val))
