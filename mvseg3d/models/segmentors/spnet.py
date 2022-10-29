@@ -42,7 +42,6 @@ class DeepFusionBlock(nn.Module):
         attn[invalid_mask] = float('-inf')
         attn = F.softmax(attn, dim=-1)
         attn = torch.nan_to_num(attn)
-        attn = self.attn_dropout(attn)
 
         v = v[knn_ids.long()]
         y = torch.einsum('nk,nkc->nc', attn, v)
@@ -173,7 +172,7 @@ class SPNet(nn.Module):
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
-            point_image_features = self.deep_fusion(cur_points.contiguous(), batch_dict['point_id_offset'],
+            point_image_features = self.deep_fusion(cur_points.contiguous(), batch_dict['point_id_offset'].int(),
                                                     point_per_features, point_image_features)
 
         # fusion voxel features
