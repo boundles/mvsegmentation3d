@@ -148,9 +148,11 @@ class SPNet(nn.Module):
         points = batch_dict['points'][:, 1:]
         if self.use_multi_sweeps:
             cur_point_indices = (points[:, 3] == 0)
-            point_per_features = self.point_encoder(points[cur_point_indices])
+            cur_points = points[cur_point_indices]
         else:
-            point_per_features = self.point_encoder(points)
+            cur_points = points
+
+        point_per_features = self.point_encoder(cur_points)
 
         # encode voxel features
         point_voxel_ids = batch_dict['point_voxel_ids']
@@ -166,21 +168,16 @@ class SPNet(nn.Module):
         else:
             point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
-        point_lidar_features = torch.cat([point_per_features, point_voxel_features], dim=1)
+        point_per_features = torch.cat([point_per_features, point_voxel_features], dim=1)
 
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
-            if self.use_multi_sweeps:
-                cur_point_indices = (points[:, 3] == 0)
-                point_image_features = self.deep_fusion(points[cur_point_indices], batch_dict['point_id_offset'],
-                                                        point_lidar_features, point_image_features)
-            else:
-                point_image_features = self.deep_fusion(points, batch_dict['point_id_offset'],
-                                                        point_lidar_features, point_image_features)
+            point_image_features = self.deep_fusion(cur_points.contiguous(), batch_dict['point_id_offset'],
+                                                    point_per_features, point_image_features)
 
         # fusion voxel features
-        point_fusion_features = torch.cat([point_lidar_features, point_image_features], dim=1)
+        point_fusion_features = torch.cat([point_per_features, point_image_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # se block for channel attention
