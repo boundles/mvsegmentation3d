@@ -2,11 +2,52 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+import numpy as np
 
 from mvseg3d.models.voxel_encoders import VFE
 from mvseg3d.models.backbones import SparseUnet
 from mvseg3d.models.layers import FlattenSELayer
-from mvseg3d.ops import voxel_to_point
+from mvseg3d.ops import voxel_to_point, knn_query
+
+
+class DeepFusionBlock(nn.Module):
+    def __init__(self, lidar_channel, image_channel, hidden_channel, n_neighbors, attn_pdrop=0.5):
+        super(DeepFusionBlock, self).__init__()
+
+        self.lidar_channel = lidar_channel
+        self.image_channel = image_channel
+        self.n_neighbors = n_neighbors
+
+        self.q_embedding = nn.Linear(lidar_channel, hidden_channel)
+        self.k_embedding = nn.Linear(image_channel, hidden_channel)
+        self.v_embedding = nn.Linear(image_channel, hidden_channel)
+
+        self.attn_dropout = nn.Dropout(attn_pdrop)
+
+        self.c_proj = nn.Linear(hidden_channel, image_channel)
+
+    def forward(self, points, point_id_offset, lidar_features, image_features):
+        q = self.q_embedding(lidar_features)
+        k = self.k_embedding(image_features)
+        v = self.v_embedding(image_features)
+
+        knn_ids, _ = knn_query(self.n_neighbors, points, points, point_id_offset, point_id_offset)
+        k = k[knn_ids.long()]
+        attn = torch.einsum('nc,nkc->nk', q, k) / np.sqrt(q.shape[-1])
+
+        invalid_mask = (torch.sum(image_features, dim=1) == 0)
+        invalid_mask = invalid_mask[knn_ids.long()]
+        attn[invalid_mask] = float('-inf')
+        attn = F.softmax(attn, dim=-1)
+        attn = torch.nan_to_num(attn)
+        attn = self.attn_dropout(attn)
+
+        v = v[knn_ids.long()]
+        y = torch.einsum('nk,nkc->nc', attn, v)
+        y = self.c_proj(y)
+        return y
 
 
 class SPNet(nn.Module):
@@ -47,11 +88,15 @@ class SPNet(nn.Module):
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
-            self.point_feature_channel += dataset.dim_image_feature
+            self.image_feature_channel = dataset.dim_image_feature
+            self.deep_fusion = DeepFusionBlock(self.point_feature_channel + self.voxel_feature_channel,
+                                               self.image_feature_channel, 32, 16)
+        else:
+            self.image_feature_channel = 0
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel, 512, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel, 512, bias=False),
             nn.BatchNorm1d(512),
             nn.ReLU(inplace=True),
             nn.Linear(512, 256, bias=False),
@@ -121,13 +166,21 @@ class SPNet(nn.Module):
         else:
             point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
+        point_lidar_features = torch.cat([point_per_features, point_voxel_features], dim=1)
+
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
-            point_per_features = torch.cat([point_per_features, point_image_features], dim=1)
+            if self.use_multi_sweeps:
+                cur_point_indices = (points[:, 3] == 0)
+                point_image_features = self.deep_fusion(points[cur_point_indices], batch_dict['point_id_offset'],
+                                                        point_lidar_features, point_image_features)
+            else:
+                point_image_features = self.deep_fusion(points, batch_dict['point_id_offset'],
+                                                        point_lidar_features, point_image_features)
 
         # fusion voxel features
-        point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
+        point_fusion_features = torch.cat([point_lidar_features, point_image_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # se block for channel attention
