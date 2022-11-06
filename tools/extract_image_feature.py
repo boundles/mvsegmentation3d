@@ -64,7 +64,7 @@ if __name__ == '__main__':
     feature_dir = os.path.join(data_dir, split, 'image_feature')
 
     # init model
-    config_file = os.path.join(work_dir, 'segformer_mit-b5_8x1_769x769_160k_waymo.py')
+    config_file = os.path.join(work_dir, 'segformer_mit-b3_8x1_769x769_160k_waymo.py')
     checkpoint_file = os.path.join(work_dir, 'latest.pth')
     model = init_segmentor(config_file, checkpoint_file, device='cuda:0')
 
@@ -96,7 +96,7 @@ if __name__ == '__main__':
                 image_x = int(point[10])
                 image_y = int(point[11])
 
-            if camera_id and image_x and image_y:
+            if camera_id is not None and image_x is not None and and image_y is not None:
                 point_image_features[i] = image_feature_maps[camera_id][:, image_y, image_x]
 
         np.save(feature_file, point_image_features)
