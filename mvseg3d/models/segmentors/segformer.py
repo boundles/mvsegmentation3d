@@ -111,7 +111,8 @@ class Segformer(nn.Module):
         else:
             cur_points = points
 
-        point_per_features = self.point_transformer((cur_points[:, :3].contiguous(), cur_points[:, 3:].contiguous(), point_id_offset))
+        point_per_features = self.point_transformer((cur_points[:, :3].contiguous(),
+                                                     cur_points[:, 3:].contiguous(), point_id_offset))
 
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
