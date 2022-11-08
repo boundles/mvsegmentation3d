@@ -72,10 +72,11 @@ def compute_loss(pred_result, data_dict, criterion):
     for loss_func, loss_weight in criterion:
         loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
 
-    voxel_gt_labels = data_dict['voxel_labels']
-    voxel_pred_labels = pred_result['voxel_out']
-    for loss_func, loss_weight in criterion:
-        loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
+    if 'voxel_out' in pred_result:
+        voxel_gt_labels = data_dict['voxel_labels']
+        voxel_pred_labels = pred_result['voxel_out']
+        for loss_func, loss_weight in criterion:
+            loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
     if 'aux_voxel_out' in pred_result:
         with torch.no_grad():
