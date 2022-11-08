@@ -84,7 +84,7 @@ def main():
         training=False)
 
     # define model
-    model = build_segmentor(test_dataset).cuda()
+    model = build_segmentor(cfg, test_dataset).cuda()
     checkpoint = torch.load(os.path.join(args.save_dir, 'latest.pth'), map_location='cpu')
     model.load_state_dict(checkpoint['model'])
 

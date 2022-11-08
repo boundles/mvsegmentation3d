@@ -230,7 +230,7 @@ def main():
     data_loaders = {'train': train_loader, 'val': val_loader}
 
     # define model
-    model = build_segmentor(train_dataset)
+    model = build_segmentor(cfg, train_dataset)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()

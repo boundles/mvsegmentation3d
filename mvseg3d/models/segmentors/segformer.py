@@ -52,6 +52,8 @@ class Segformer(nn.Module):
     def __init__(self, dataset):
         super(Segformer, self).__init__()
 
+        self.use_multi_sweeps = dataset.use_multi_sweeps
+
         dim_point = dataset.dim_point
         self.point_feature_channel = 32
 
