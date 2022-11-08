@@ -4,7 +4,7 @@ from mvseg3d.models.backbones import PointTransformer
 
 
 if __name__ == '__main__':
-    point_transformer = PointTransformer(3, 8)
+    point_transformer = PointTransformer(16, 8)
 
     points = torch.randn((1800, 3)).cuda()
     features = torch.randn((1800, 16)).cuda()

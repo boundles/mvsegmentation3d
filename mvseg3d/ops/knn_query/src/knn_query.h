@@ -1,5 +1,5 @@
-#ifndef _KNN_QUERY_CUDA_KERNEL
-#define _KNN_QUERY_CUDA_KERNEL
+#ifndef _KNN_QUERY
+#define _KNN_QUERY
 
 #include <vector>
 

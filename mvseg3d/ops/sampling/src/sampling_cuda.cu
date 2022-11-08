@@ -1,5 +1,6 @@
 #include "sampling.h"
 
+#define TOTAL_THREADS 1024
 
 inline int opt_n_threads(int work_size) {
     const int pow_2 = std::log(static_cast<double>(work_size)) / std::log(2.0);
@@ -172,4 +173,14 @@ void furthestsampling_cuda_launcher(int b, int n, const float *xyz, const int *o
         default:
             furthestsampling_cuda_kernel<512><<<b, n_threads, 0>>>(xyz, offset, new_offset, tmp, idx);
     }
+}
+
+void furthestsampling_cuda(int b, int n, at::Tensor xyz_tensor, at::Tensor offset_tensor, at::Tensor new_offset_tensor, at::Tensor tmp_tensor, at::Tensor idx_tensor)
+{
+    const float *xyz = xyz_tensor.data_ptr<float>();
+    const int *offset = offset_tensor.data_ptr<int>();
+    const int *new_offset = new_offset_tensor.data_ptr<int>();
+    float *tmp = tmp_tensor.data_ptr<float>();
+    int *idx = idx_tensor.data_ptr<int>();
+    furthestsampling_cuda_launcher(b, n, xyz, offset, new_offset, tmp, idx);
 }

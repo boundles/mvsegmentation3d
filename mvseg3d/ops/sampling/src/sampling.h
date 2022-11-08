@@ -2,6 +2,7 @@
 #define _SAMPLING
 
 #include <vector>
+#include <cmath>
 #include <torch/serialize/tensor.h>
 #include <ATen/cuda/CUDAContext.h>
 
