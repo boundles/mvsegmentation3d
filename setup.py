@@ -71,7 +71,13 @@ setuptools.setup(
             module='mvseg3d.ops.knn_query',
             extra_include_path=['/usr/local/cuda/include'],
             sources=['src/knn_query.cpp'],
-            sources_cuda=['src/knn_query_cuda.cu'])
+            sources_cuda=['src/knn_query_cuda.cu']),
+        make_cuda_ext(
+            name='sampling_ext',
+            module='mvseg3d.ops.sampling',
+            extra_include_path=['/usr/local/cuda/include'],
+            sources=['src/sampling.cpp'],
+            sources_cuda=['src/sampling_cuda.cu'])
     ],
     cmdclass={'build_ext': BuildExtension},
     zip_safe=False
