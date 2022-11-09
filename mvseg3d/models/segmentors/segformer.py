@@ -6,9 +6,10 @@ import torch.nn.functional as F
 
 import numpy as np
 
+from mvseg3d.models.voxel_encoders import VFE
 from mvseg3d.models.backbones import PointTransformer
 from mvseg3d.models.layers import FlattenSELayer
-from mvseg3d.ops import knn_query
+from mvseg3d.ops import knn_query, voxel_to_point
 
 
 class DeepFusionBlock(nn.Module):
@@ -52,23 +53,47 @@ class Segformer(nn.Module):
     def __init__(self, dataset):
         super(Segformer, self).__init__()
 
-        self.use_multi_sweeps = dataset.use_multi_sweeps
-
         dim_point = dataset.dim_point
-        self.point_feature_channel = 32
+        if dataset.use_cylinder:
+            dim_point = dim_point + 2
 
-        self.point_transformer = PointTransformer(dim_point)
+        self.point_feature_channel = 64
+        self.point_encoder = nn.Sequential(
+            nn.BatchNorm1d(dim_point),
+            nn.Linear(dim_point, 128, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, 256, bias=False),
+            nn.BatchNorm1d(256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, 512, bias=False),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, self.point_feature_channel))
+
+        self.use_multi_sweeps = dataset.use_multi_sweeps
+        if self.use_multi_sweeps:
+            self.vfe = VFE(dim_point, reduce='mean')
+        else:
+            self.vfe = VFE(self.point_feature_channel, reduce='max')
+
+        self.scatter = VFE(3, reduce='mean')
+
+        self.voxel_in_feature_channel = self.vfe.voxel_feature_channel
+        self.voxel_feature_channel = 32
+        self.point_transformer = PointTransformer(self.voxel_in_feature_channel + 3)
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
             self.image_feature_channel = dataset.dim_image_feature
-            self.deep_fusion = DeepFusionBlock(self.point_feature_channel, self.image_feature_channel, 32, 16)
+            self.deep_fusion = DeepFusionBlock(self.point_feature_channel + self.voxel_feature_channel,
+                                               self.image_feature_channel, 32, 16)
         else:
             self.image_feature_channel = 0
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.image_feature_channel, 512, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel, 512, bias=False),
             nn.BatchNorm1d(512),
             nn.ReLU(inplace=True),
             nn.Linear(512, 256, bias=False),
@@ -110,9 +135,24 @@ class Segformer(nn.Module):
             cur_points = points[cur_point_indices]
         else:
             cur_points = points
+        point_per_features = self.point_encoder(cur_points)
 
-        point_per_features = self.point_transformer((cur_points[:, :3].contiguous(),
-                                                     cur_points[:, 3:].contiguous(), point_id_offset))
+        # encode voxel features
+        point_voxel_ids = batch_dict['point_voxel_ids']
+        voxel_id_offset = batch_dict['voxel_id_offset'].int()
+        if self.use_multi_sweeps:
+            voxel_features = self.vfe(points, point_voxel_ids)
+        else:
+            voxel_features = self.vfe(point_per_features, point_voxel_ids)
+        voxel_points = self.scatter(points[:, :3], point_voxel_ids)
+        batch_dict['voxel_features'] = self.point_transformer((voxel_points.contiguous(), voxel_features, voxel_id_offset))
+
+        # point features from encoded voxel feature
+        if self.use_multi_sweeps:
+            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids[cur_point_indices])
+        else:
+            point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
+        point_per_features = torch.cat([point_per_features, point_voxel_features], dim=1)
 
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
