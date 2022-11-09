@@ -8,9 +8,9 @@ class PointTransformer(nn.Module):
     def __init__(self, in_channel):
         super(PointTransformer, self).__init__()
         block = PointTransformerBlock
-        num_block = [2, 3, 4, 6, 3]
+        num_block = [3, 4, 6, 3]
         self.in_c = in_channel
-        self.in_planes, planes = self.in_c, [32, 64, 128, 256, 512]
+        self.in_planes, planes = self.in_c, [64, 128, 256, 512]
         fpn_planes, fpnhead_planes, share_planes = 128, 64, 8
         stride, nsample = [1, 4, 4, 4], [16, 16, 16, 16]
         self.enc1 = self._make_enc(block, planes[0], num_block[0], share_planes, stride=stride[0],
