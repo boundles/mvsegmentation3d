@@ -60,16 +60,16 @@ class Segformer(nn.Module):
         self.point_feature_channel = 64
         self.point_encoder = nn.Sequential(
             nn.BatchNorm1d(dim_point),
-            nn.Linear(dim_point, 128, bias=False),
+            nn.Linear(dim_point, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, 128, bias=False),
             nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
             nn.Linear(128, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, self.point_feature_channel))
+            nn.Linear(256, self.point_feature_channel))
 
         self.use_multi_sweeps = dataset.use_multi_sweeps
         if self.use_multi_sweeps:
@@ -93,13 +93,13 @@ class Segformer(nn.Module):
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, 256, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, self.fusion_feature_channel, bias=False),
+            nn.Linear(256, 128, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
