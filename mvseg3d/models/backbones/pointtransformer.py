@@ -10,16 +10,16 @@ class PointTransformer(nn.Module):
         block = PointTransformerBlock
         num_block = [3, 4, 6, 3]
         self.in_c = in_channel
-        self.in_planes, planes, share_planes = self.in_c, [32, 64, 128, 256], 8
-        stride, nsample = [1, 2, 4, 4], [16, 16, 16, 16]
+        self.in_planes, planes, share_planes = self.in_c, [64, 128, 256, 512], 8
+        stride, nsample = [1, 2, 2, 2], [16, 16, 16, 16]
         self.enc1 = self._make_enc(block, planes[0], num_block[0], share_planes, stride=stride[0],
                                    nsample=nsample[0])  # N/1
         self.enc2 = self._make_enc(block, planes[1], num_block[1], share_planes, stride=stride[1],
                                    nsample=nsample[1], num_sector=4)  # N/2
         self.enc3 = self._make_enc(block, planes[2], num_block[2], share_planes, stride=stride[2],
-                                   nsample=nsample[2])  # N/8
+                                   nsample=nsample[2])  # N/4
         self.enc4 = self._make_enc(block, planes[3], num_block[3], share_planes, stride=stride[3],
-                                   nsample=nsample[3])  # N/32
+                                   nsample=nsample[3])  # N/8
         self.dec4 = self._make_dec(block, planes[3], 2, share_planes, nsample=nsample[3], is_head=True)  # transform p4
         self.dec3 = self._make_dec(block, planes[2], 2, share_planes, nsample=nsample[2])  # fusion p4 and p3
         self.dec2 = self._make_dec(block, planes[1], 2, share_planes, nsample=nsample[1])  # fusion p3 and p2
