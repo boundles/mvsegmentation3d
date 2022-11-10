@@ -10,8 +10,7 @@ class PointTransformer(nn.Module):
         block = PointTransformerBlock
         num_block = [3, 4, 6, 3]
         self.in_c = in_channel
-        self.in_planes, planes = self.in_c, [48, 96, 192, 384]
-        fpn_planes, fpnhead_planes, share_planes = 128, 64, 8
+        self.in_planes, planes, share_planes = self.in_c, [32, 64, 128, 256], 8
         stride, nsample = [1, 2, 2, 2], [16, 16, 16, 16]
         self.enc1 = self._make_enc(block, planes[0], num_block[0], share_planes, stride=stride[0],
                                    nsample=nsample[0])  # N/1
