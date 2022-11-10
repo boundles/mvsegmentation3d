@@ -179,12 +179,12 @@ class SPNet(nn.Module):
         point_fusion_features = torch.cat([point_per_features, point_image_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
-        # # se block for channel attention
-        # if self.use_multi_sweeps:
-        #     point_batch_indices = batch_dict['points'][:, 0][cur_point_indices]
-        # else:
-        #     point_batch_indices = batch_dict['points'][:, 0]
-        # point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
+        # se block for channel attention
+        if self.use_multi_sweeps:
+            point_batch_indices = batch_dict['points'][:, 0][cur_point_indices]
+        else:
+            point_batch_indices = batch_dict['points'][:, 0]
+        point_fusion_features = point_fusion_features + self.se(point_fusion_features, point_batch_indices)
 
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)
