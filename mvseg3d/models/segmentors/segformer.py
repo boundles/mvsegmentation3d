@@ -80,7 +80,7 @@ class Segformer(nn.Module):
         self.scatter = VFE(3, reduce='mean')
 
         self.voxel_in_feature_channel = self.vfe.voxel_feature_channel
-        self.voxel_feature_channel = 64
+        self.voxel_feature_channel = 48
         self.point_transformer = PointTransformer(self.voxel_in_feature_channel + 3)
 
         self.use_image_feature = dataset.use_image_feature
