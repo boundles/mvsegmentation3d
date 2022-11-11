@@ -139,7 +139,7 @@ class WaymoDataset(Dataset):
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points
 
-    def load_points_from_sweeps(self, filename, num_sweeps=3, max_num_sweeps=5, pad_empty_sweeps=True):
+    def load_points_from_sweeps(self, filename, num_sweeps=3, max_num_sweeps=5, pad_empty_sweeps=False):
         # current frame
         file_idx, frame_idx, timestamp = self.parse_filename(filename)
         points = self.load_points(filename)
@@ -324,16 +324,15 @@ class WaymoDataset(Dataset):
 
         voxel_id_offset, count = [], 0
         point_voxel_ids_list = data_dict['point_voxel_ids']
-        voxel_coords_list = data_dict['voxel_coords']
         for i, point_voxel_ids in enumerate(point_voxel_ids_list):
             point_voxel_ids[point_voxel_ids != -1] += count
-            count += voxel_coords_list[i].shape[0]
+            count += data_dict['voxel_coords'][i].shape[0]
             voxel_id_offset.append(count)
         ret['point_voxel_ids'] = np.concatenate(point_voxel_ids_list, axis=0)
         ret['voxel_id_offset'] = np.array(voxel_id_offset)
 
-        cur_point_count_list = data_dict['cur_point_count']
         point_id_offset, count = [], 0
+        cur_point_count_list = data_dict['cur_point_count']
         for cur_point_count in cur_point_count_list:
             count += cur_point_count
             point_id_offset.append(count)
