@@ -139,7 +139,7 @@ class WaymoDataset(Dataset):
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points
 
-    def load_points_from_sweeps(self, filename, num_sweeps=3, max_num_sweeps=5, pad_empty_sweeps=False):
+    def load_points_from_sweeps(self, filename, num_sweeps=3, max_num_sweeps=5, pad_empty_sweeps=True):
         # current frame
         file_idx, frame_idx, timestamp = self.parse_filename(filename)
         points = self.load_points(filename)
