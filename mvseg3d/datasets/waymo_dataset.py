@@ -164,11 +164,11 @@ class WaymoDataset(Dataset):
         else:
             if len(history_sweep_filenames) <= history_num_sweeps:
                 choices = np.arange(len(history_sweep_filenames))
-            elif self.test_mode:
-                choices = np.arange(history_num_sweeps)
-            else:
+            elif self.split == 'training':
                 choices = np.random.choice(
                     len(history_sweep_filenames), history_num_sweeps, replace=False)
+            else:
+                choices = np.arange(history_num_sweeps)
 
             for idx in choices:
                 sweep_filename = history_sweep_filenames[idx]
