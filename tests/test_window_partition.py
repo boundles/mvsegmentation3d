@@ -11,7 +11,7 @@ if __name__ == '__main__':
     }
     window_shape = (10, 10, 10)
     sparse_shape = (400, 400, 20)
-    normalize_pos = False,
+    normalize_pos = False
     pos_temperature = 10000
     window_partition = SparseWindowPartitionLayer(drop_info, window_shape, sparse_shape)
 
