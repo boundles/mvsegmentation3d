@@ -92,8 +92,8 @@ def window2flat(feat_3d_dict, inds_dict):
     return all_flat_feat
 
 
-def get_flat2win_inds_v2(batch_win_inds, voxel_drop_lvl, drop_info, debug=True):
-    transform_dict = get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info, debug)
+def get_flat2win_inds_v2(batch_win_inds, voxel_drop_lvl, drop_info):
+    transform_dict = get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info)
     # add voxel_drop_lvl and batching_info into transform_dict for better wrapping
     transform_dict['voxel_drop_level'] = voxel_drop_lvl
     transform_dict['batching_info'] = drop_info
