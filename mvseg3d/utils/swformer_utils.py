@@ -18,19 +18,14 @@ def get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info):
     flat2window_inds_dict = {}
 
     for dl in drop_info:  # dl: short for drop level
-
         dl_mask = voxel_drop_lvl == dl
         if not dl_mask.any():
             continue
 
         conti_win_inds = make_continuous_inds(batch_win_inds[dl_mask])
-
         max_tokens = drop_info[dl]['max_tokens']
-
         inner_win_inds = get_inner_win_inds(conti_win_inds)
-
         flat2window_inds = conti_win_inds * max_tokens + inner_win_inds
-
         flat2window_inds_dict[dl] = (flat2window_inds, torch.where(dl_mask))
 
     return flat2window_inds_dict
