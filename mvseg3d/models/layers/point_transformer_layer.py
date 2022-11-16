@@ -1,132 +1,227 @@
 import torch
 import torch.nn as nn
 
-from mvseg3d.utils.pointops_utils import query_and_group, interpolation
-from mvseg3d.ops.sampling import sectorized_fps, furthestsampling
+from mvseg3d.utils.swformer_utils import get_flat2win_inds_v2, flat2window_v2, get_window_coors
+from mvseg3d.ops import ingroup_inds as get_inner_win_inds
 
 
-class TransitionDown(nn.Module):
-    def __init__(self, in_planes, out_planes, stride=1, nsample=16, num_sector=1):
-        super(TransitionDown, self).__init__()
-        self.stride, self.nsample, self.num_sector = stride, nsample, num_sector
-        if stride != 1:
-            self.linear = nn.Linear(3 + in_planes, out_planes, bias=False)
-            self.pool = nn.MaxPool1d(nsample)
+class SparsePartitionLayer(nn.Module):
+    """
+    There are 3 things to be done in this class:
+    1. Regional Grouping : assign window indices to each voxel.
+    2. Voxel drop and region batching: see our paper for detail
+    3. Pre-computing the transformation information for converting flat features ([N x C]) to region features ([R, T, C]).
+        R is the number of regions containing at most T tokens (voxels). See function flat2window and window2flat for details.
+
+    Main args:
+        drop_info (dict): drop configuration for region batching.
+        window_shape (tuple[int]): (num_x, num_y). Each window is divided to num_x * num_y pillars (including empty pillars).
+        shift_list (list[tuple]): [(shift_x, shift_y), ]. shift_x = 5 means all windonws will be shifted for 5 voxels along positive direction of x-aixs.
+    """
+    def __init__(self,
+                 drop_info,
+                 window_shape,
+                 sparse_shape,
+                 normalize_pos=False,
+                 pos_temperature=10000):
+        super(SparsePartitionLayer, self).__init__()
+        self.drop_info = drop_info
+        self.sparse_shape = sparse_shape
+        self.window_shape = window_shape
+        self.normalize_pos = normalize_pos
+        self.pos_temperature = pos_temperature
+
+    def forward(self, voxel_features, voxel_coords):
+        """
+        Args:
+            voxel_features: shape=[N, C], N is the voxel num in the batch.
+            voxel_coords: shape=[N, 4], [b, z, y, x]
+        Returns:
+            feat_3d_dict: contains region features (feat_3d) of each region batching level. Shape of feat_3d is [num_windows, num_max_tokens, C].
+            flat2win_inds_list: two dict containing transformation information for non-shifted grouping and shifted grouping, respectively. The two dicts are used in function flat2window and window2flat.
+            voxel_info: dict containing extra information of each voxel for usage in the backbone.
+        """
+        voxel_coords = voxel_coords.long()
+
+        voxel_info = self.window_partition(voxel_coords)
+        voxel_info['voxel_features'] = voxel_features
+        voxel_info['voxel_coords'] = voxel_coords
+        voxel_info = self.drop_voxel(voxel_info, 2)  # voxel_info is updated in this function
+
+        voxel_features = voxel_info['voxel_features']  # after dropping
+
+        for i in range(2):
+            voxel_info[f'flat2win_inds_shift{i}'] = \
+                get_flat2win_inds_v2(voxel_info[f'batch_win_inds_shift{i}'], voxel_info[f'voxel_drop_level_shift{i}'],
+                                     self.drop_info, debug=True)
+
+            voxel_info[f'pos_dict_shift{i}'] = \
+                self.get_pos_embed(voxel_info[f'flat2win_inds_shift{i}'], voxel_info[f'coors_in_win_shift{i}'],
+                                   voxel_features.size(1), voxel_features.dtype)
+
+            voxel_info[f'key_mask_shift{i}'] = \
+                self.get_key_padding_mask(voxel_info[f'flat2win_inds_shift{i}'])
+
+        return voxel_info
+
+    def drop_single_shift(self, batch_win_inds):
+        drop_info = self.drop_info
+        drop_lvl_per_voxel = -torch.ones_like(batch_win_inds)
+        inner_win_inds = get_inner_win_inds(batch_win_inds)
+        bincount = torch.bincount(batch_win_inds)
+        num_per_voxel_before_drop = bincount[batch_win_inds]  #
+        target_num_per_voxel = torch.zeros_like(batch_win_inds)
+
+        for dl in drop_info:
+            max_tokens = drop_info[dl]['max_tokens']
+            lower, upper = drop_info[dl]['drop_range']
+            range_mask = (num_per_voxel_before_drop >= lower) & (num_per_voxel_before_drop < upper)
+            target_num_per_voxel[range_mask] = max_tokens
+            drop_lvl_per_voxel[range_mask] = dl
+
+        keep_mask = inner_win_inds < target_num_per_voxel
+        return keep_mask, drop_lvl_per_voxel
+
+    def drop_voxel(self, voxel_info, num_shifts):
+        """
+        To make it clear and easy to follow, we do not use loop to process two shifts.
+        """
+        batch_win_inds_s0 = voxel_info['batch_win_inds_shift0']
+        num_all_voxel = batch_win_inds_s0.shape[0]
+
+        voxel_keep_inds = torch.arange(num_all_voxel, device=batch_win_inds_s0.device, dtype=torch.long)
+
+        keep_mask_s0, drop_lvl_s0 = self.drop_single_shift(batch_win_inds_s0)
+
+        drop_lvl_s0 = drop_lvl_s0[keep_mask_s0]
+        voxel_keep_inds = voxel_keep_inds[keep_mask_s0]
+        batch_win_inds_s0 = batch_win_inds_s0[keep_mask_s0]
+
+        if num_shifts == 1:
+            voxel_info['voxel_keep_inds'] = voxel_keep_inds
+            voxel_info['voxel_drop_level_shift0'] = drop_lvl_s0
+            voxel_info['batch_win_inds_shift0'] = batch_win_inds_s0
+            return voxel_info
+
+        batch_win_inds_s1 = voxel_info['batch_win_inds_shift1']
+        batch_win_inds_s1 = batch_win_inds_s1[keep_mask_s0]
+
+        keep_mask_s1, drop_lvl_s1 = self.drop_single_shift(batch_win_inds_s1)
+
+        # drop data in first shift again
+        drop_lvl_s0 = drop_lvl_s0[keep_mask_s1]
+        voxel_keep_inds = voxel_keep_inds[keep_mask_s1]
+        batch_win_inds_s0 = batch_win_inds_s0[keep_mask_s1]
+
+        drop_lvl_s1 = drop_lvl_s1[keep_mask_s1]
+        batch_win_inds_s1 = batch_win_inds_s1[keep_mask_s1]
+
+        voxel_info['voxel_keep_inds'] = voxel_keep_inds
+        voxel_info['voxel_drop_level_shift0'] = drop_lvl_s0
+        voxel_info['batch_win_inds_shift0'] = batch_win_inds_s0
+        voxel_info['voxel_drop_level_shift1'] = drop_lvl_s1
+        voxel_info['batch_win_inds_shift1'] = batch_win_inds_s1
+        voxel_keep_inds = voxel_info['voxel_keep_inds']
+
+        voxel_num_before_drop = len(voxel_info['voxel_coords'])
+        voxel_info['voxel_features'] = voxel_info['voxel_features'][voxel_keep_inds]
+        voxel_info['voxel_coords'] = voxel_info['voxel_coords'][voxel_keep_inds]
+
+        # Some other variables need to be dropped.
+        for k, v in voxel_info.items():
+            if isinstance(v, torch.Tensor) and len(v) == voxel_num_before_drop:
+                voxel_info[k] = v[voxel_keep_inds]
+
+        return voxel_info
+
+    @torch.no_grad()
+    def window_partition(self, coors):
+        voxel_info = {}
+        for i in range(2):
+            batch_win_inds, coors_in_win = get_window_coors(coors, self.sparse_shape, self.window_shape, i == 1)
+            voxel_info[f'batch_win_inds_shift{i}'] = batch_win_inds
+            voxel_info[f'coors_in_win_shift{i}'] = coors_in_win
+
+        return voxel_info
+
+    @torch.no_grad()
+    def get_pos_embed(self, inds_dict, coors_in_win, feat_dim, dtype):
+        """
+        Args:
+        coors_in_win: shape=[N, 3], order: z, y, x
+        """
+
+        # [N,]
+        window_shape = self.window_shape
+        if len(window_shape) == 2:
+            ndim = 2
+            win_x, win_y = window_shape
+            win_z = 0
+        elif window_shape[-1] == 1:
+            ndim = 2
+            win_x, win_y = window_shape[:2]
+            win_z = 0
         else:
-            self.linear = nn.Linear(in_planes, out_planes, bias=False)
-        self.bn = nn.BatchNorm1d(out_planes)
-        self.relu = nn.ReLU(inplace=True)
+            win_x, win_y, win_z = window_shape
+            ndim = 3
 
-    def forward(self, pxo):
-        p, x, o = pxo  # (n, 3), (n, c), (b)
-        if self.stride != 1:
-            n_o, count = [o[0].item() // self.stride], o[0].item() // self.stride
-            for i in range(1, o.shape[0]):
-                count += (o[i].item() - o[i - 1].item()) // self.stride
-                n_o.append(count)
-            n_o = torch.cuda.IntTensor(n_o)
-            if self.num_sector > 1 and self.training:
-                idx = sectorized_fps(p, o, n_o, self.num_sector)  # [M]
-            else:
-                idx = furthestsampling(p, o, n_o)  # [M]
-            n_p = p[idx.long(), :]  # (m, 3)
-            x = query_and_group(self.nsample, p, n_p, x, None, o, n_o, use_xyz=True)  # (m, 3+c, nsample)
-            x = self.relu(self.bn(self.linear(x).transpose(1, 2).contiguous()))  # (m, c, nsample)
-            x = self.pool(x).squeeze(-1)  # (m, c)
-            p, o = n_p, n_o
+        assert coors_in_win.size(1) == 3
+        z, y, x = coors_in_win[:, 0] - win_z / 2, coors_in_win[:, 1] - win_y / 2, coors_in_win[:, 2] - win_x / 2
+        assert (x >= -win_x / 2 - 1e-4).all()
+        assert (x <= win_x / 2 - 1 + 1e-4).all()
+
+        if self.normalize_pos:
+            x = x / win_x * 2 * 3.1415  # [-pi, pi]
+            y = y / win_y * 2 * 3.1415  # [-pi, pi]
+            z = z / win_z * 2 * 3.1415  # [-pi, pi]
+
+        pos_length = feat_dim // ndim
+        # [pos_length]
+        inv_freq = torch.arange(
+            pos_length, dtype=torch.float32, device=coors_in_win.device)
+        inv_freq = self.pos_temperature ** (2 * (inv_freq // 2) / pos_length)
+
+        # [num_tokens, pos_length]
+        embed_x = x[:, None] / inv_freq[None, :]
+        embed_y = y[:, None] / inv_freq[None, :]
+        if ndim == 3:
+            embed_z = z[:, None] / inv_freq[None, :]
+
+        # [num_tokens, pos_length]
+        embed_x = torch.stack([embed_x[:, ::2].sin(), embed_x[:, 1::2].cos()], dim=-1).flatten(1)
+        embed_y = torch.stack([embed_y[:, ::2].sin(), embed_y[:, 1::2].cos()], dim=-1).flatten(1)
+        if ndim == 3:
+            embed_z = torch.stack([embed_z[:, ::2].sin(), embed_z[:, 1::2].cos()], dim=-1).flatten(1)
+
+        # [num_tokens, c]
+        if ndim == 3:
+            pos_embed_2d = torch.cat([embed_x, embed_y, embed_z], dim=-1).to(dtype)
         else:
-            x = self.relu(self.bn(self.linear(x)))  # (n, c)
-        return [p, x, o]
+            pos_embed_2d = torch.cat([embed_x, embed_y], dim=-1).to(dtype)
 
-class TransitionUp(nn.Module):
-    def __init__(self, in_planes, out_planes=None):
-        super(TransitionUp, self).__init__()
-        if out_planes is None:
-            self.linear1 = nn.Sequential(nn.Linear(2 * in_planes, in_planes), nn.BatchNorm1d(in_planes),
-                                         nn.ReLU(inplace=True))
-            self.linear2 = nn.Sequential(nn.Linear(in_planes, in_planes), nn.ReLU(inplace=True))
+        gap = feat_dim - pos_embed_2d.size(1)
+        assert gap >= 0
+        if gap > 0:
+            assert ndim == 3
+            padding = torch.zeros((pos_embed_2d.size(0), gap), dtype=dtype, device=coors_in_win.device)
+            pos_embed_2d = torch.cat([pos_embed_2d, padding], dim=1)
         else:
-            self.linear1 = nn.Sequential(nn.Linear(out_planes, out_planes), nn.BatchNorm1d(out_planes),
-                                         nn.ReLU(inplace=True))
-            self.linear2 = nn.Sequential(nn.Linear(in_planes, out_planes), nn.BatchNorm1d(out_planes),
-                                         nn.ReLU(inplace=True))
+            assert ndim == 2
 
-    def forward(self, pxo1, pxo2=None):
-        if pxo2 is None:
-            _, x, o = pxo1  # (n, 3), (n, c), (b)
-            x_tmp = []
-            for i in range(o.shape[0]):
-                if i == 0:
-                    s_i, e_i, cnt = 0, o[0], o[0]
-                else:
-                    s_i, e_i, cnt = o[i - 1], o[i], o[i] - o[i - 1]
-                x_b = x[s_i:e_i, :]
-                x_b = torch.cat((x_b, self.linear2(x_b.sum(0, True) / cnt).repeat(cnt, 1)), 1)
-                x_tmp.append(x_b)
-            x = torch.cat(x_tmp, 0)
-            x = self.linear1(x)
-        else:
-            p1, x1, o1 = pxo1
-            p2, x2, o2 = pxo2
-            x = self.linear1(x1) + interpolation(p2, p1, self.linear2(x2), o2, o1)
-        return x
+        pos_embed_dict = flat2window_v2(
+            pos_embed_2d, inds_dict)
 
-class PointTransformerLayer(nn.Module):
-    def __init__(self, in_planes, out_planes, share_planes=8, n_sample=16):
-        super(PointTransformerLayer, self).__init__()
-        self.mid_planes = mid_planes = out_planes // 1
-        self.out_planes = out_planes
-        self.share_planes = share_planes
-        self.n_sample = n_sample
-        self.linear_q = nn.Linear(in_planes, mid_planes)
-        self.linear_k = nn.Linear(in_planes, mid_planes)
-        self.linear_v = nn.Linear(in_planes, out_planes)
-        self.linear_p = nn.Sequential(nn.Linear(3, 3), nn.BatchNorm1d(3), nn.ReLU(inplace=True),
-                                      nn.Linear(3, out_planes))
-        self.linear_w = nn.Sequential(nn.BatchNorm1d(mid_planes), nn.ReLU(inplace=True),
-                                      nn.Linear(mid_planes, mid_planes // share_planes),
-                                      nn.BatchNorm1d(mid_planes // share_planes), nn.ReLU(inplace=True),
-                                      nn.Linear(out_planes // share_planes, out_planes // share_planes))
-        self.softmax = nn.Softmax(dim=1)
+        return pos_embed_dict
 
-    def forward(self, pxo) -> torch.Tensor:
-        p, x, o = pxo  # (n, 3), (n, c), (b)
-        x_q, x_k, x_v = self.linear_q(x), self.linear_k(x), self.linear_v(x)  # (n, c)
-        x_k = query_and_group(self.n_sample, p.contiguous(), p.contiguous(), x_k.contiguous(), None, o, o, use_xyz=True)  # (n, n_sample, 3+c)
-        x_v = query_and_group(self.n_sample, p.contiguous(), p.contiguous(), x_v.contiguous(), None, o, o, use_xyz=False)  # (n, n_sample, c)
-        p_r, x_k = x_k[:, :, 0:3], x_k[:, :, 3:]
-        for i, layer in enumerate(self.linear_p):
-            # (n, n_sample, c)
-            p_r = layer(p_r.transpose(1, 2).contiguous()).transpose(1, 2).contiguous() if i == 1 else layer(p_r)
-        w = x_k - x_q.unsqueeze(1) + p_r.view(p_r.shape[0], p_r.shape[1], self.out_planes // self.mid_planes,
-                                              self.mid_planes).sum(2)  # (n, n_sample, c)
-        for i, layer in enumerate(self.linear_w):
-            w = layer(w.transpose(1, 2).contiguous()).transpose(1, 2).contiguous() if i % 3 == 0 else layer(w)
-        w = self.softmax(w)  # (n, n_sample, c)
-        n, n_sample, c = x_v.shape
-        s = self.share_planes
-        x = ((x_v + p_r).view(n, n_sample, s, c // s) * w.unsqueeze(2)).sum(1).view(n, c)
-        return x
+    @torch.no_grad()
+    def get_key_padding_mask(self, ind_dict):
+        num_all_voxel = len(ind_dict['voxel_drop_level'])
+        key_padding = torch.ones((num_all_voxel, 1)).to(ind_dict['voxel_drop_level'].device).bool()
 
-class PointTransformerBlock(nn.Module):
-    expansion = 1
+        window_key_padding_dict = flat2window_v2(key_padding, ind_dict)
 
-    def __init__(self, in_planes, planes, share_planes=8, nsample=16):
-        super(PointTransformerBlock, self).__init__()
-        self.linear1 = nn.Linear(in_planes, planes, bias=False)
-        self.bn1 = nn.BatchNorm1d(planes)
-        self.transformer2 = PointTransformerLayer(planes, planes, share_planes, nsample)
-        self.bn2 = nn.BatchNorm1d(planes)
-        self.linear3 = nn.Linear(planes, planes * self.expansion, bias=False)
-        self.bn3 = nn.BatchNorm1d(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
+        # logical not. True means masked
+        for key, value in window_key_padding_dict.items():
+            window_key_padding_dict[key] = value.logical_not().squeeze(2)
 
-    def forward(self, pxo):
-        p, x, o = pxo  # (n, 3), (n, c), (b)
-        identity = x
-        x = self.relu(self.bn1(self.linear1(x)))
-        x = self.relu(self.bn2(self.transformer2([p, x, o])))
-        x = self.bn3(self.linear3(x))
-        x += identity
-        x = self.relu(x)
-        return [p, x, o]
+        return window_key_padding_dict

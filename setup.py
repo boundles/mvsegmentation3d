@@ -77,7 +77,13 @@ setuptools.setup(
             module='mvseg3d.ops.sampling',
             extra_include_path=['/usr/local/cuda/include'],
             sources=['src/sampling.cpp'],
-            sources_cuda=['src/sampling_cuda.cu'])
+            sources_cuda=['src/sampling_cuda.cu']),
+        make_cuda_ext(
+            name='ingroup_inds_ext',
+            module='mvseg3d.ops.ingroup_inds',
+            extra_include_path=['/usr/local/cuda/include'],
+            sources=['src/ingroup_inds.cpp'],
+            sources_cuda=['src/ingroup_inds_cuda.cu'])
     ],
     cmdclass={'build_ext': BuildExtension},
     zip_safe=False
