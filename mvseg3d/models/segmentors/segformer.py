@@ -7,9 +7,9 @@ import torch.nn.functional as F
 import numpy as np
 
 from mvseg3d.models.voxel_encoders import VFE
-from mvseg3d.models.backbones import SparseUnet
+from mvseg3d.models.backbones import PointTransformer
 from mvseg3d.models.layers import FlattenSELayer
-from mvseg3d.ops import voxel_to_point, knn_query
+from mvseg3d.ops import knn_query, voxel_to_point
 
 
 class DeepFusionBlock(nn.Module):
@@ -49,9 +49,9 @@ class DeepFusionBlock(nn.Module):
         return y
 
 
-class SPNet(nn.Module):
+class Segformer(nn.Module):
     def __init__(self, dataset):
-        super(SPNet, self).__init__()
+        super(Segformer, self).__init__()
 
         dim_point = dataset.dim_point
         if dataset.use_cylinder:
@@ -60,16 +60,16 @@ class SPNet(nn.Module):
         self.point_feature_channel = 64
         self.point_encoder = nn.Sequential(
             nn.BatchNorm1d(dim_point),
-            nn.Linear(dim_point, 128, bias=False),
+            nn.Linear(dim_point, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, 128, bias=False),
             nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
             nn.Linear(128, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, self.point_feature_channel))
+            nn.Linear(256, self.point_feature_channel))
 
         self.use_multi_sweeps = dataset.use_multi_sweeps
         if self.use_multi_sweeps:
@@ -77,13 +77,11 @@ class SPNet(nn.Module):
         else:
             self.vfe = VFE(self.point_feature_channel, reduce='max')
 
+        self.scatter = VFE(3, reduce='mean')
+
         self.voxel_in_feature_channel = self.vfe.voxel_feature_channel
-        self.voxel_feature_channel = 64
-        self.voxel_encoder = SparseUnet(self.voxel_in_feature_channel,
-                                        self.voxel_feature_channel,
-                                        dataset.grid_size,
-                                        dataset.voxel_size,
-                                        dataset.point_cloud_range)
+        self.voxel_feature_channel = 32
+        self.point_transformer = PointTransformer(self.voxel_in_feature_channel + 3)
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
@@ -95,13 +93,13 @@ class SPNet(nn.Module):
 
         self.fusion_feature_channel = 64
         self.fusion_encoder = nn.Sequential(
-            nn.Linear(self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, 256, bias=False),
+            nn.Linear(self.point_feature_channel + self.voxel_feature_channel + self.image_feature_channel, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, self.fusion_feature_channel, bias=False),
+            nn.Linear(256, 128, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, self.fusion_feature_channel, bias=False),
             nn.BatchNorm1d(self.fusion_feature_channel),
             nn.ReLU(inplace=True)
         )
@@ -113,20 +111,6 @@ class SPNet(nn.Module):
                                         nn.ReLU(True),
                                         nn.Dropout(0.1),
                                         nn.Linear(64, dataset.num_classes, bias=False))
-
-        self.voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 64, bias=False),
-            nn.BatchNorm1d(64),
-            nn.ReLU(True),
-            nn.Dropout(0.1),
-            nn.Linear(64, dataset.num_classes, bias=False))
-
-        self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 64, bias=False),
-            nn.BatchNorm1d(64),
-            nn.ReLU(True),
-            nn.Dropout(0.1),
-            nn.Linear(64, dataset.num_classes, bias=False))
 
         self.weight_initialization()
 
@@ -145,37 +129,38 @@ class SPNet(nn.Module):
 
     def forward(self, batch_dict):
         points = batch_dict['points'][:, 1:]
+        point_id_offset = batch_dict['point_id_offset'].int()
         if self.use_multi_sweeps:
             cur_point_indices = (points[:, 3] == 0)
             cur_points = points[cur_point_indices]
         else:
             cur_points = points
-
         point_per_features = self.point_encoder(cur_points)
 
         # encode voxel features
         point_voxel_ids = batch_dict['point_voxel_ids']
+        voxel_id_offset = batch_dict['voxel_id_offset'].int()
         if self.use_multi_sweeps:
-            batch_dict['voxel_features'] = self.vfe(points, point_voxel_ids)
+            voxel_features = self.vfe(points, point_voxel_ids)
         else:
-            batch_dict['voxel_features'] = self.vfe(point_per_features, point_voxel_ids)
-        batch_dict = self.voxel_encoder(batch_dict)
+            voxel_features = self.vfe(point_per_features, point_voxel_ids)
+        voxel_points = self.scatter(points[:, :3], point_voxel_ids)
+        batch_dict['voxel_features'] = self.point_transformer((voxel_points.contiguous(), voxel_features, voxel_id_offset))
 
         # point features from encoded voxel feature
         if self.use_multi_sweeps:
             point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids[cur_point_indices])
         else:
             point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
-
         point_per_features = torch.cat([point_per_features, point_voxel_features], dim=1)
 
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
-            point_image_features = self.deep_fusion(cur_points.contiguous(), batch_dict['point_id_offset'].int(),
+            point_image_features = self.deep_fusion(cur_points.contiguous(), point_id_offset,
                                                     point_per_features, point_image_features)
 
-        # fusion voxel features
+        # fusion point features
         point_fusion_features = torch.cat([point_per_features, point_image_features], dim=1)
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
@@ -189,16 +174,5 @@ class SPNet(nn.Module):
         result = OrderedDict()
         point_out = self.classifier(point_fusion_features)
         result['point_out'] = point_out
-
-        voxel_features = batch_dict['voxel_features']
-        voxel_out = self.voxel_classifier(voxel_features)
-        result['voxel_out'] = voxel_out
-
-        aux_voxel_features = batch_dict['aux_voxel_features']
-        aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
-        result['aux_voxel_out'] = aux_voxel_out
-
-        result['voxel_coords'] = batch_dict['voxel_coords']
-        result['aux_voxel_coords'] = batch_dict['aux_voxel_coords']
 
         return result

@@ -144,6 +144,7 @@ class WaymoDataset(Dataset):
         file_idx, frame_idx, timestamp = self.parse_filename(filename)
         points = self.load_points(filename)
         points[:, 3] = 0
+        cur_point_indices = np.arange(points.shape[0])
         ts = timestamp / 1e6
         transform_matrix = self.load_pose(filename)
 
@@ -163,11 +164,11 @@ class WaymoDataset(Dataset):
         else:
             if len(history_sweep_filenames) <= history_num_sweeps:
                 choices = np.arange(len(history_sweep_filenames))
-            elif self.test_mode:
-                choices = np.arange(history_num_sweeps)
-            else:
+            elif self.split == 'training':
                 choices = np.random.choice(
                     len(history_sweep_filenames), history_num_sweeps, replace=False)
+            else:
+                choices = np.arange(history_num_sweeps)
 
             for idx in choices:
                 sweep_filename = history_sweep_filenames[idx]
@@ -184,7 +185,7 @@ class WaymoDataset(Dataset):
                 sweep_points_list.append(points_sweep)
 
         points = np.concatenate(sweep_points_list, axis=0)
-        return points
+        return points, cur_point_indices
 
     def load_label(self, filename):
         label_file = self.get_label_path(filename)
@@ -271,8 +272,9 @@ class WaymoDataset(Dataset):
         }
 
         if self.cfg.DATASET.USE_MULTI_SWEEPS:
-            points = self.load_points_from_sweeps(filename, self.cfg.DATASET.NUM_SWEEPS, self.cfg.DATASET.MAX_NUM_SWEEPS)
-            input_dict['cur_point_indices'] = (points[:, 3] == 0).nonzero()[0]
+            points, cur_point_indices = self.load_points_from_sweeps(filename, self.cfg.DATASET.NUM_SWEEPS,
+                                                                     self.cfg.DATASET.MAX_NUM_SWEEPS)
+            input_dict['cur_point_indices'] = cur_point_indices
         else:
             points = self.load_points(filename)
 
@@ -322,16 +324,15 @@ class WaymoDataset(Dataset):
 
         voxel_id_offset, count = [], 0
         point_voxel_ids_list = data_dict['point_voxel_ids']
-        voxel_coords_list = data_dict['voxel_coords']
         for i, point_voxel_ids in enumerate(point_voxel_ids_list):
             point_voxel_ids[point_voxel_ids != -1] += count
-            count += voxel_coords_list[i].shape[0]
+            count += data_dict['voxel_coords'][i].shape[0]
             voxel_id_offset.append(count)
         ret['point_voxel_ids'] = np.concatenate(point_voxel_ids_list, axis=0)
         ret['voxel_id_offset'] = np.array(voxel_id_offset)
 
-        cur_point_count_list = data_dict['cur_point_count']
         point_id_offset, count = [], 0
+        cur_point_count_list = data_dict['cur_point_count']
         for cur_point_count in cur_point_count_list:
             count += cur_point_count
             point_id_offset.append(count)

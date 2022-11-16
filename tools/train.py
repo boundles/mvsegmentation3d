@@ -7,8 +7,7 @@ import torch.optim
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
-from mvseg3d.models.segmentors.spnet import SPNet
-from mvseg3d.models.builder import build_criterion, build_optimizer, build_scheduler
+from mvseg3d.models.builder import build_segmentor, build_criterion, build_optimizer, build_scheduler
 from mvseg3d.core.evaluation import IOUMetric
 from mvseg3d.utils.logging import get_root_logger
 from mvseg3d.utils.distributed import init_dist, get_dist_info
@@ -72,10 +71,11 @@ def compute_loss(pred_result, data_dict, criterion):
     for loss_func, loss_weight in criterion:
         loss += loss_func(point_pred_labels, point_gt_labels) * loss_weight
 
-    voxel_gt_labels = data_dict['voxel_labels']
-    voxel_pred_labels = pred_result['voxel_out']
-    for loss_func, loss_weight in criterion:
-        loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
+    if 'voxel_out' in pred_result:
+        voxel_gt_labels = data_dict['voxel_labels']
+        voxel_pred_labels = pred_result['voxel_out']
+        for loss_func, loss_weight in criterion:
+            loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
     if 'aux_voxel_out' in pred_result:
         with torch.no_grad():
@@ -230,7 +230,7 @@ def main():
     data_loaders = {'train': train_loader, 'val': val_loader}
 
     # define model
-    model = SPNet(train_dataset)
+    model = build_segmentor(cfg, train_dataset)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()

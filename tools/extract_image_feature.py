@@ -96,7 +96,7 @@ if __name__ == '__main__':
                 image_x = int(point[10])
                 image_y = int(point[11])
 
-            if camera_id and image_x and image_y:
+            if camera_id is not None and image_x is not None and image_y is not None:
                 point_image_features[i] = image_feature_maps[camera_id][:, image_y, image_x]
 
         np.save(feature_file, point_image_features)

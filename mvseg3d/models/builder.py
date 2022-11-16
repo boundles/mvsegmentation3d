@@ -2,7 +2,18 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from mvseg3d.models import LovaszLoss, OHEMCrossEntropyLoss, WarmupPolyLR
+from mvseg3d.models import SPNet, Segformer, LovaszLoss, OHEMCrossEntropyLoss, WarmupPolyLR
+
+
+def build_segmentor(cfg, dataset):
+    if cfg.MODEL.SEGMENTOR == 'segformer':
+        segmentor = Segformer(dataset=dataset)
+    elif cfg.MODEL.SEGMENTOR == 'spnet':
+        segmentor = SPNet(dataset=dataset)
+    else:
+        raise NotImplementedError
+
+    return segmentor
 
 
 def build_criterion(cfg, dataset):

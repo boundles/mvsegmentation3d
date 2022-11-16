@@ -8,7 +8,7 @@ import torch.optim
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
-from mvseg3d.models.segmentors.spnet import SPNet
+from mvseg3d.models.builder import build_segmentor
 from mvseg3d.utils.config import cfg_from_file, cfg
 from mvseg3d.utils.logging import get_logger
 from mvseg3d.utils.submission import construct_seg_frame, write_submission_file
@@ -84,7 +84,7 @@ def main():
         training=False)
 
     # define model
-    model = SPNet(test_dataset).cuda()
+    model = build_segmentor(cfg, test_dataset).cuda()
     checkpoint = torch.load(os.path.join(args.save_dir, 'latest.pth'), map_location='cpu')
     model.load_state_dict(checkpoint['model'])
 
