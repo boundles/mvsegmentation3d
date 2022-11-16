@@ -5,7 +5,7 @@ from mvseg3d.utils.swformer_utils import get_flat2win_inds_v2, flat2window_v2, g
 from mvseg3d.ops import ingroup_inds as get_inner_win_inds
 
 
-class SparsePartitionLayer(nn.Module):
+class SparseWindowPartitionLayer(nn.Module):
     """
     There are 3 things to be done in this class:
     1. Regional Grouping : assign window indices to each voxel.
@@ -24,7 +24,7 @@ class SparsePartitionLayer(nn.Module):
                  sparse_shape,
                  normalize_pos=False,
                  pos_temperature=10000):
-        super(SparsePartitionLayer, self).__init__()
+        super(SparseWindowPartitionLayer, self).__init__()
         self.drop_info = drop_info
         self.sparse_shape = sparse_shape
         self.window_shape = window_shape
@@ -53,7 +53,7 @@ class SparsePartitionLayer(nn.Module):
         for i in range(2):
             voxel_info[f'flat2win_inds_shift{i}'] = \
                 get_flat2win_inds_v2(voxel_info[f'batch_win_inds_shift{i}'], voxel_info[f'voxel_drop_level_shift{i}'],
-                                     self.drop_info, debug=True)
+                                     self.drop_info)
 
             voxel_info[f'pos_dict_shift{i}'] = \
                 self.get_pos_embed(voxel_info[f'flat2win_inds_shift{i}'], voxel_info[f'coors_in_win_shift{i}'],
@@ -69,7 +69,7 @@ class SparsePartitionLayer(nn.Module):
         drop_lvl_per_voxel = -torch.ones_like(batch_win_inds)
         inner_win_inds = get_inner_win_inds(batch_win_inds)
         bincount = torch.bincount(batch_win_inds)
-        num_per_voxel_before_drop = bincount[batch_win_inds]  #
+        num_per_voxel_before_drop = bincount[batch_win_inds]
         target_num_per_voxel = torch.zeros_like(batch_win_inds)
 
         for dl in drop_info:
