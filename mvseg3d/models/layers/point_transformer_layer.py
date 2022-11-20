@@ -15,8 +15,7 @@ class SparseWindowPartitionLayer(nn.Module):
 
     Main args:
         drop_info (dict): drop configuration for region batching.
-        window_shape (tuple[int]): (num_x, num_y). Each window is divided to num_x * num_y pillars (including empty pillars).
-        shift_list (list[tuple]): [(shift_x, shift_y), ]. shift_x = 5 means all windonws will be shifted for 5 voxels along positive direction of x-aixs.
+        window_shape (tuple[int]): (num_x, num_y， num_z). Each window is divided to num_x * num_y * num_z voxels (including empty voxel).
     """
     def __init__(self,
                  drop_info,

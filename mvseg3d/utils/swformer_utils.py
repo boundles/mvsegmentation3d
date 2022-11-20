@@ -10,7 +10,7 @@ def get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info):
     Args:
         batch_win_inds: shape=[N, ]. Indicates which window a voxel belongs to. Window inds is unique is the whole batch.
         voxel_drop_lvl: shape=[N, ]. Indicates batching_level of the window the voxel belongs to.
-        drop_info: Drop info
+        drop_info: Drop configuration for region batching.
     Returns:
         flat2window_inds_dict: contains flat2window_inds of each voxel, shape=[N,]
             Determine the voxel position in range [0, num_windows * max_tokens) of each voxel.
@@ -36,9 +36,9 @@ def flat2window(feat, voxel_drop_lvl, flat2win_inds_dict, drop_info, padding=0):
     Args:
         feat: shape=[N, C], N is the voxel num in the batch.
         voxel_drop_lvl: shape=[N, ]. Indicates drop_level of the window the voxel belongs to.
-        flat2win_inds_dict:
-        drop_info:
-        padding:
+        flat2win_inds_dict: Contains flat2window_inds of each voxel, shape=[N,]
+        drop_info: Drop configuration for region batching.
+        padding: Padding value for feature
     Returns:
         feat_3d_dict: contains feat_3d of each drop level. Shape of feat_3d is [num_windows, num_max_tokens, C].
     """
@@ -49,7 +49,6 @@ def flat2window(feat, voxel_drop_lvl, flat2win_inds_dict, drop_info, padding=0):
     feat_3d_dict = {}
 
     for dl in drop_info:
-
         dl_mask = voxel_drop_lvl == dl
         if not dl_mask.any():
             continue
