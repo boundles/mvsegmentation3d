@@ -199,17 +199,7 @@ class SparseWindowPartitionLayer(nn.Module):
         else:
             pos_embed_2d = torch.cat([embed_x, embed_y], dim=-1).to(dtype)
 
-        gap = feat_dim - pos_embed_2d.size(1)
-        assert gap >= 0
-        if gap > 0:
-            assert ndim == 3
-            padding = torch.zeros((pos_embed_2d.size(0), gap), dtype=dtype, device=coors_in_win.device)
-            pos_embed_2d = torch.cat([pos_embed_2d, padding], dim=1)
-        else:
-            assert ndim == 2
-
-        pos_embed_dict = flat2window_v2(
-            pos_embed_2d, inds_dict)
+        pos_embed_dict = flat2window_v2(pos_embed_2d, inds_dict)
 
         return pos_embed_dict
 
