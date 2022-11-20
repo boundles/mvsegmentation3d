@@ -15,11 +15,11 @@ if __name__ == '__main__':
     pos_temperature = 10000
     window_partition = SparseWindowPartitionLayer(drop_info, window_shape, sparse_shape)
 
-    voxel_features = torch.randn((4, 16)).cuda()
+    voxel_features = torch.randn((4, 24)).cuda()
     voxel_coords = torch.zeros((4, 4)).cuda()
     voxel_info = window_partition(voxel_features, voxel_coords)
 
-    window_attention = WindowAttention(16, 2)
+    window_attention = WindowAttention(24, 2, 0.5)
     result = window_attention(voxel_info['voxel_features'], voxel_info['pos_dict_shift0'],
                               voxel_info['flat2win_inds_shift0'], voxel_info['key_mask_shift0'])
     print(result)
