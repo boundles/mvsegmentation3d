@@ -148,9 +148,8 @@ class SparseWindowPartitionLayer(nn.Module):
     def get_pos_embed(self, inds_dict, coors_in_win, feat_dim, dtype):
         """
         Args:
-        coors_in_win: shape=[N, 3], order: z, y, x
+            coors_in_win: shape=[N, 3], order: z, y, x
         """
-
         # [N,]
         window_shape = self.window_shape
         if len(window_shape) == 2:
