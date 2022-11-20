@@ -17,4 +17,4 @@ class IngroupIndicesFunction(Function):
         return None
 
 
-ingroup_inds = IngroupIndicesFunction.apply
+get_inner_win_inds = IngroupIndicesFunction.apply

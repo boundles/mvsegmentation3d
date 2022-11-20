@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from mvseg3d.utils.swformer_utils import get_flat2win_inds_v2, flat2window_v2, get_window_coors
-from mvseg3d.ops import ingroup_inds as get_inner_win_inds
+from mvseg3d.utils.swformer_utils import get_flat2win_inds_v2, flat2window_v2, get_window_coors, window2flat_v2
+from mvseg3d.ops import get_inner_win_inds
 
 
 class SparseWindowPartitionLayer(nn.Module):
@@ -225,3 +225,36 @@ class SparseWindowPartitionLayer(nn.Module):
             window_key_padding_dict[key] = value.logical_not().squeeze(2)
 
         return window_key_padding_dict
+
+class WindowAttention(nn.Module):
+    def __init__(self, d_model, nhead, dropout):
+        super(WindowAttention, self).__init__()
+
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+
+    def forward(self, feat_2d, pos_dict, ind_dict, key_padding_dict):
+        out_feat_dict = {}
+        feat_3d_dict = flat2window_v2(feat_2d, ind_dict)
+        for name in feat_3d_dict:
+            #  [n, num_token, embed_dim]
+            pos = pos_dict[name]
+
+            feat_3d = feat_3d_dict[name]
+            feat_3d = feat_3d.permute(1, 0, 2)
+
+            v = feat_3d
+
+            if pos is not None:
+                pos = pos.permute(1, 0, 2)
+                assert pos.shape == feat_3d.shape, f'pos_shape: {pos.shape}, feat_shape:{feat_3d.shape}'
+                q = k = feat_3d + pos
+            else:
+                q = k = feat_3d
+
+            key_padding_mask = key_padding_dict[name]
+            out_feat_3d, attn_map = self.self_attn(q, k, value=v, key_padding_mask=key_padding_mask)
+            out_feat_dict[name] = out_feat_3d.permute(1, 0, 2)
+
+        results = window2flat_v2(out_feat_dict, ind_dict)
+
+        return results

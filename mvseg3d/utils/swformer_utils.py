@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from mvseg3d.ops import ingroup_inds as get_inner_win_inds
+from mvseg3d.ops import get_inner_win_inds
 
 
 @torch.no_grad()
