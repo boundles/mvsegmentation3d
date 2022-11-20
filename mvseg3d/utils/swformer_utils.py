@@ -59,7 +59,7 @@ def flat2window(feat, voxel_drop_lvl, flat2win_inds_dict, drop_info, padding=0):
         this_inds = flat2win_inds_dict[dl][0]
 
         max_tokens = drop_info[dl]['max_tokens']
-        num_windows = (this_inds // max_tokens).max().item() + 1
+        num_windows = torch.div(this_inds, max_tokens, rounding_mode='floor').max().item() + 1
         padding = torch.tensor(padding, dtype=dtype, device=device)
         feat_3d = torch.ones((num_windows * max_tokens, feat_dim), dtype=dtype, device=device) * padding
         feat_3d[this_inds] = feat_this_dl
@@ -141,9 +141,9 @@ def get_window_coors(coors, sparse_shape, window_shape, do_shift):
     shifted_coors_y = coors[:, 2] + shift_y
     shifted_coors_z = coors[:, 1] + shift_z
 
-    win_coors_x = shifted_coors_x // win_shape_x
-    win_coors_y = shifted_coors_y // win_shape_y
-    win_coors_z = shifted_coors_z // win_shape_z
+    win_coors_x = torch.div(shifted_coors_x, win_shape_x, rounding_mode='floor')
+    win_coors_y = torch.div(shifted_coors_y, win_shape_y, rounding_mode='floor')
+    win_coors_z = torch.div(shifted_coors_z, win_shape_z, rounding_mode='floor')
 
     if len(window_shape) == 2:
         assert (win_coors_z == 0).all()

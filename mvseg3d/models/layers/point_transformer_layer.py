@@ -179,7 +179,7 @@ class SparseWindowPartitionLayer(nn.Module):
         # [pos_length]
         inv_freq = torch.arange(
             pos_length, dtype=torch.float32, device=coors_in_win.device)
-        inv_freq = self.pos_temperature ** (2 * (inv_freq // 2) / pos_length)
+        inv_freq = self.pos_temperature ** (2 * torch.div(inv_freq, 2, rounding_mode='floor') / pos_length)
 
         # [num_tokens, pos_length]
         embed_x = x[:, None] / inv_freq[None, :]
