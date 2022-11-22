@@ -166,7 +166,7 @@ class PointTransformer(nn.Module):
 
         # encoder
         x = self.conv_input(input_sp_tensor)
-        x_conv1 = self.window_partition1(x.features, x.indices)
+        x_conv1 = self.window_partition1(x)
         x_conv1 = self.swformer_block1(x_conv1)
         x_conv1 = replace_feature(x, x_conv1)
 

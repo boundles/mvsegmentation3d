@@ -30,17 +30,19 @@ class SparseWindowPartitionLayer(nn.Module):
         self.normalize_pos = normalize_pos
         self.pos_temperature = pos_temperature
 
-    def forward(self, voxel_features, voxel_coords):
+    def forward(self, x):
         """
         Args:
-            voxel_features: shape=[N, C], N is the voxel num in the batch.
-            voxel_coords: shape=[N, 4], [b, z, y, x]
+            x: input sparse tensor contains:
+                voxel_features: shape=[N, C], N is the voxel num in the batch.
+                voxel_coords: shape=[N, 4], [b, z, y, x]
         Returns:
             feat_3d_dict: contains region features (feat_3d) of each region batching level. Shape of feat_3d is [num_windows, num_max_tokens, C].
             flat2win_inds_list: two dict containing transformation information for non-shifted grouping and shifted grouping, respectively. The two dicts are used in function flat2window and window2flat.
             voxel_info: dict containing extra information of each voxel for usage in the backbone.
         """
-        voxel_coords = voxel_coords.long()
+        voxel_features = x.features
+        voxel_coords = x.indices.long()
 
         voxel_info = self.window_partition(voxel_coords)
         voxel_info['voxel_features'] = voxel_features
@@ -271,17 +273,17 @@ class EncoderLayer(nn.Module):
         return src
 
 class SWFormerBlock(nn.Module):
-    def __init__(self, inplanes, planes, nhead, dim_feedforward, dropout, num_shifts=2):
+    def __init__(self, d_model, nhead, dim_feedforward, dropout, num_shifts=2):
         super(SWFormerBlock, self).__init__()
 
         self.num_shifts = num_shifts
 
-        encoder_1 = EncoderLayer(inplanes, nhead, dim_feedforward, dropout)
-        encoder_2 = EncoderLayer(inplanes, nhead, dim_feedforward, dropout)
+        encoder_1 = EncoderLayer(d_model, nhead, dim_feedforward, dropout)
+        encoder_2 = EncoderLayer(d_model, nhead, dim_feedforward, dropout)
         self.encoder_list = nn.ModuleList([encoder_1, encoder_2])
 
     def forward(self, batch_dict):
-        voxel_feats = batch_dict['voxel_feats']
+        voxel_features = batch_dict['voxel_features']
         ind_dict_list = [batch_dict[f'flat2win_inds_shift{i}'] for i in range(self.num_shifts)]
         padding_mask_list = [batch_dict[f'key_mask_shift{i}'] for i in range(self.num_shifts)]
         pos_embed_list = [batch_dict[f'pos_dict_shift{i}'] for i in range(self.num_shifts)]
@@ -293,6 +295,6 @@ class SWFormerBlock(nn.Module):
             key_mask_dict = padding_mask_list[this_id]
 
             layer = self.encoder_list[i]
-            voxel_feats = layer(voxel_feats, pos_dict, ind_dict, key_mask_dict)
+            voxel_features = layer(voxel_features, pos_dict, ind_dict, key_mask_dict)
 
-        return voxel_feats
+        return voxel_features
