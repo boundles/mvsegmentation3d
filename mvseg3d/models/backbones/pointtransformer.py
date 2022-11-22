@@ -141,18 +141,25 @@ class PointTransformer(nn.Module):
                                                             self.sparse_shape[::-1]/8)
 
         self.swformer_block1 = SWFormerBlock(48, 8, 256, 0.0)
-        # self.swformer_block2 = SWFormerBlock(192, 8, 256, 0.0)
-        # self.swformer_block3 = SWFormerBlock(192, 8, 256, 0.0)
-        # self.swformer_block4 = SWFormerBlock(192, 8, 256, 0.0)
+        self.swformer_block2 = SWFormerBlock(96, 8, 256, 0.0)
+        self.swformer_block3 = SWFormerBlock(192, 8, 256, 0.0)
+        self.swformer_block4 = SWFormerBlock(384, 8, 256, 0.0)
+
+        self.conv_down1 = ConvModule(48, 96, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
+                                     conv_type='spconv', indice_key='spconv2')
+        self.conv_down2 = ConvModule(96, 192, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
+                                     conv_type='spconv', indice_key='spconv3')
+        self.conv_down3 = ConvModule(192, 384, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
+                                     conv_type='spconv', indice_key='spconv4')
 
         # [188, 188, 9] -> [376, 376, 18]
-        self.up4 = UpBlock(192, 192, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=4)
+        self.up4 = UpBlock(384, 192, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=4)
         # [376, 376, 18] -> [752, 752, 36]
-        self.up3 = UpBlock(192, 192, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=3)
+        self.up3 = UpBlock(192, 96, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=3)
         # [752, 752, 36] -> [1504, 1504, 72]
-        self.up2 = UpBlock(192, 192, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=2)
+        self.up2 = UpBlock(96, 48, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=2)
         # [1504, 1504, 72] -> [1504, 1504, 72]
-        self.up1 = UpBlock(192, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
+        self.up1 = UpBlock(48, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
     def forward(self, batch_dict):
         voxel_features, voxel_coords = batch_dict['voxel_features'], batch_dict['voxel_coords']
@@ -169,5 +176,26 @@ class PointTransformer(nn.Module):
         x_conv1 = self.window_partition1(x)
         x_conv1 = self.swformer_block1(x_conv1)
         x_conv1 = replace_feature(x, x_conv1)
+
+        x = self.conv_down1(x_conv1)
+        x_conv2 = self.window_partition2(x)
+        x_conv2 = self.swformer_block2(x_conv2)
+        x_conv2 = replace_feature(x, x_conv2)
+
+        x = self.conv_down2(x_conv2)
+        x_conv3 = self.window_partition3(x)
+        x_conv3 = self.swformer_block3(x_conv3)
+        x_conv3 = replace_feature(x, x_conv3)
+
+        x = self.conv_down3(x_conv3)
+        x_conv4 = self.window_partition4(x)
+        x_conv4 = self.swformer_block4(x_conv4)
+        x_conv4 = replace_feature(x, x_conv4)
+
+        # decoder
+        x_conv4 = self.up4(x_conv4, x_conv4)
+        x_conv3 = self.up3(x_conv4, x_conv3)
+        x_conv2 = self.up2(x_conv3, x_conv2)
+        x_conv1 = self.up1(x_conv2, x_conv1)
 
         return x_conv1

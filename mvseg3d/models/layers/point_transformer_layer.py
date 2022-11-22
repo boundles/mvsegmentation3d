@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.utils.checkpoint import checkpoint
 
 from mvseg3d.utils.swformer_utils import get_flat2win_inds_v2, flat2window_v2, get_window_coors, window2flat_v2
 from mvseg3d.ops import get_inner_win_inds
@@ -250,11 +251,12 @@ class WindowAttention(nn.Module):
         return results
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, nhead, dim_feedforward=128, dropout=0.1, mlp_dropout=0):
+    def __init__(self, d_model, nhead, dim_feedforward=256, dropout=0.1, mlp_dropout=0.0):
         super(EncoderLayer, self).__init__()
         self.win_attn = WindowAttention(d_model, nhead, dropout)
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.activation = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(mlp_dropout)
         self.linear2 = nn.Linear(dim_feedforward, d_model)
 
@@ -273,7 +275,7 @@ class EncoderLayer(nn.Module):
         return src
 
 class SWFormerBlock(nn.Module):
-    def __init__(self, d_model, nhead, dim_feedforward, dropout, num_shifts=2):
+    def __init__(self, d_model, nhead, dim_feedforward=256, dropout=0.1, num_shifts=2):
         super(SWFormerBlock, self).__init__()
 
         self.num_shifts = num_shifts
@@ -282,7 +284,7 @@ class SWFormerBlock(nn.Module):
         encoder_2 = EncoderLayer(d_model, nhead, dim_feedforward, dropout)
         self.encoder_list = nn.ModuleList([encoder_1, encoder_2])
 
-    def forward(self, batch_dict):
+    def forward(self, batch_dict, using_checkpoint=False):
         voxel_features = batch_dict['voxel_features']
         ind_dict_list = [batch_dict[f'flat2win_inds_shift{i}'] for i in range(self.num_shifts)]
         padding_mask_list = [batch_dict[f'key_mask_shift{i}'] for i in range(self.num_shifts)]
@@ -295,6 +297,9 @@ class SWFormerBlock(nn.Module):
             key_mask_dict = padding_mask_list[this_id]
 
             layer = self.encoder_list[i]
-            voxel_features = layer(voxel_features, pos_dict, ind_dict, key_mask_dict)
+            if using_checkpoint and self.training:
+                voxel_features = checkpoint(layer, voxel_features, pos_dict, ind_dict, key_mask_dict)
+            else:
+                voxel_features = layer(voxel_features, pos_dict, ind_dict, key_mask_dict)
 
         return voxel_features
