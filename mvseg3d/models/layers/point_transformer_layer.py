@@ -8,7 +8,7 @@ from mvseg3d.ops import get_inner_win_inds
 class SparseWindowPartitionLayer(nn.Module):
     """
     There are 3 things to be done in this class:
-    1. Regional Grouping : assign window indices to each voxel.
+    1. Regional Grouping: assign window indices to each voxel.
     2. Voxel drop and region batching: see our paper for detail
     3. Pre-computing the transformation information for converting flat features ([N x C]) to region features ([R, T, C]).
         R is the number of regions containing at most T tokens (voxels). See function flat2window and window2flat for details.
@@ -246,3 +246,53 @@ class WindowAttention(nn.Module):
         results = window2flat_v2(out_feat_dict, ind_dict)
 
         return results
+
+class EncoderLayer(nn.Module):
+    def __init__(self, d_model, nhead, dim_feedforward=128, dropout=0.1, mlp_dropout=0):
+        super(EncoderLayer, self).__init__()
+        self.win_attn = WindowAttention(d_model, nhead, dropout)
+        # Implementation of Feedforward model
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(mlp_dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.dropout1 = nn.Dropout(mlp_dropout)
+        self.dropout2 = nn.Dropout(mlp_dropout)
+
+    def forward(self, src, pos_dict, ind_dict, key_padding_mask_dict):
+        src2 = self.win_attn(src, pos_dict, ind_dict, key_padding_mask_dict) #[N, d_model]
+        src = src + self.dropout1(src2)
+        src = self.norm1(src)
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
+        src = src + self.dropout2(src2)
+        src = self.norm2(src)
+        return src
+
+class SWFormerBlock(nn.Module):
+    def __init__(self, inplanes, planes, nhead, dim_feedforward, dropout, num_shifts=2):
+        super(SWFormerBlock, self).__init__()
+
+        self.num_shifts = num_shifts
+
+        encoder_1 = EncoderLayer(inplanes, nhead, dim_feedforward, dropout)
+        encoder_2 = EncoderLayer(inplanes, nhead, dim_feedforward, dropout)
+        self.encoder_list = nn.ModuleList([encoder_1, encoder_2])
+
+    def forward(self, batch_dict):
+        voxel_feats = batch_dict['voxel_feats']
+        ind_dict_list = [batch_dict[f'flat2win_inds_shift{i}'] for i in range(self.num_shifts)]
+        padding_mask_list = [batch_dict[f'key_mask_shift{i}'] for i in range(self.num_shifts)]
+        pos_embed_list = [batch_dict[f'pos_dict_shift{i}'] for i in range(self.num_shifts)]
+
+        for i in range(2):
+            this_id = i % self.num_shifts
+            pos_dict = pos_embed_list[this_id]
+            ind_dict = ind_dict_list[this_id]
+            key_mask_dict = padding_mask_list[this_id]
+
+            layer = self.encoder_list[i]
+            voxel_feats = layer(voxel_feats, pos_dict, ind_dict, key_mask_dict)
+
+        return voxel_feats

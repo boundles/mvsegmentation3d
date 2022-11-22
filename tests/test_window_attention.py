@@ -19,7 +19,7 @@ if __name__ == '__main__':
     voxel_coords = torch.zeros((4, 4)).cuda()
     voxel_info = window_partition(voxel_features, voxel_coords)
 
-    window_attention = WindowAttention(24, 2, 0.5)
+    window_attention = WindowAttention(24, 2, 0.5).cuda()
     result = window_attention(voxel_info['voxel_features'], voxel_info['pos_dict_shift0'],
                               voxel_info['flat2win_inds_shift0'], voxel_info['key_mask_shift0'])
     print(result)
