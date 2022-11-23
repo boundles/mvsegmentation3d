@@ -8,11 +8,12 @@ from mvseg3d.utils.config import cfg
 from mvseg3d.utils.data_utils import load_data_to_gpu
 from mvseg3d.utils.logging import get_root_logger
 
+
 if __name__ == '__main__':
     logger = get_root_logger(name="test_point_transformer")
 
     # load data
-    cfg.DATASET.POINT_CLOUD_RANGE = [-72.2, -72.2, -2, 72.2, 72.2, 4.4]
+    cfg.DATASET.POINT_CLOUD_RANGE = [-72, -72, -2, 72, 72, 4.4]
     train_dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
     logger.info('Loaded %d train samples' % len(train_dataset))
 
