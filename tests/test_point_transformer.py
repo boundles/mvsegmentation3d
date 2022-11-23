@@ -16,13 +16,11 @@ if __name__ == '__main__':
     train_dataset = WaymoDataset(cfg, '/nfs/dataset-dtai-common/waymo_open_dataset_v_1_3_2', 'validation')
     logger.info('Loaded %d train samples' % len(train_dataset))
 
-    train_set, train_loader, train_sampler = build_dataloader(
+    train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=2,
-        dist=True,
         num_workers=4,
-        seed=0,
-        training=True)
+        collate_fn=train_dataset.collate_batch)
 
     dim_point = train_dataset.dim_point
     vfe = VFE(dim_point, reduce='mean')
