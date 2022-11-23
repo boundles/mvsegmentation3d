@@ -131,19 +131,18 @@ class PointTransformer(nn.Module):
             self.act_fn
         )
 
-        self.window_partition1 = SparseWindowPartitionLayer(self.drop_info, self.window_shape,
-                                                            self.sparse_shape[::-1])
-        self.window_partition2 = SparseWindowPartitionLayer(self.drop_info, self.window_shape,
-                                                            self.sparse_shape[::-1]/2)
-        self.window_partition3 = SparseWindowPartitionLayer(self.drop_info, self.window_shape,
-                                                            self.sparse_shape[::-1]/4)
-        self.window_partition4 = SparseWindowPartitionLayer(self.drop_info, self.window_shape,
-                                                            self.sparse_shape[::-1]/8)
-
-        self.swformer_block1 = SWFormerBlock(48, 8, 256, 0.0)
-        self.swformer_block2 = SWFormerBlock(96, 8, 256, 0.0)
-        self.swformer_block3 = SWFormerBlock(192, 8, 256, 0.0)
-        self.swformer_block4 = SWFormerBlock(384, 8, 256, 0.0)
+        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+                                                                        self.sparse_shape[::-1]),
+                                             SWFormerBlock(48, 8, 256, 0.0))
+        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+                                                                        self.sparse_shape[::-1]/2),
+                                             SWFormerBlock(96, 8, 256, 0.0))
+        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+                                                                        self.sparse_shape[::-1]/4),
+                                             SWFormerBlock(192, 8, 256, 0.0))
+        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+                                                                        self.sparse_shape[::-1]/8),
+                                             SWFormerBlock(384, 8, 256, 0.0))
 
         self.conv_down1 = ConvModule(48, 96, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                                      conv_type='spconv', indice_key='spconv2')
@@ -164,7 +163,7 @@ class PointTransformer(nn.Module):
     def forward(self, batch_dict):
         voxel_features, voxel_coords = batch_dict['voxel_features'], batch_dict['voxel_coords']
         batch_size = batch_dict['batch_size']
-        input_sp_tensor = spconv.SparseConvTensor(
+        x = spconv.SparseConvTensor(
             features=voxel_features,
             indices=voxel_coords.int(),
             spatial_shape=self.sparse_shape,
@@ -172,25 +171,17 @@ class PointTransformer(nn.Module):
         )
 
         # encoder
-        x = self.conv_input(input_sp_tensor)
-        x_conv1 = self.window_partition1(x)
-        x_conv1 = self.swformer_block1(x_conv1)
-        x_conv1 = replace_feature(x, x_conv1)
+        x_conv1 = self.conv_input(x)
+        x_conv1 = replace_feature(x_conv1, self.swformer_block1(x_conv1))
 
-        x = self.conv_down1(x_conv1)
-        x_conv2 = self.window_partition2(x)
-        x_conv2 = self.swformer_block2(x_conv2)
-        x_conv2 = replace_feature(x, x_conv2)
+        x_conv2 = self.conv_down1(x_conv1)
+        x_conv2 = replace_feature(x_conv2, self.swformer_block2(x_conv2))
 
-        x = self.conv_down2(x_conv2)
-        x_conv3 = self.window_partition3(x)
-        x_conv3 = self.swformer_block3(x_conv3)
-        x_conv3 = replace_feature(x, x_conv3)
+        x_conv3 = self.conv_down2(x_conv2)
+        x_conv3 = replace_feature(x_conv3, self.swformer_block3(x_conv3))
 
-        x = self.conv_down3(x_conv3)
-        x_conv4 = self.window_partition4(x)
-        x_conv4 = self.swformer_block4(x_conv4)
-        x_conv4 = replace_feature(x, x_conv4)
+        x_conv4 = self.conv_down3(x_conv3)
+        x_conv4 = replace_feature(x_conv4, self.swformer_block4(x_conv4))
 
         # decoder
         x_conv4 = self.up4(x_conv4, x_conv4)
