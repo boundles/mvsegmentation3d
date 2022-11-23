@@ -134,13 +134,13 @@ class PointTransformer(nn.Module):
         self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
                                                                         self.sparse_shape[::-1]),
                                              SWFormerBlock(48, 8, 256, 0.0))
-        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+        self.swformer_block2 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/2),
                                              SWFormerBlock(96, 8, 256, 0.0))
-        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+        self.swformer_block3 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/4),
                                              SWFormerBlock(192, 8, 256, 0.0))
-        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+        self.swformer_block4 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/8),
                                              SWFormerBlock(384, 8, 256, 0.0))
 
