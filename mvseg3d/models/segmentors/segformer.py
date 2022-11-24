@@ -166,7 +166,7 @@ class Segformer(nn.Module):
             point_image_features = batch_dict['point_image_features']
             point_image_features = self.deep_fusion(cur_points.contiguous(), point_id_offset,
                                                     point_fusion_features, point_image_features)
-            point_fusion_features = torch.cat([point_per_features, point_image_features], dim=1)
+            point_fusion_features = torch.cat([point_fusion_features, point_image_features], dim=1)
 
         # fusion features encoder
         point_fusion_features = self.fusion_encoder(point_fusion_features)
