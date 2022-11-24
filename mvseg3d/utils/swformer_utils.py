@@ -53,15 +53,12 @@ def flat2window(feat, voxel_drop_lvl, flat2win_inds_dict, drop_info, padding=0):
         if not dl_mask.any():
             continue
 
-        feat_this_dl = feat[dl_mask]
-
         this_inds = flat2win_inds_dict[dl][0]
 
         max_tokens = drop_info[dl]['max_tokens']
         num_windows = torch.div(this_inds, max_tokens, rounding_mode='floor').max().item() + 1
-        padding = torch.tensor(padding, dtype=dtype, device=device)
         feat_3d = torch.ones((num_windows * max_tokens, feat_dim), dtype=dtype, device=device) * padding
-        feat_3d[this_inds] = feat_this_dl
+        feat_3d[this_inds] = feat[dl_mask]
         feat_3d = feat_3d.reshape((num_windows, max_tokens, feat_dim))
         feat_3d_dict[dl] = feat_3d
 
@@ -74,12 +71,10 @@ def window2flat(feat_3d_dict, inds_dict):
         num_all_voxel += inds_dict[dl][0].shape[0]
 
     dtype = feat_3d_dict[list(feat_3d_dict.keys())[0]].dtype
-
     device = feat_3d_dict[list(feat_3d_dict.keys())[0]].device
     feat_dim = feat_3d_dict[list(feat_3d_dict.keys())[0]].shape[-1]
 
     all_flat_feat = torch.zeros((num_all_voxel, feat_dim), device=device, dtype=dtype)
-
     for dl in feat_3d_dict:
         feat = feat_3d_dict[dl]
         feat_dim = feat.shape[-1]

@@ -30,9 +30,9 @@ if __name__ == '__main__':
         0: {'max_tokens': 180, 'drop_range': (0, 180)},
         1: {'max_tokens': 360, 'drop_range': (180, 360)},
         2: {'max_tokens': 540, 'drop_range': (360, 540)},
-        3: {'max_tokens': 3200, 'drop_range': (540, 100000)}
+        3: {'max_tokens': 800, 'drop_range': (540, 100000)}
     }
-    window_shape = (20, 20, 8)
+    window_shape = (10, 10, 8)
     model = PointTransformer(dim_point, 64, train_dataset.grid_size, train_dataset.voxel_size,
                              train_dataset.point_cloud_range, drop_info, window_shape).cuda()
     model.train()
