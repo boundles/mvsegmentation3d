@@ -81,7 +81,16 @@ class Segformer(nn.Module):
 
         self.voxel_in_feature_channel = self.vfe.voxel_feature_channel
         self.voxel_feature_channel = 32
-        self.point_transformer = PointTransformer(self.voxel_in_feature_channel + 3)
+        drop_info = {
+            0: {'max_tokens': 60, 'drop_range': (0, 60)},
+            1: {'max_tokens': 120, 'drop_range': (60, 120)},
+            2: {'max_tokens': 180, 'drop_range': (120, 180)},
+            3: {'max_tokens': 400, 'drop_range': (180, 100000)}
+        }
+        window_shape = (10, 10, 4)
+        self.point_transformer = PointTransformer(self.voxel_in_feature_channel, self.voxel_feature_channel,
+                                                  dataset.grid_size, dataset.voxel_size, dataset.point_cloud_range,
+                                                  drop_info, window_shape)
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
@@ -139,13 +148,11 @@ class Segformer(nn.Module):
 
         # encode voxel features
         point_voxel_ids = batch_dict['point_voxel_ids']
-        voxel_id_offset = batch_dict['voxel_id_offset'].int()
         if self.use_multi_sweeps:
-            voxel_features = self.vfe(points, point_voxel_ids)
+            batch_dict['voxel_features'] = self.vfe(points, point_voxel_ids)
         else:
-            voxel_features = self.vfe(point_per_features, point_voxel_ids)
-        voxel_points = self.scatter(points[:, :3], point_voxel_ids)
-        batch_dict['voxel_features'] = self.point_transformer((voxel_points.contiguous(), voxel_features, voxel_id_offset))
+            batch_dict['voxel_features'] = self.vfe(point_per_features, point_voxel_ids)
+        batch_dict = self.point_transformer(batch_dict)
 
         # point features from encoded voxel feature
         if self.use_multi_sweeps:

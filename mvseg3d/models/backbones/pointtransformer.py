@@ -133,16 +133,16 @@ class PointTransformer(nn.Module):
 
         self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
                                                                         self.sparse_shape[::-1]),
-                                             SWFormerBlock(48, 8, 256, 0.0))
+                                             SWFormerBlock(48, 8, 128, 0.0))
         self.swformer_block2 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/2),
-                                             SWFormerBlock(96, 8, 256, 0.0))
+                                             SWFormerBlock(96, 8, 128, 0.0))
         self.swformer_block3 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/4),
-                                             SWFormerBlock(192, 8, 256, 0.0))
+                                             SWFormerBlock(192, 8, 128, 0.0))
         self.swformer_block4 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/8),
-                                             SWFormerBlock(384, 8, 256, 0.0))
+                                             SWFormerBlock(384, 8, 128, 0.0))
 
         self.conv_down1 = ConvModule(48, 96, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                                      conv_type='spconv', indice_key='spconv2')
@@ -189,4 +189,7 @@ class PointTransformer(nn.Module):
         x_conv2 = self.up2(x_conv3, x_conv2)
         x_conv1 = self.up1(x_conv2, x_conv1)
 
-        return x_conv1
+        batch_dict['voxel_features'] = x_conv1.features
+        batch_dict['voxel_coords'] = x_conv1.indices
+
+        return batch_dict

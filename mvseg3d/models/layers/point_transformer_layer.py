@@ -284,7 +284,7 @@ class SWFormerBlock(nn.Module):
         encoder_2 = EncoderLayer(d_model, nhead, dim_feedforward, dropout)
         self.encoder_list = nn.ModuleList([encoder_1, encoder_2])
 
-    def forward(self, batch_dict, using_checkpoint=False):
+    def forward(self, batch_dict, using_checkpoint=True):
         voxel_features = batch_dict['voxel_features']
         ind_dict_list = [batch_dict[f'flat2win_inds_shift{i}'] for i in range(self.num_shifts)]
         padding_mask_list = [batch_dict[f'key_mask_shift{i}'] for i in range(self.num_shifts)]

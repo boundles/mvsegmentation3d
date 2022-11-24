@@ -1,6 +1,5 @@
 import torch
 
-from mvseg3d.datasets import build_dataloader
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.models import VFE
 from mvseg3d.models.backbones import PointTransformer
@@ -27,12 +26,12 @@ if __name__ == '__main__':
     vfe = VFE(dim_point, reduce='mean')
 
     drop_info = {
-        0: {'max_tokens': 180, 'drop_range': (0, 180)},
-        1: {'max_tokens': 360, 'drop_range': (180, 360)},
-        2: {'max_tokens': 540, 'drop_range': (360, 540)},
-        3: {'max_tokens': 800, 'drop_range': (540, 100000)}
+        0: {'max_tokens': 60, 'drop_range': (0, 60)},
+        1: {'max_tokens': 120, 'drop_range': (60, 120)},
+        2: {'max_tokens': 180, 'drop_range': (120, 180)},
+        3: {'max_tokens': 400, 'drop_range': (180, 100000)}
     }
-    window_shape = (10, 10, 8)
+    window_shape = (10, 10, 4)
     model = PointTransformer(dim_point, 64, train_dataset.grid_size, train_dataset.voxel_size,
                              train_dataset.point_cloud_range, drop_info, window_shape).cuda()
     model.train()
