@@ -167,16 +167,16 @@ class SPNet(nn.Module):
         else:
             point_voxel_features = voxel_to_point(batch_dict['voxel_features'], point_voxel_ids)
 
-        point_per_features = torch.cat([point_per_features, point_voxel_features], dim=1)
+        point_fusion_features = torch.cat([point_per_features, point_voxel_features], dim=1)
 
         # decorating points with pixel-level semantic score
         if self.use_image_feature:
             point_image_features = batch_dict['point_image_features']
             point_image_features = self.deep_fusion(cur_points.contiguous(), batch_dict['point_id_offset'].int(),
-                                                    point_per_features, point_image_features)
+                                                    point_fusion_features, point_image_features)
+            point_fusion_features = torch.cat([point_fusion_features, point_image_features], dim=1)
 
-        # fusion voxel features
-        point_fusion_features = torch.cat([point_per_features, point_image_features], dim=1)
+        # fusion features encoder
         point_fusion_features = self.fusion_encoder(point_fusion_features)
 
         # se block for channel attention
