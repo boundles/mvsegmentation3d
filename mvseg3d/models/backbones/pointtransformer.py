@@ -139,25 +139,36 @@ class PointTransformer(nn.Module):
                                              SWFormerBlock(96, 8, 128, 0.0))
         self.swformer_block3 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/4),
-                                             SWFormerBlock(192, 8, 128, 0.0))
+                                             SWFormerBlock(192, 8, 256, 0.0))
         self.swformer_block4 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/8),
-                                             SWFormerBlock(384, 8, 128, 0.0))
+                                             SWFormerBlock(384, 8, 256, 0.0))
+        self.swformer_block5 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
+                                                                        self.sparse_shape[::-1]/16),
+                                             SWFormerBlock(480, 8, 256, 0.0))
 
+        # [1440, 1440, 64] -> [720, 720, 32]
         self.conv_down1 = ConvModule(48, 96, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                                      conv_type='spconv', indice_key='spconv2')
+        # [720, 720, 32] -> [360, 360, 16]
         self.conv_down2 = ConvModule(96, 192, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                                      conv_type='spconv', indice_key='spconv3')
+        # [360, 360, 16] -> [180, 180, 8]
         self.conv_down3 = ConvModule(192, 384, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                                      conv_type='spconv', indice_key='spconv4')
+        # [180, 180, 8] -> [90, 90, 4]
+        self.conv_down4 = ConvModule(384, 480, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
+                                     conv_type='spconv', indice_key='spconv5')
 
-        # [188, 188, 9] -> [376, 376, 18]
+        # [90, 90, 4] -> [180, 180, 8]
+        self.up5 = UpBlock(480, 384, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=5)
+        # [180, 180, 8] -> [360, 360, 16]
         self.up4 = UpBlock(384, 192, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=4)
-        # [376, 376, 18] -> [752, 752, 36]
+        # [360, 360, 16] -> [720, 720, 32]
         self.up3 = UpBlock(192, 96, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=3)
-        # [752, 752, 36] -> [1504, 1504, 72]
+        # [720, 720, 32] -> [1440, 1440, 64]
         self.up2 = UpBlock(96, 48, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=2)
-        # [1504, 1504, 72] -> [1504, 1504, 72]
+        # [1440, 1440, 64] -> [1440, 1440, 64]
         self.up1 = UpBlock(48, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
         self.aux_voxel_feature_channel = 384
@@ -185,12 +196,16 @@ class PointTransformer(nn.Module):
         x_conv4 = self.conv_down3(x_conv3)
         x_conv4 = replace_feature(x_conv4, self.swformer_block4(x_conv4))
 
+        x_conv5 = self.conv_down4(x_conv4)
+        x_conv5 = replace_feature(x_conv5, self.swformer_block5(x_conv5))
+
         # auxiliary features
         batch_dict['aux_voxel_features'] = x_conv4.features
         batch_dict['aux_voxel_coords'] = x_conv4.indices
 
         # decoder
-        x_conv4 = self.up4(x_conv4, x_conv4)
+        x_conv5 = self.up5(x_conv5, x_conv5)
+        x_conv4 = self.up4(x_conv5, x_conv4)
         x_conv3 = self.up3(x_conv4, x_conv3)
         x_conv2 = self.up2(x_conv3, x_conv2)
         x_conv1 = self.up1(x_conv2, x_conv1)

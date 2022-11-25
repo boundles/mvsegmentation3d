@@ -11,7 +11,7 @@ __C.DATASET.USE_MULTI_SWEEPS = False
 __C.DATASET.MAX_NUM_SWEEPS = 5
 __C.DATASET.NUM_SWEEPS = 3
 __C.DATASET.USE_CYLINDER = False
-__C.DATASET.POINT_CLOUD_RANGE = [-75.2, -75.2, -2, 75.2, 75.2, 5.2]
+__C.DATASET.POINT_CLOUD_RANGE = [-72, -72, -2, 72, 72, 4.4]
 __C.DATASET.VOXEL_SIZE = [0.1, 0.1, 0.1]
 __C.DATASET.DIM_POINT = 6
 __C.DATASET.USE_IMAGE_FEATURE = False
@@ -39,12 +39,12 @@ __C.MODEL.LOSSES = {'ohem_ce': 1.0, 'lovasz': 1.0}
 __C.MODEL.OHEM_KEEP_RATIO = 0.3
 __C.MODEL.AUX_LOSS_WEIGHT = 0.4
 __C.MODEL.BATCHING_INFO = {
-    '0': {'max_tokens': 60, 'batching_range': (0, 60)},
-    '1': {'max_tokens': 120, 'batching_range': (60, 120)},
-    '2': {'max_tokens': 180, 'batching_range': (120, 180)},
-    '3': {'max_tokens': 400, 'batching_range': (180, 100000)}
+    '0': {'max_tokens': 120, 'batching_range': (0, 120)},
+    '1': {'max_tokens': 240, 'batching_range': (120, 240)},
+    '2': {'max_tokens': 360, 'batching_range': (240, 360)},
+    '3': {'max_tokens': 800, 'batching_range': (360, 100000)}
 }
-__C.MODEL.WINDOW_SHAPE = (10, 10, 4)
+__C.MODEL.WINDOW_SHAPE = (10, 10, 8)
 
 # training config
 __C.TRAIN = edict()
