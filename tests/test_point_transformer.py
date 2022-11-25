@@ -25,15 +25,15 @@ if __name__ == '__main__':
     dim_point = train_dataset.dim_point
     vfe = VFE(dim_point, reduce='mean')
 
-    drop_info = {
-        0: {'max_tokens': 60, 'drop_range': (0, 60)},
-        1: {'max_tokens': 120, 'drop_range': (60, 120)},
-        2: {'max_tokens': 180, 'drop_range': (120, 180)},
-        3: {'max_tokens': 400, 'drop_range': (180, 100000)}
+    batching_info = {
+        0: {'max_tokens': 60, 'batching_range': (0, 60)},
+        1: {'max_tokens': 120, 'batching_range': (60, 120)},
+        2: {'max_tokens': 180, 'batching_range': (120, 180)},
+        3: {'max_tokens': 400, 'batching_range': (180, 100000)}
     }
     window_shape = (10, 10, 4)
     model = PointTransformer(dim_point, 64, train_dataset.grid_size, train_dataset.voxel_size,
-                             train_dataset.point_cloud_range, drop_info, window_shape).cuda()
+                             train_dataset.point_cloud_range, batching_info, window_shape).cuda()
     model.train()
     for step, data_dict in enumerate(train_loader):
         load_data_to_gpu(data_dict)

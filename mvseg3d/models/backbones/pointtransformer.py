@@ -114,13 +114,13 @@ class UpBlock(spconv.SparseModule):
 
 
 class PointTransformer(nn.Module):
-    def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range, drop_info, window_shape):
+    def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range, batching_info, window_shape):
         super(PointTransformer, self).__init__()
         self.sparse_shape = grid_size[::-1]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
         self.window_shape = window_shape
-        self.drop_info = drop_info
+        self.batching_info = batching_info
 
         self.norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         self.act_fn = nn.ReLU(inplace=True)
@@ -131,16 +131,16 @@ class PointTransformer(nn.Module):
             self.act_fn
         )
 
-        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
                                                                         self.sparse_shape[::-1]),
                                              SWFormerBlock(48, 8, 128, 0.0))
-        self.swformer_block2 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+        self.swformer_block2 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/2),
                                              SWFormerBlock(96, 8, 128, 0.0))
-        self.swformer_block3 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+        self.swformer_block3 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/4),
                                              SWFormerBlock(192, 8, 128, 0.0))
-        self.swformer_block4 = nn.Sequential(SparseWindowPartitionLayer(self.drop_info, self.window_shape,
+        self.swformer_block4 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
                                                                         self.sparse_shape[::-1]/8),
                                              SWFormerBlock(384, 8, 128, 0.0))
 

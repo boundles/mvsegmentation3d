@@ -10,22 +10,22 @@ class SparseWindowPartitionLayer(nn.Module):
     """
     There are 3 things to be done in this class:
     1. Regional Grouping: assign window indices to each voxel.
-    2. Voxel drop and region batching: see our paper for detail
+    2. Voxel batching and region batching: see our paper for detail
     3. Pre-computing the transformation information for converting flat features ([N x C]) to region features ([R, T, C]).
         R is the number of regions containing at most T tokens (voxels). See function flat2window and window2flat for details.
 
     Main args:
-        drop_info (dict): drop configuration for region batching.
+        batching_info (dict): batching configuration for region batching.
         window_shape (tuple[int]): (num_x, num_y， num_z). Each window is divided to num_x * num_y * num_z voxels (including empty voxel).
     """
     def __init__(self,
-                 drop_info,
+                 batching_info,
                  window_shape,
                  sparse_shape,
                  normalize_pos=False,
                  pos_temperature=10000):
         super(SparseWindowPartitionLayer, self).__init__()
-        self.drop_info = drop_info
+        self.batching_info = batching_info
         self.sparse_shape = sparse_shape
         self.window_shape = window_shape
         self.normalize_pos = normalize_pos
@@ -48,14 +48,14 @@ class SparseWindowPartitionLayer(nn.Module):
         voxel_info = self.window_partition(voxel_coords)
         voxel_info['voxel_features'] = voxel_features
         voxel_info['voxel_coords'] = voxel_coords
-        voxel_info = self.drop_voxel(voxel_info, 2)  # voxel_info is updated in this function
+        voxel_info = self.batching_voxel(voxel_info, 2)  # voxel_info is updated in this function
 
-        voxel_features = voxel_info['voxel_features']  # after dropping
+        voxel_features = voxel_info['voxel_features']  # after batching
 
         for i in range(2):
             voxel_info[f'flat2win_inds_shift{i}'] = \
-                get_flat2win_inds_v2(voxel_info[f'batch_win_inds_shift{i}'], voxel_info[f'voxel_drop_level_shift{i}'],
-                                     self.drop_info)
+                get_flat2win_inds_v2(voxel_info[f'batch_win_inds_shift{i}'], voxel_info[f'voxel_batching_level_shift{i}'],
+                                     self.batching_info)
 
             voxel_info[f'pos_dict_shift{i}'] = \
                 self.get_pos_embed(voxel_info[f'flat2win_inds_shift{i}'], voxel_info[f'coors_in_win_shift{i}'],
@@ -66,25 +66,25 @@ class SparseWindowPartitionLayer(nn.Module):
 
         return voxel_info
 
-    def drop_single_shift(self, batch_win_inds):
-        drop_info = self.drop_info
-        drop_lvl_per_voxel = -torch.ones_like(batch_win_inds)
+    def batching_single_shift(self, batch_win_inds):
+        batching_info = self.batching_info
+        batching_lvl_per_voxel = -torch.ones_like(batch_win_inds)
         inner_win_inds = get_inner_win_inds(batch_win_inds)
         bincount = torch.bincount(batch_win_inds)
-        num_per_voxel_before_drop = bincount[batch_win_inds]
+        num_per_voxel_before_batching = bincount[batch_win_inds]
         target_num_per_voxel = torch.zeros_like(batch_win_inds)
 
-        for dl in drop_info:
-            max_tokens = drop_info[dl]['max_tokens']
-            lower, upper = drop_info[dl]['drop_range']
-            range_mask = (num_per_voxel_before_drop >= lower) & (num_per_voxel_before_drop < upper)
+        for bl in batching_info:
+            max_tokens = batching_info[bl]['max_tokens']
+            lower, upper = batching_info[bl]['batching_range']
+            range_mask = (num_per_voxel_before_batching >= lower) & (num_per_voxel_before_batching < upper)
             target_num_per_voxel[range_mask] = max_tokens
-            drop_lvl_per_voxel[range_mask] = dl
+            batching_lvl_per_voxel[range_mask] = bl
 
         keep_mask = inner_win_inds < target_num_per_voxel
-        return keep_mask, drop_lvl_per_voxel
+        return keep_mask, batching_lvl_per_voxel
 
-    def drop_voxel(self, voxel_info, num_shifts):
+    def batching_voxel(self, voxel_info, num_shifts):
         """
         To make it clear and easy to follow, we do not use loop to process two shifts.
         """
@@ -93,45 +93,45 @@ class SparseWindowPartitionLayer(nn.Module):
 
         voxel_keep_inds = torch.arange(num_all_voxel, device=batch_win_inds_s0.device, dtype=torch.long)
 
-        keep_mask_s0, drop_lvl_s0 = self.drop_single_shift(batch_win_inds_s0)
+        keep_mask_s0, batching_lvl_s0 = self.batching_single_shift(batch_win_inds_s0)
 
-        drop_lvl_s0 = drop_lvl_s0[keep_mask_s0]
+        batching_lvl_s0 = batching_lvl_s0[keep_mask_s0]
         voxel_keep_inds = voxel_keep_inds[keep_mask_s0]
         batch_win_inds_s0 = batch_win_inds_s0[keep_mask_s0]
 
         if num_shifts == 1:
             voxel_info['voxel_keep_inds'] = voxel_keep_inds
-            voxel_info['voxel_drop_level_shift0'] = drop_lvl_s0
+            voxel_info['voxel_batching_level_shift0'] = batching_lvl_s0
             voxel_info['batch_win_inds_shift0'] = batch_win_inds_s0
             return voxel_info
 
         batch_win_inds_s1 = voxel_info['batch_win_inds_shift1']
         batch_win_inds_s1 = batch_win_inds_s1[keep_mask_s0]
 
-        keep_mask_s1, drop_lvl_s1 = self.drop_single_shift(batch_win_inds_s1)
+        keep_mask_s1, batching_lvl_s1 = self.batching_single_shift(batch_win_inds_s1)
 
-        # drop data in first shift again
-        drop_lvl_s0 = drop_lvl_s0[keep_mask_s1]
+        # batching data in first shift again
+        batching_lvl_s0 = batching_lvl_s0[keep_mask_s1]
         voxel_keep_inds = voxel_keep_inds[keep_mask_s1]
         batch_win_inds_s0 = batch_win_inds_s0[keep_mask_s1]
 
-        drop_lvl_s1 = drop_lvl_s1[keep_mask_s1]
+        batching_lvl_s1 = batching_lvl_s1[keep_mask_s1]
         batch_win_inds_s1 = batch_win_inds_s1[keep_mask_s1]
 
         voxel_info['voxel_keep_inds'] = voxel_keep_inds
-        voxel_info['voxel_drop_level_shift0'] = drop_lvl_s0
+        voxel_info['voxel_batching_level_shift0'] = batching_lvl_s0
         voxel_info['batch_win_inds_shift0'] = batch_win_inds_s0
-        voxel_info['voxel_drop_level_shift1'] = drop_lvl_s1
+        voxel_info['voxel_batching_level_shift1'] = batching_lvl_s1
         voxel_info['batch_win_inds_shift1'] = batch_win_inds_s1
         voxel_keep_inds = voxel_info['voxel_keep_inds']
 
-        voxel_num_before_drop = len(voxel_info['voxel_coords'])
+        voxel_num_before_batching = len(voxel_info['voxel_coords'])
         voxel_info['voxel_features'] = voxel_info['voxel_features'][voxel_keep_inds]
         voxel_info['voxel_coords'] = voxel_info['voxel_coords'][voxel_keep_inds]
 
-        # Some other variables need to be dropped.
+        # Some other variables need to be batched.
         for k, v in voxel_info.items():
-            if isinstance(v, torch.Tensor) and len(v) == voxel_num_before_drop:
+            if isinstance(v, torch.Tensor) and len(v) == voxel_num_before_batching:
                 voxel_info[k] = v[voxel_keep_inds]
 
         return voxel_info
@@ -206,8 +206,8 @@ class SparseWindowPartitionLayer(nn.Module):
 
     @torch.no_grad()
     def get_key_padding_mask(self, ind_dict):
-        num_all_voxel = len(ind_dict['voxel_drop_level'])
-        key_padding = torch.ones((num_all_voxel, 1)).to(ind_dict['voxel_drop_level'].device).bool()
+        num_all_voxel = len(ind_dict['voxel_batching_level'])
+        key_padding = torch.ones((num_all_voxel, 1)).to(ind_dict['voxel_batching_level'].device).bool()
 
         window_key_padding_dict = flat2window_v2(key_padding, ind_dict)
 

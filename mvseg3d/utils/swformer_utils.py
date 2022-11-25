@@ -5,63 +5,63 @@ from mvseg3d.ops import get_inner_win_inds
 
 
 @torch.no_grad()
-def get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info):
+def get_flat2win_inds(batch_win_inds, voxel_batching_lvl, batching_info):
     """
     Args:
         batch_win_inds: shape=[N, ]. Indicates which window a voxel belongs to. Window inds is unique is the whole batch.
-        voxel_drop_lvl: shape=[N, ]. Indicates batching_level of the window the voxel belongs to.
-        drop_info: Drop configuration for region batching.
+        voxel_batching_lvl: shape=[N, ]. Indicates batching_level of the window the voxel belongs to.
+        batching_info: Batching configuration for region batching.
     Returns:
         flat2window_inds_dict: contains flat2window_inds of each voxel, shape=[N,]
             Determine the voxel position in range [0, num_windows * max_tokens) of each voxel.
     """
     flat2window_inds_dict = {}
 
-    for dl in drop_info:  # dl: short for drop level
-        dl_mask = voxel_drop_lvl == dl
+    for bl in batching_info:  # bl: short for batching level
+        dl_mask = voxel_batching_lvl == bl
         if not dl_mask.any():
             continue
 
         conti_win_inds = make_continuous_inds(batch_win_inds[dl_mask])
-        max_tokens = drop_info[dl]['max_tokens']
+        max_tokens = batching_info[bl]['max_tokens']
         inner_win_inds = get_inner_win_inds(conti_win_inds)
         flat2window_inds = conti_win_inds * max_tokens + inner_win_inds
-        flat2window_inds_dict[dl] = (flat2window_inds, torch.where(dl_mask))
+        flat2window_inds_dict[bl] = (flat2window_inds, torch.where(dl_mask))
 
     return flat2window_inds_dict
 
 
-def flat2window(feat, voxel_drop_lvl, flat2win_inds_dict, drop_info, padding=0):
+def flat2window(feat, voxel_batching_lvl, flat2win_inds_dict, batching_info, padding=0):
     """
     Args:
         feat: shape=[N, C], N is the voxel num in the batch.
-        voxel_drop_lvl: shape=[N, ]. Indicates drop_level of the window the voxel belongs to.
+        voxel_batching_lvl: shape=[N, ]. Indicates batching_level of the window the voxel belongs to.
         flat2win_inds_dict: Contains flat2window_inds of each voxel, shape=[N,]
-        drop_info: Drop configuration for region batching.
+        batching_info: Batching configuration for region batching.
         padding: Padding value for feature
     Returns:
-        feat_3d_dict: contains feat_3d of each drop level. Shape of feat_3d is [num_windows, num_max_tokens, C].
+        feat_3d_dict: contains feat_3d of each batching level. Shape of feat_3d is [num_windows, num_max_tokens, C].
     """
     dtype = feat.dtype
     device = feat.device
     feat_dim = feat.shape[-1]
 
     feat_3d_dict = {}
-    for dl in drop_info:
-        dl_mask = voxel_drop_lvl == dl
-        if not dl_mask.any():
+    for bl in batching_info:
+        bl_mask = voxel_batching_lvl == bl
+        if not bl_mask.any():
             continue
 
-        feat_this_dl = feat[dl_mask]
+        feat_this_dl = feat[bl_mask]
 
-        this_inds = flat2win_inds_dict[dl][0]
-        max_tokens = drop_info[dl]['max_tokens']
+        this_inds = flat2win_inds_dict[bl][0]
+        max_tokens = batching_info[bl]['max_tokens']
         num_windows = torch.div(this_inds, max_tokens, rounding_mode='floor').max().item() + 1
         padding = torch.tensor(padding, dtype=dtype, device=device)
         feat_3d = torch.ones((num_windows * max_tokens, feat_dim), dtype=dtype, device=device) * padding
         feat_3d[this_inds] = feat_this_dl
         feat_3d = feat_3d.reshape((num_windows, max_tokens, feat_dim))
-        feat_3d_dict[dl] = feat_3d
+        feat_3d_dict[bl] = feat_3d
 
     return feat_3d_dict
 
@@ -87,11 +87,11 @@ def window2flat(feat_3d_dict, inds_dict):
     return all_flat_feat
 
 
-def get_flat2win_inds_v2(batch_win_inds, voxel_drop_lvl, drop_info):
-    transform_dict = get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info)
-    # add voxel_drop_lvl and batching_info into transform_dict for better wrapping
-    transform_dict['voxel_drop_level'] = voxel_drop_lvl
-    transform_dict['batching_info'] = drop_info
+def get_flat2win_inds_v2(batch_win_inds, voxel_batching_lvl, batching_info):
+    transform_dict = get_flat2win_inds(batch_win_inds, voxel_batching_lvl, batching_info)
+    # add voxel_batching_lvl and batching_info into transform_dict for better wrapping
+    transform_dict['voxel_batching_level'] = voxel_batching_lvl
+    transform_dict['batching_info'] = batching_info
     return transform_dict
 
 
@@ -101,10 +101,10 @@ def window2flat_v2(feat_3d_dict, inds_dict):
 
 
 def flat2window_v2(feat, inds_dict, padding=0):
-    assert 'voxel_drop_level' in inds_dict, 'voxel_drop_level should be in inds_dict in v2 function'
+    assert 'voxel_batching_level' in inds_dict, 'voxel_batching_level should be in inds_dict in v2 function'
     inds_v1 = {k: inds_dict[k] for k in inds_dict if not isinstance(k, str)}
     batching_info = inds_dict['batching_info']
-    return flat2window(feat, inds_dict['voxel_drop_level'], inds_v1, batching_info, padding=padding)
+    return flat2window(feat, inds_dict['voxel_batching_level'], inds_v1, batching_info, padding=padding)
 
 
 @torch.no_grad()
