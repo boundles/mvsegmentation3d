@@ -9,7 +9,7 @@ def build_segmentor(cfg, dataset):
     if cfg.MODEL.SEGMENTOR == 'segformer':
         batching_info = {}
         for lvl in cfg.MODEL.BATCHING_IFNO:
-            batching_info[int(lvl)] = cfg.MODEL.BATCHING_IFNO[lvl]
+            batching_info[int(lvl)] = cfg.MODEL.BATCHING_INFO[lvl]
         segmentor = Segformer(dataset=dataset, batching_info=batching_info, window_shape=cfg.MODEL.WINDOW_SHAPE)
     elif cfg.MODEL.SEGMENTOR == 'spnet':
         segmentor = SPNet(dataset=dataset)
