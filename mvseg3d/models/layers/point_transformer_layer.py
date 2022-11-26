@@ -218,10 +218,10 @@ class SparseWindowPartitionLayer(nn.Module):
         return window_key_padding_dict
 
 class WindowAttention(nn.Module):
-    def __init__(self, d_model, nhead, dropout):
+    def __init__(self, d_model, nhead, attn_drop):
         super(WindowAttention, self).__init__()
 
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=attn_drop)
 
     def forward(self, feat_2d, pos_dict, ind_dict, key_padding_dict):
         out_feat_dict = {}
@@ -251,19 +251,19 @@ class WindowAttention(nn.Module):
         return results
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, nhead, dim_feedforward=256, dropout=0.1, mlp_dropout=0.0):
+    def __init__(self, d_model, nhead, mlp_hidden_dim=256, attn_drop=0.1, drop=0.):
         super(EncoderLayer, self).__init__()
-        self.win_attn = WindowAttention(d_model, nhead, dropout)
+        self.win_attn = WindowAttention(d_model, nhead, attn_drop)
         # Implementation of Feedforward model
-        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.linear1 = nn.Linear(d_model, mlp_hidden_dim)
         self.activation = nn.ReLU(inplace=True)
-        self.dropout = nn.Dropout(mlp_dropout)
-        self.linear2 = nn.Linear(dim_feedforward, d_model)
+        self.dropout = nn.Dropout(drop)
+        self.linear2 = nn.Linear(mlp_hidden_dim, d_model)
 
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
-        self.dropout1 = nn.Dropout(mlp_dropout)
-        self.dropout2 = nn.Dropout(mlp_dropout)
+        self.dropout1 = nn.Dropout(drop)
+        self.dropout2 = nn.Dropout(drop)
 
     def forward(self, src, pos_dict, ind_dict, key_padding_mask_dict):
         src2 = self.win_attn(src, pos_dict, ind_dict, key_padding_mask_dict) #[N, d_model]
@@ -275,31 +275,37 @@ class EncoderLayer(nn.Module):
         return src
 
 class SWFormerBlock(nn.Module):
-    def __init__(self, d_model, nhead, dim_feedforward=256, dropout=0.1, num_shifts=2):
+    def __init__(self, d_model, nhead, depth=2, mlp_ratio=2., attn_drop=0.1, drop=0.):
         super(SWFormerBlock, self).__init__()
 
-        self.num_shifts = num_shifts
+        mlp_hidden_dim = int(d_model * mlp_ratio)
 
-        encoder_1 = EncoderLayer(d_model, nhead, dim_feedforward, dropout)
-        encoder_2 = EncoderLayer(d_model, nhead, dim_feedforward, dropout)
-        self.encoder_list = nn.ModuleList([encoder_1, encoder_2])
+        self.encoders_0 = nn.ModuleList([EncoderLayer(d_model, nhead, mlp_hidden_dim, attn_drop, drop) for i in range(depth)])
+        self.encoders_1 = nn.ModuleList([EncoderLayer(d_model, nhead, mlp_hidden_dim, attn_drop, drop) for i in range(depth)])
 
     def forward(self, batch_dict, using_checkpoint=True):
         voxel_features = batch_dict['voxel_features']
-        ind_dict_list = [batch_dict[f'flat2win_inds_shift{i}'] for i in range(self.num_shifts)]
-        padding_mask_list = [batch_dict[f'key_mask_shift{i}'] for i in range(self.num_shifts)]
-        pos_embed_list = [batch_dict[f'pos_dict_shift{i}'] for i in range(self.num_shifts)]
 
-        for i in range(2):
-            this_id = i % self.num_shifts
-            pos_dict = pos_embed_list[this_id]
-            ind_dict = ind_dict_list[this_id]
-            key_mask_dict = padding_mask_list[this_id]
+        # shift 0
+        ind_dict = batch_dict['flat2win_inds_shift0']
+        pos_dict = batch_dict['pos_dict_shift0']
+        key_mask_dict = batch_dict['key_mask_shift0']
+        if using_checkpoint and self.training:
+            for encoder in self.encoders_0:
+                voxel_features = checkpoint(encoder, voxel_features, pos_dict, ind_dict, key_mask_dict)
+        else:
+            for encoder in self.encoders_0:
+                voxel_features = encoder(voxel_features, pos_dict, ind_dict, key_mask_dict)
 
-            layer = self.encoder_list[i]
-            if using_checkpoint and self.training:
-                voxel_features = checkpoint(layer, voxel_features, pos_dict, ind_dict, key_mask_dict)
-            else:
-                voxel_features = layer(voxel_features, pos_dict, ind_dict, key_mask_dict)
+        # shift 1
+        ind_dict = batch_dict['flat2win_inds_shift1']
+        pos_dict = batch_dict['pos_dict_shift1']
+        key_mask_dict = batch_dict['key_mask_shift1']
+        if using_checkpoint and self.training:
+            for encoder in self.encoders_1:
+                voxel_features = checkpoint(encoder, voxel_features, pos_dict, ind_dict, key_mask_dict)
+        else:
+            for encoder in self.encoders_1:
+                voxel_features = encoder(voxel_features, pos_dict, ind_dict, key_mask_dict)
 
         return voxel_features
