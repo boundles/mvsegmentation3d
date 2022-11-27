@@ -4,7 +4,7 @@ from torch.utils.checkpoint import checkpoint
 
 from mvseg3d.utils.swformer_utils import get_flat2win_inds_v2, flat2window_v2, get_window_coors, window2flat_v2
 from mvseg3d.ops import get_inner_win_inds
-from mvseg3d.models.layers import CosineMultiheadAttention
+from .cosine_msa import CosineMultiheadAttention
 
 
 class SparseWindowPartitionLayer(nn.Module):
