@@ -37,8 +37,8 @@ def build_criterion(cfg, dataset):
 
 
 def build_optimizer(cfg, model):
-    if cfg.TRAIN.OPTIMIZER == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=cfg.TRAIN.LR, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
+    if cfg.TRAIN.OPTIMIZER == 'adamw':
+        optimizer = optim.AdamW(model.parameters(), lr=cfg.TRAIN.LR, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
     elif cfg.TRAIN.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(
             model.parameters(), lr=cfg.TRAIN.LR, weight_decay=cfg.TRAIN.WEIGHT_DECAY,
