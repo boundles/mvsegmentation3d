@@ -4,6 +4,7 @@ from torch.utils.checkpoint import checkpoint
 
 from mvseg3d.utils.swformer_utils import get_flat2win_inds_v2, flat2window_v2, get_window_coors, window2flat_v2
 from mvseg3d.ops import get_inner_win_inds
+from mvseg3d.models.layers import CosineMultiheadAttention
 
 
 class SparseWindowPartitionLayer(nn.Module):
@@ -23,7 +24,7 @@ class SparseWindowPartitionLayer(nn.Module):
                  window_shape,
                  sparse_shape,
                  normalize_pos=False,
-                 pos_temperature=10000):
+                 pos_temperature=1000):
         super(SparseWindowPartitionLayer, self).__init__()
         self.batching_info = batching_info
         self.sparse_shape = sparse_shape
@@ -218,10 +219,15 @@ class SparseWindowPartitionLayer(nn.Module):
         return window_key_padding_dict
 
 class WindowAttention(nn.Module):
-    def __init__(self, d_model, nhead, attn_drop):
+    def __init__(self, d_model, nhead, attn_drop, cosine=True, tau_min=0.01):
         super(WindowAttention, self).__init__()
 
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=attn_drop)
+        if cosine:
+            self.self_attn = CosineMultiheadAttention(
+                d_model, nhead, dropout=attn_drop, batch_first=False, tau_min=tau_min,
+                cosine=True, non_shared_tau=False)
+        else:
+            self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=attn_drop)
 
     def forward(self, feat_2d, pos_dict, ind_dict, key_padding_dict):
         out_feat_dict = {}
