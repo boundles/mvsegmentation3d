@@ -38,13 +38,33 @@ __C.MODEL.SEGMENTOR = 'segformer'
 __C.MODEL.LOSSES = {'ohem_ce': 1.0, 'lovasz': 1.0}
 __C.MODEL.OHEM_KEEP_RATIO = 0.3
 __C.MODEL.AUX_LOSS_WEIGHT = 0.4
-__C.MODEL.BATCHING_INFO = {
-    '0': {'max_tokens': 60, 'batching_range': [0, 60]},
-    '1': {'max_tokens': 120, 'batching_range': [60, 120]},
-    '2': {'max_tokens': 180, 'batching_range': [120, 180]},
-    '3': {'max_tokens': 400, 'batching_range': [180, 100000]}
-}
-__C.MODEL.WINDOW_SHAPE = (10, 10, 4)
+__C.MODEL.BATCHING_INFO = [
+    {
+        '0': {'max_tokens': 20, 'batching_range': [0, 20]},
+        '1': {'max_tokens': 60, 'batching_range': [20, 60]},
+        '2': {'max_tokens': 180, 'batching_range': [60, 180]},
+        '3': {'max_tokens': 1800, 'batching_range': [180, 100000]}
+    },
+    {
+        '0': {'max_tokens': 20, 'batching_range': [0, 20]},
+        '1': {'max_tokens': 60, 'batching_range': [20, 60]},
+        '2': {'max_tokens': 180, 'batching_range': [60, 180]},
+        '3': {'max_tokens': 1800, 'batching_range': [180, 100000]}
+    },
+    {
+        '0': {'max_tokens': 10, 'batching_range': [0, 10]},
+        '1': {'max_tokens': 60, 'batching_range': [10, 60]},
+        '2': {'max_tokens': 360, 'batching_range': [60, 360]},
+        '3': {'max_tokens': 1800, 'batching_range': [360, 100000]}
+    },
+    {
+        '0': {'max_tokens': 10, 'batching_range': [0, 10]},
+        '1': {'max_tokens': 60, 'batching_range': [10, 60]},
+        '2': {'max_tokens': 360, 'batching_range': [60, 360]},
+        '3': {'max_tokens': 1800, 'batching_range': [360, 100000]}
+    }
+]
+__C.MODEL.WINDOW_SHAPE = (15, 15, 8)
 
 # training config
 __C.TRAIN = edict()

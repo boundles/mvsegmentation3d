@@ -131,16 +131,16 @@ class PointTransformer(nn.Module):
             self.act_fn
         )
 
-        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
+        self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info[0], self.window_shape,
                                                                         self.sparse_shape[::-1]),
                                              SWFormerBlock(48, 8, depth=2))
-        self.swformer_block2 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
+        self.swformer_block2 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info[1], self.window_shape,
                                                                         self.sparse_shape[::-1]/2),
                                              SWFormerBlock(96, 8, depth=2))
-        self.swformer_block3 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
+        self.swformer_block3 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info[2], self.window_shape,
                                                                         self.sparse_shape[::-1]/4),
                                              SWFormerBlock(192, 8, depth=2))
-        self.swformer_block4 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info, self.window_shape,
+        self.swformer_block4 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info[3], self.window_shape,
                                                                         self.sparse_shape[::-1]/8),
                                              SWFormerBlock(384, 8, depth=2))
 

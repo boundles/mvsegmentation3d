@@ -7,9 +7,12 @@ from mvseg3d.models import SPNet, Segformer, LovaszLoss, OHEMCrossEntropyLoss, W
 
 def build_segmentor(cfg, dataset):
     if cfg.MODEL.SEGMENTOR == 'segformer':
-        batching_info = {}
-        for lvl in cfg.MODEL.BATCHING_INFO:
-            batching_info[int(lvl)] = cfg.MODEL.BATCHING_INFO[lvl]
+        batching_info = []
+        for single_batch_info in cfg.MODEL.BATCHING_INFO:
+            new_single_batch_info = {}
+            for lvl in single_batch_info:
+                new_single_batch_info[int(lvl)] = cfg.MODEL.BATCHING_INFO[lvl]
+            batching_info.append(new_single_batch_info)
         segmentor = Segformer(dataset=dataset, batching_info=batching_info, window_shape=cfg.MODEL.WINDOW_SHAPE)
     elif cfg.MODEL.SEGMENTOR == 'spnet':
         segmentor = SPNet(dataset=dataset)
