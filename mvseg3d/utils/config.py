@@ -40,28 +40,28 @@ __C.MODEL.OHEM_KEEP_RATIO = 0.3
 __C.MODEL.AUX_LOSS_WEIGHT = 0.4
 __C.MODEL.BATCHING_INFO = [
     {
-        '0': {'max_tokens': 20, 'batching_range': [0, 20]},
-        '1': {'max_tokens': 60, 'batching_range': [20, 60]},
-        '2': {'max_tokens': 180, 'batching_range': [60, 180]},
-        '3': {'max_tokens': 800, 'batching_range': [180, 100000]}
+        '0': {'max_tokens': 16, 'batching_range': [0, 16]},
+        '1': {'max_tokens': 64, 'batching_range': [16, 64]},
+        '2': {'max_tokens': 128, 'batching_range': [64, 128]},
+        '3': {'max_tokens': 800, 'batching_range': [128, 100000]}
     },
     {
-        '0': {'max_tokens': 60, 'batching_range': [0, 60]},
-        '1': {'max_tokens': 180, 'batching_range': [60, 180]},
-        '2': {'max_tokens': 480, 'batching_range': [180, 480]},
-        '3': {'max_tokens': 800, 'batching_range': [480, 100000]}
+        '0': {'max_tokens': 64, 'batching_range': [0, 64]},
+        '1': {'max_tokens': 192, 'batching_range': [64, 192]},
+        '2': {'max_tokens': 512, 'batching_range': [192, 512]},
+        '3': {'max_tokens': 800, 'batching_range': [512, 100000]}
     },
     {
-        '0': {'max_tokens': 60, 'batching_range': [0, 60]},
-        '1': {'max_tokens': 180, 'batching_range': [60, 180]},
-        '2': {'max_tokens': 540, 'batching_range': [180, 540]},
-        '3': {'max_tokens': 800, 'batching_range': [540, 100000]}
+        '0': {'max_tokens': 64, 'batching_range': [0, 64]},
+        '1': {'max_tokens': 160, 'batching_range': [64, 160]},
+        '2': {'max_tokens': 384, 'batching_range': [160, 384]},
+        '3': {'max_tokens': 800, 'batching_range': [384, 100000]}
     },
     {
-        '0': {'max_tokens': 60, 'batching_range': [0, 60]},
-        '1': {'max_tokens': 180, 'batching_range': [60, 180]},
-        '2': {'max_tokens': 540, 'batching_range': [180, 540]},
-        '3': {'max_tokens': 800, 'batching_range': [540, 100000]}
+        '0': {'max_tokens': 128, 'batching_range': [0, 128]},
+        '1': {'max_tokens': 256, 'batching_range': [128, 256]},
+        '2': {'max_tokens': 512, 'batching_range': [256, 512]},
+        '3': {'max_tokens': 800, 'batching_range': [512, 100000]}
     }
 ]
 __C.MODEL.WINDOW_SHAPE = (10, 10, 8)
