@@ -11,7 +11,7 @@ def build_segmentor(cfg, dataset):
         for single_batch_info in cfg.MODEL.BATCHING_INFO:
             new_single_batch_info = {}
             for lvl in single_batch_info:
-                new_single_batch_info[int(lvl)] = cfg.MODEL.BATCHING_INFO[lvl]
+                new_single_batch_info[int(lvl)] = single_batch_info[lvl]
             batching_info.append(new_single_batch_info)
         segmentor = Segformer(dataset=dataset, batching_info=batching_info, window_shape=cfg.MODEL.WINDOW_SHAPE)
     elif cfg.MODEL.SEGMENTOR == 'spnet':

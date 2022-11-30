@@ -43,28 +43,28 @@ __C.MODEL.BATCHING_INFO = [
         '0': {'max_tokens': 20, 'batching_range': [0, 20]},
         '1': {'max_tokens': 60, 'batching_range': [20, 60]},
         '2': {'max_tokens': 180, 'batching_range': [60, 180]},
-        '3': {'max_tokens': 1800, 'batching_range': [180, 100000]}
+        '3': {'max_tokens': 800, 'batching_range': [180, 100000]}
     },
     {
-        '0': {'max_tokens': 20, 'batching_range': [0, 20]},
-        '1': {'max_tokens': 60, 'batching_range': [20, 60]},
-        '2': {'max_tokens': 180, 'batching_range': [60, 180]},
-        '3': {'max_tokens': 1800, 'batching_range': [180, 100000]}
+        '0': {'max_tokens': 60, 'batching_range': [0, 60]},
+        '1': {'max_tokens': 180, 'batching_range': [60, 180]},
+        '2': {'max_tokens': 480, 'batching_range': [180, 480]},
+        '3': {'max_tokens': 800, 'batching_range': [480, 100000]}
     },
     {
-        '0': {'max_tokens': 10, 'batching_range': [0, 10]},
-        '1': {'max_tokens': 60, 'batching_range': [10, 60]},
-        '2': {'max_tokens': 360, 'batching_range': [60, 360]},
-        '3': {'max_tokens': 1800, 'batching_range': [360, 100000]}
+        '0': {'max_tokens': 60, 'batching_range': [0, 60]},
+        '1': {'max_tokens': 180, 'batching_range': [60, 180]},
+        '2': {'max_tokens': 540, 'batching_range': [180, 540]},
+        '3': {'max_tokens': 800, 'batching_range': [540, 100000]}
     },
     {
-        '0': {'max_tokens': 10, 'batching_range': [0, 10]},
-        '1': {'max_tokens': 60, 'batching_range': [10, 60]},
-        '2': {'max_tokens': 360, 'batching_range': [60, 360]},
-        '3': {'max_tokens': 1800, 'batching_range': [360, 100000]}
+        '0': {'max_tokens': 60, 'batching_range': [0, 60]},
+        '1': {'max_tokens': 180, 'batching_range': [60, 180]},
+        '2': {'max_tokens': 540, 'batching_range': [180, 540]},
+        '3': {'max_tokens': 800, 'batching_range': [540, 100000]}
     }
 ]
-__C.MODEL.WINDOW_SHAPE = (15, 15, 8)
+__C.MODEL.WINDOW_SHAPE = (10, 10, 8)
 
 # training config
 __C.TRAIN = edict()
