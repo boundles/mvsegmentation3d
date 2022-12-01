@@ -5,6 +5,7 @@ from torch.utils.checkpoint import checkpoint
 from mvseg3d.utils.swformer_utils import get_flat2win_inds_v2, flat2window_v2, get_window_coors, window2flat_v2
 from mvseg3d.ops import get_inner_win_inds
 from .cosine_msa import CosineMultiheadAttention
+from .drop import DropPath
 
 
 class SparseWindowPartitionLayer(nn.Module):
@@ -256,38 +257,64 @@ class WindowAttention(nn.Module):
 
         return results
 
+class MLP(nn.Module):
+    def __init__(self, in_features, hidden_features=None, out_features=None, drop=0.):
+        super(MLP, self).__init__()
+        out_features = out_features or in_features
+        hidden_features = hidden_features or in_features
+        self.fc1 = nn.Linear(in_features, hidden_features)
+        self.act = nn.ReLU(inplace=True)
+        self.fc2 = nn.Linear(hidden_features, out_features)
+        self.drop = nn.Dropout(drop)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.act(x)
+        x = self.drop(x)
+        x = self.fc2(x)
+        x = self.drop(x)
+        return x
+
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, nhead, mlp_hidden_dim=256, attn_drop=0.1, drop=0.):
+    def __init__(self, d_model, nhead, mlp_hidden_dim=256, drop=0., attn_drop=0.1, drop_path=0.):
         super(EncoderLayer, self).__init__()
         self.win_attn = WindowAttention(d_model, nhead, attn_drop)
         # Implementation of Feedforward model
-        self.linear1 = nn.Linear(d_model, mlp_hidden_dim)
-        self.activation = nn.ReLU(inplace=True)
-        self.dropout = nn.Dropout(drop)
-        self.linear2 = nn.Linear(mlp_hidden_dim, d_model)
-
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
-        self.dropout1 = nn.Dropout(drop)
-        self.dropout2 = nn.Dropout(drop)
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.mlp = MLP(in_features=d_model, hidden_features=mlp_hidden_dim, drop=drop)
 
-    def forward(self, src, pos_dict, ind_dict, key_padding_mask_dict):
-        src2 = self.win_attn(src, pos_dict, ind_dict, key_padding_mask_dict) #[N, d_model]
-        src = src + self.dropout1(src2)
-        src = self.norm1(src)
-        src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
-        src = src + self.dropout2(src2)
-        src = self.norm2(src)
-        return src
+    def forward(self, x, pos_dict, ind_dict, key_padding_mask_dict):
+        shortcut = x
+
+        x = self.win_attn(x, pos_dict, ind_dict, key_padding_mask_dict) #[N, d_model]
+
+        x = shortcut + self.drop_path(self.norm1(x))
+
+        # FFN
+        x = x + self.drop_path(self.norm2(self.mlp(x)))
+
+        return x
 
 class SWFormerBlock(nn.Module):
-    def __init__(self, d_model, nhead, depth=2, mlp_ratio=2., attn_drop=0.1, drop=0.):
+    def __init__(self, d_model, nhead, depth=2, mlp_ratio=2., attn_drop=0.1, drop=0., drop_path=0.):
         super(SWFormerBlock, self).__init__()
 
         mlp_hidden_dim = int(d_model * mlp_ratio)
 
-        self.encoders_0 = nn.ModuleList([EncoderLayer(d_model, nhead, mlp_hidden_dim, attn_drop, drop) for i in range(depth)])
-        self.encoders_1 = nn.ModuleList([EncoderLayer(d_model, nhead, mlp_hidden_dim, attn_drop, drop) for i in range(depth)])
+        self.encoders_s0 = nn.ModuleList([
+            EncoderLayer(d_model, nhead, mlp_hidden_dim,
+                         attn_drop=attn_drop,
+                         drop=drop,
+                         drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path)
+            for i in range(depth)])
+        self.encoders_s1 = nn.ModuleList([
+            EncoderLayer(d_model, nhead, mlp_hidden_dim,
+                         attn_drop=attn_drop,
+                         drop=drop,
+                         drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path)
+            for i in range(depth)])
 
     def forward(self, batch_dict, using_checkpoint=True):
         voxel_features = batch_dict['voxel_features']
@@ -297,10 +324,10 @@ class SWFormerBlock(nn.Module):
         pos_dict = batch_dict['pos_dict_shift0']
         key_mask_dict = batch_dict['key_mask_shift0']
         if using_checkpoint and self.training:
-            for encoder in self.encoders_0:
+            for encoder in self.encoders_s0:
                 voxel_features = checkpoint(encoder, voxel_features, pos_dict, ind_dict, key_mask_dict)
         else:
-            for encoder in self.encoders_0:
+            for encoder in self.encoders_s0:
                 voxel_features = encoder(voxel_features, pos_dict, ind_dict, key_mask_dict)
 
         # shift 1
@@ -308,10 +335,10 @@ class SWFormerBlock(nn.Module):
         pos_dict = batch_dict['pos_dict_shift1']
         key_mask_dict = batch_dict['key_mask_shift1']
         if using_checkpoint and self.training:
-            for encoder in self.encoders_1:
+            for encoder in self.encoders_s1:
                 voxel_features = checkpoint(encoder, voxel_features, pos_dict, ind_dict, key_mask_dict)
         else:
-            for encoder in self.encoders_1:
+            for encoder in self.encoders_s1:
                 voxel_features = encoder(voxel_features, pos_dict, ind_dict, key_mask_dict)
 
         return voxel_features

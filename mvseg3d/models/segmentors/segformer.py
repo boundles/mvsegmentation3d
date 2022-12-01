@@ -50,7 +50,7 @@ class DeepFusionBlock(nn.Module):
 
 
 class Segformer(nn.Module):
-    def __init__(self, dataset, batching_info, window_shape):
+    def __init__(self, dataset, batching_info, window_shape, depths, drop_path_rate):
         super(Segformer, self).__init__()
 
         dim_point = dataset.dim_point
@@ -83,7 +83,8 @@ class Segformer(nn.Module):
         self.voxel_feature_channel = 32
         self.point_transformer = PointTransformer(self.voxel_in_feature_channel, self.voxel_feature_channel,
                                                   dataset.grid_size, dataset.voxel_size, dataset.point_cloud_range,
-                                                  batching_info, window_shape)
+                                                  batching_info=batching_info, window_shape=window_shape,
+                                                  depths=depths, drop_path_rate=drop_path_rate)
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:

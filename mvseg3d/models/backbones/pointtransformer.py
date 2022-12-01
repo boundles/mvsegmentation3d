@@ -114,13 +114,17 @@ class UpBlock(spconv.SparseModule):
 
 
 class PointTransformer(nn.Module):
-    def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range, batching_info, window_shape):
+    def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range,
+                 batching_info, window_shape, drop_path_rate, depths):
         super(PointTransformer, self).__init__()
         self.sparse_shape = grid_size[::-1]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
-        self.window_shape = window_shape
+
         self.batching_info = batching_info
+        self.depths = depths
+        self.window_shape = window_shape
+        self.drop_path_rate = drop_path_rate
 
         self.norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         self.act_fn = nn.ReLU(inplace=True)
@@ -131,18 +135,25 @@ class PointTransformer(nn.Module):
             self.act_fn
         )
 
+        # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, self.drop_path_rate, sum(self.depths))]
+
         self.swformer_block1 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info[0], self.window_shape,
                                                                         self.sparse_shape[::-1]),
-                                             SWFormerBlock(48, 8, depth=2))
+                                             SWFormerBlock(48, 8, depth=self.depths[0],
+                                                           drop_path=dpr[sum(self.depths[:0]):sum(self.depths[:1])]))
         self.swformer_block2 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info[1], self.window_shape,
                                                                         self.sparse_shape[::-1]/2),
-                                             SWFormerBlock(96, 8, depth=2))
+                                             SWFormerBlock(96, 8, depth=self.depths[1],
+                                                           drop_path=dpr[sum(self.depths[:1]):sum(self.depths[:2])]))
         self.swformer_block3 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info[2], self.window_shape,
                                                                         self.sparse_shape[::-1]/4),
-                                             SWFormerBlock(192, 8, depth=3))
+                                             SWFormerBlock(192, 8, depth=self.depths[2],
+                                                           drop_path=dpr[sum(self.depths[:2]):sum(self.depths[:3])]))
         self.swformer_block4 = nn.Sequential(SparseWindowPartitionLayer(self.batching_info[3], self.window_shape,
                                                                         self.sparse_shape[::-1]/8),
-                                             SWFormerBlock(384, 8, depth=2))
+                                             SWFormerBlock(384, 8, depth=self.depths[3],
+                                                           drop_path=dpr[sum(self.depths[:3]):sum(self.depths[:4])]))
 
         # [1440, 1440, 64] -> [720, 720, 32]
         self.conv_down1 = ConvModule(48, 96, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
