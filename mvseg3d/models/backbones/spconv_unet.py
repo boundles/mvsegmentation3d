@@ -6,7 +6,7 @@ import torch.nn as nn
 import spconv.pytorch as spconv
 
 from mvseg3d.utils.spconv_utils import replace_feature, ConvModule
-from mvseg3d.models.layers import FlattenSELayer, SALayer
+from mvseg3d.models.layers import FlattenSELayer, SALayer, OCRLayer
 
 
 class SparseBasicBlock(spconv.SparseModule):
@@ -124,6 +124,7 @@ class SparseUnet(nn.Module):
         self.sparse_shape = grid_size[::-1]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
+        self.use_ocr = True
 
         self.norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         self.act_fn = nn.ReLU(inplace=True)
@@ -162,6 +163,9 @@ class SparseUnet(nn.Module):
             SparseBasicBlock(512, 512, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm4'),
             SparseBasicBlock(512, 512, norm_fn=self.norm_fn, act_fn=self.act_fn, with_se=True, indice_key='subm4')
         )
+
+        if self.use_ocr:
+            self.ocr = OCRLayer(512, nhead=8)
 
         # [188, 188, 9] -> [376, 376, 18]
         self.up4 = UpBlock(512, 256, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=4)
@@ -211,6 +215,9 @@ class SparseUnet(nn.Module):
         aux_voxel_out = self.aux_voxel_classifier(x_conv4.features)
         batch_dict['aux_voxel_out'] = aux_voxel_out
         batch_dict['aux_voxel_coords'] = x_conv4.indices
+
+        if self.use_ocr:
+            x_conv4 = self.ocr(x_conv4, aux_voxel_out, batch_size)
 
         # decoder
         x_conv4 = self.up4(x_conv4, x_conv4)
