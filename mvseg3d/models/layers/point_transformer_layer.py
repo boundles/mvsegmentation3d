@@ -298,18 +298,13 @@ class EncoderLayer(nn.Module):
         return x
 
 class SWFormerBlock(nn.Module):
-    def __init__(self, d_model, nhead, depth=2, mlp_ratio=2., attn_drop=0.1, drop=0., drop_path=0.):
+    def __init__(self, d_model, nhead, depth=4, mlp_ratio=2., attn_drop=0.1, drop=0., drop_path=0.):
         super(SWFormerBlock, self).__init__()
 
         mlp_hidden_dim = int(d_model * mlp_ratio)
 
-        self.encoders_s0 = nn.ModuleList([
-            EncoderLayer(d_model, nhead, mlp_hidden_dim,
-                         attn_drop=attn_drop,
-                         drop=drop,
-                         drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path)
-            for i in range(depth)])
-        self.encoders_s1 = nn.ModuleList([
+        self.depth = depth
+        self.layers = nn.ModuleList([
             EncoderLayer(d_model, nhead, mlp_hidden_dim,
                          attn_drop=attn_drop,
                          drop=drop,
@@ -319,26 +314,26 @@ class SWFormerBlock(nn.Module):
     def forward(self, batch_dict, using_checkpoint=True):
         voxel_features = batch_dict['voxel_features']
 
-        # shift 0
+        # window shift 0
         ind_dict = batch_dict['flat2win_inds_shift0']
         pos_dict = batch_dict['pos_dict_shift0']
         key_mask_dict = batch_dict['key_mask_shift0']
         if using_checkpoint and self.training:
-            for encoder in self.encoders_s0:
-                voxel_features = checkpoint(encoder, voxel_features, pos_dict, ind_dict, key_mask_dict)
+            for layer in self.layers[:int(self.depth/2)]:
+                voxel_features = checkpoint(layer, voxel_features, pos_dict, ind_dict, key_mask_dict)
         else:
-            for encoder in self.encoders_s0:
-                voxel_features = encoder(voxel_features, pos_dict, ind_dict, key_mask_dict)
+            for layer in self.layers[:int(self.depth/2)]:
+                voxel_features = layer(voxel_features, pos_dict, ind_dict, key_mask_dict)
 
-        # shift 1
+        # window shift 1
         ind_dict = batch_dict['flat2win_inds_shift1']
         pos_dict = batch_dict['pos_dict_shift1']
         key_mask_dict = batch_dict['key_mask_shift1']
         if using_checkpoint and self.training:
-            for encoder in self.encoders_s1:
-                voxel_features = checkpoint(encoder, voxel_features, pos_dict, ind_dict, key_mask_dict)
+            for layer in self.layers[int(self.depth/2):]:
+                voxel_features = checkpoint(layer, voxel_features, pos_dict, ind_dict, key_mask_dict)
         else:
-            for encoder in self.encoders_s1:
-                voxel_features = encoder(voxel_features, pos_dict, ind_dict, key_mask_dict)
+            for layer in self.layers[int(self.depth/2):]:
+                voxel_features = layer(voxel_features, pos_dict, ind_dict, key_mask_dict)
 
         return voxel_features
