@@ -136,7 +136,8 @@ class SPNet(nn.Module):
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.LayerNorm):
                 nn.init.constant_(m.weight, 1.0)
-                nn.init.constant_(m.bias, 0)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
 
     def forward(self, batch_dict):
         points = batch_dict['points'][:, 1:]
