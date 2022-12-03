@@ -213,11 +213,12 @@ class SparseUnet(nn.Module):
         x_conv4 = self.conv4(x_conv3)
 
         # auxiliary branch
-        batch_dict['aux_voxel_out'] = self.aux_voxel_classifier(x_conv4.features)
+        aux_voxel_out = self.aux_voxel_classifier(x_conv4.features)
+        batch_dict['aux_voxel_out'] = aux_voxel_out
         batch_dict['aux_voxel_coords'] = x_conv4.indices
 
         if self.use_ocr:
-            x_conv4 = self.ocr(x_conv4, batch_dict['aux_voxel_out'], batch_size)
+            x_conv4 = self.ocr(x_conv4, aux_voxel_out, batch_size)
 
         # decoder
         x_conv4 = self.up4(x_conv4, x_conv4)

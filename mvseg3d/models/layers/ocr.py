@@ -22,8 +22,8 @@ class SpatialGatherModule(nn.Module):
             feat = feats[batch_indices == i].unsqueeze(0)
             # [1, num_classes, n]
             prob = probs[batch_indices == i].unsqueeze(0)
-            prob = F.softmax(self.scale * prob, dim=2)
             prob = prob.permute(0, 2, 1)
+            prob = F.softmax(self.scale * prob, dim=2)
             # [1, num_classes, channels]
             context = torch.matmul(prob, feat).contiguous()
             ocr_context.append(context)
