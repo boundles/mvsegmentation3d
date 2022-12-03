@@ -119,12 +119,13 @@ class SparseUnet(nn.Module):
     From Points to Parts: 3D Object Detection from Point Cloud with Part-aware and Part-aggregation Network
     """
 
-    def __init__(self, input_channels, output_channels, grid_size, voxel_size, point_cloud_range, num_classes):
+    def __init__(self, input_channels, output_channels, grid_size, voxel_size,
+                 point_cloud_range, num_classes, use_ocr=True):
         super(SparseUnet, self).__init__()
         self.sparse_shape = grid_size[::-1]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
-        self.use_ocr = True
+        self.use_ocr = use_ocr
 
         self.norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
         self.act_fn = nn.ReLU(inplace=True)
@@ -212,12 +213,11 @@ class SparseUnet(nn.Module):
         x_conv4 = self.conv4(x_conv3)
 
         # auxiliary branch
-        aux_voxel_out = self.aux_voxel_classifier(x_conv4.features)
-        batch_dict['aux_voxel_out'] = aux_voxel_out
+        batch_dict['aux_voxel_out'] = self.aux_voxel_classifier(x_conv4.features)
         batch_dict['aux_voxel_coords'] = x_conv4.indices
 
         if self.use_ocr:
-            x_conv4 = self.ocr(x_conv4, aux_voxel_out, batch_size)
+            x_conv4 = self.ocr(x_conv4, batch_dict['aux_voxel_out'], batch_size)
 
         # decoder
         x_conv4 = self.up4(x_conv4, x_conv4)

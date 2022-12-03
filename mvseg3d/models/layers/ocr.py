@@ -43,7 +43,7 @@ class OCRLayer(nn.Module):
 
     def forward(self, inputs, probs, batch_size):
         feats = inputs.features.clone()
-        batch_indices = inputs.indices[0, :]
+        batch_indices = inputs.indices[:, 0]
         ocr_context = self.spatial_gather_module(feats, probs, batch_size, batch_indices)
         for i in range(batch_size):
             feat = feats[batch_indices == i]
