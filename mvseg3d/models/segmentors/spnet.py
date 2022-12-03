@@ -83,7 +83,8 @@ class SPNet(nn.Module):
                                         self.voxel_feature_channel,
                                         dataset.grid_size,
                                         dataset.voxel_size,
-                                        dataset.point_cloud_range)
+                                        dataset.point_cloud_range,
+                                        dataset.num_classes)
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
@@ -116,13 +117,6 @@ class SPNet(nn.Module):
 
         self.voxel_classifier = nn.Sequential(
             nn.Linear(self.voxel_feature_channel, 64, bias=False),
-            nn.BatchNorm1d(64),
-            nn.ReLU(True),
-            nn.Dropout(0.1),
-            nn.Linear(64, dataset.num_classes, bias=False))
-
-        self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_encoder.aux_voxel_feature_channel, 64, bias=False),
             nn.BatchNorm1d(64),
             nn.ReLU(True),
             nn.Dropout(0.1),
@@ -194,10 +188,7 @@ class SPNet(nn.Module):
         voxel_features = batch_dict['voxel_features']
         voxel_out = self.voxel_classifier(voxel_features)
         result['voxel_out'] = voxel_out
-
-        aux_voxel_features = batch_dict['aux_voxel_features']
-        aux_voxel_out = self.aux_voxel_classifier(aux_voxel_features)
-        result['aux_voxel_out'] = aux_voxel_out
+        result['aux_voxel_out'] = batch_dict['aux_voxel_out']
 
         result['voxel_coords'] = batch_dict['voxel_coords']
         result['aux_voxel_coords'] = batch_dict['aux_voxel_coords']
