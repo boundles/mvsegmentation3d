@@ -52,13 +52,14 @@ class OCRLayer(nn.Module):
         inputs = self.transform_input(inputs)
         feats = inputs.features
         batch_indices = inputs.indices[:, 0]
-        ocr_context = self.spatial_gather_module(inputs.features, probs, batch_size, batch_indices)
+        ocr_context = self.spatial_gather_module(feats, probs, batch_size, batch_indices)
+        output_feats = torch.zeros(feats.shape).to(feats.device)
         for i in range(batch_size):
-            query_feat = inputs.features[batch_indices == i]
+            query_feat = feats[batch_indices == i]
             value_feat = key_feat = ocr_context[i]
             attn_out, attn_weights = self.attn(query_feat, key_feat, value_feat)
-            inputs.features[batch_indices == i] = attn_out
-        feats = torch.cat([inputs.features, feats], dim=1)
+            output_feats[batch_indices == i] = attn_out
+        feats = torch.cat([output_feats, feats], dim=1)
         feats = self.bottleneck(feats)
         inputs = replace_feature(inputs, feats)
         return inputs
