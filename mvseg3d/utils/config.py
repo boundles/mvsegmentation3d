@@ -65,7 +65,7 @@ __C.MODEL.BATCHING_INFO = [
     }
 ]
 __C.MODEL.WINDOW_SHAPE = [10, 10, 8]
-__C.MODEL.DEPTHS = [4, 4, 6, 4]
+__C.MODEL.DEPTHS = [2, 2, 12, 2]
 __C.MODEL.DROP_PATH_RATE = 0.3
 
 # training config
