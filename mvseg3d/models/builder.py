@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import CosineAnnealingLR, OneCycleLR
 
 from mvseg3d.models import SPNet, Segformer, LovaszLoss, OHEMCrossEntropyLoss, WarmupPolyLR
 
@@ -56,11 +57,11 @@ def build_optimizer(cfg, model):
 
 def build_scheduler(cfg, optimizer, epochs, iters_per_epoch):
     if cfg.TRAIN.LR_SCHEDULER == 'cosine_annealing':
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs * iters_per_epoch)
+        lr_scheduler = CosineAnnealingLR(optimizer, T_max=epochs * iters_per_epoch)
     elif cfg.TRAIN.LR_SCHEDULER == 'warmup_poly_lr':
         lr_scheduler = WarmupPolyLR(optimizer, max_iters=epochs * iters_per_epoch, warmup_iters=iters_per_epoch)
     elif cfg.TRAIN.LR_SCHEDULER == 'one_cycle':
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=cfg.TRAIN.LR)
+        lr_scheduler = OneCycleLR(optimizer, max_lr=cfg.TRAIN.LR, total_steps=epochs * iters_per_epoch)
     else:
         raise NotImplementedError
 
