@@ -75,8 +75,6 @@ __C.TRAIN.LR = 0.001
 __C.TRAIN.WEIGHT_DECAY = 0.01
 __C.TRAIN.MOMENTUM = 0.9
 __C.TRAIN.LR_SCHEDULER = 'warmup_poly_lr'
-__C.TRAIN.CYCLIC_BASE_LR = 0.001
-__C.TRAIN.CYCLIC_MAX_LR = 0.1
 
 
 def cfg_from_file(filename):
