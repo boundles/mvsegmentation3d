@@ -31,14 +31,13 @@ def get_flat2win_inds(batch_win_inds, voxel_batching_lvl, batching_info):
     return flat2window_inds_dict
 
 
-def flat2window(feat, voxel_batching_lvl, flat2win_inds_dict, batching_info, padding=0):
+def flat2window(feat, voxel_batching_lvl, flat2win_inds_dict, batching_info):
     """
     Args:
         feat: shape=[N, C], N is the voxel num in the batch.
         voxel_batching_lvl: shape=[N, ]. Indicates batching_level of the window the voxel belongs to.
         flat2win_inds_dict: Contains flat2window_inds of each voxel, shape=[N,]
         batching_info: Batching configuration for region batching.
-        padding: Padding value for feature
     Returns:
         feat_3d_dict: contains feat_3d of each batching level. Shape of feat_3d is [num_windows, num_max_tokens, C].
     """
@@ -57,8 +56,7 @@ def flat2window(feat, voxel_batching_lvl, flat2win_inds_dict, batching_info, pad
         this_inds = flat2win_inds_dict[bl][0]
         max_tokens = batching_info[bl]['max_tokens']
         num_windows = torch.div(this_inds, max_tokens, rounding_mode='floor').max().item() + 1
-        padding = torch.tensor(padding, dtype=dtype, device=device)
-        feat_3d = torch.ones((num_windows * max_tokens, feat_dim), dtype=dtype, device=device) * padding
+        feat_3d = torch.zeros((num_windows * max_tokens, feat_dim), dtype=dtype, device=device)
         feat_3d[this_inds] = feat_this_dl
         feat_3d = feat_3d.reshape((num_windows, max_tokens, feat_dim))
         feat_3d_dict[bl] = feat_3d
@@ -100,11 +98,11 @@ def window2flat_v2(feat_3d_dict, inds_dict):
     return window2flat(feat_3d_dict, inds_v1)
 
 
-def flat2window_v2(feat, inds_dict, padding=0):
+def flat2window_v2(feat, inds_dict):
     assert 'voxel_batching_level' in inds_dict, 'voxel_batching_level should be in inds_dict in v2 function'
     inds_v1 = {k: inds_dict[k] for k in inds_dict if not isinstance(k, str)}
     batching_info = inds_dict['batching_info']
-    return flat2window(feat, inds_dict['voxel_batching_level'], inds_v1, batching_info, padding=padding)
+    return flat2window(feat, inds_dict['voxel_batching_level'], inds_v1, batching_info)
 
 
 @torch.no_grad()
