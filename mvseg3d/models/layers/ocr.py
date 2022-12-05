@@ -56,7 +56,8 @@ class OCRLayer(nn.Module):
         output_feats = torch.zeros(feats.shape).to(feats.device)
         for i in range(batch_size):
             query_feat = feats[batch_indices == i]
-            value_feat = key_feat = ocr_context[i]
+            value_feat = ocr_context[i]
+            key_feat = ocr_context[i]
             attn_out, attn_weights = self.attn(query_feat, key_feat, value_feat)
             output_feats[batch_indices == i] = attn_out
         feats = torch.cat([output_feats, feats], dim=1)

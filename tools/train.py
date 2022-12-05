@@ -13,7 +13,6 @@ from mvseg3d.utils.logging import get_root_logger
 from mvseg3d.utils.distributed import init_dist, get_dist_info
 from mvseg3d.utils.config import cfg, cfg_from_file
 from mvseg3d.utils.data_utils import load_data_to_gpu
-from mvseg3d.utils.pointops_utils import get_voxel_centers, knn_query
 from mvseg3d.utils.random import set_random_seed, init_random_seed
 
 
@@ -78,27 +77,9 @@ def compute_loss(pred_result, data_dict, criterion):
             loss += loss_func(voxel_pred_labels, voxel_gt_labels) * loss_weight
 
     if 'aux_voxel_out' in pred_result:
-        with torch.no_grad():
-            voxel_coords = pred_result['voxel_coords']
-            aux_voxel_coords = pred_result['aux_voxel_coords']
-            voxel_centers = get_voxel_centers(voxel_coords[:, 1:], 1.0, cfg.DATASET.VOXEL_SIZE, cfg.DATASET.POINT_CLOUD_RANGE)
-            aux_voxel_centers = get_voxel_centers(aux_voxel_coords[:, 1:], 8.0, cfg.DATASET.VOXEL_SIZE, cfg.DATASET.POINT_CLOUD_RANGE)
-
-            voxel_id_offset, count = [], 0
-            aux_voxel_id_offset, aux_count = [], 0
-            for i in range(data_dict['batch_size']):
-                count += torch.sum(voxel_coords[:, 0] == i)
-                aux_count += torch.sum(aux_voxel_coords[:, 0] == i)
-                voxel_id_offset.append(count)
-                aux_voxel_id_offset.append(aux_count)
-            voxel_id_offset = torch.tensor(voxel_id_offset, device=voxel_centers.device).int()
-            aux_voxel_id_offset = torch.tensor(aux_voxel_id_offset, device=aux_voxel_centers.device).int()
-            query_idx, _ = knn_query(1, voxel_centers, aux_voxel_centers, voxel_id_offset, aux_voxel_id_offset)
-            aux_voxel_gt_labels = voxel_gt_labels[query_idx.squeeze().long()]
-
         aux_voxel_pred_labels = pred_result['aux_voxel_out']
         for loss_func, loss_weight in criterion:
-            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(aux_voxel_pred_labels, aux_voxel_gt_labels) * loss_weight
+            loss += cfg.MODEL.AUX_LOSS_WEIGHT * loss_func(aux_voxel_pred_labels, voxel_gt_labels) * loss_weight
 
     return loss
 

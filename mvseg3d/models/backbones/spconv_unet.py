@@ -165,9 +165,6 @@ class SparseUnet(nn.Module):
             SparseBasicBlock(512, 512, norm_fn=self.norm_fn, act_fn=self.act_fn, with_se=True, indice_key='subm4')
         )
 
-        if self.use_ocr:
-            self.ocr = OCRLayer(512, nhead=8)
-
         # [188, 188, 9] -> [376, 376, 18]
         self.up4 = UpBlock(512, 256, self.norm_fn, self.act_fn, conv_type='inverseconv', layer_id=4)
         # [376, 376, 18] -> [752, 752, 36]
@@ -177,8 +174,18 @@ class SparseUnet(nn.Module):
         # [1504, 1504, 72] -> [1504, 1504, 72]
         self.up1 = UpBlock(64, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
+        if self.use_ocr:
+            self.ocr = OCRLayer(64, nhead=8)
+
+        self.voxel_classifier = nn.Sequential(
+            nn.Linear(64, 64, bias=False),
+            nn.BatchNorm1d(64),
+            nn.ReLU(True),
+            nn.Dropout(0.1),
+            nn.Linear(64, num_classes, bias=False))
+
         self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(512, 64, bias=False),
+            nn.Linear(64, 64, bias=False),
             nn.BatchNorm1d(64),
             nn.ReLU(True),
             nn.Dropout(0.1),
@@ -212,21 +219,20 @@ class SparseUnet(nn.Module):
         x_conv3 = self.conv3(x_conv2)
         x_conv4 = self.conv4(x_conv3)
 
-        # auxiliary branch
-        aux_voxel_out = self.aux_voxel_classifier(x_conv4.features)
-        batch_dict['aux_voxel_out'] = aux_voxel_out
-        batch_dict['aux_voxel_coords'] = x_conv4.indices
-
-        if self.use_ocr:
-            x_conv4 = self.ocr(x_conv4, aux_voxel_out, batch_size)
-
         # decoder
         x_conv4 = self.up4(x_conv4, x_conv4)
         x_conv3 = self.up3(x_conv4, x_conv3)
         x_conv2 = self.up2(x_conv3, x_conv2)
         x_conv1 = self.up1(x_conv2, x_conv1)
 
-        batch_dict['voxel_features'] = x_conv1.features
-        batch_dict['voxel_coords'] = x_conv1.indices
+        if self.use_ocr:
+            # auxiliary branch
+            aux_voxel_out = self.aux_voxel_classifier(x_conv1.features)
+            batch_dict['aux_voxel_out'] = aux_voxel_out
+
+            x_conv1 = self.ocr(x_conv1, aux_voxel_out, batch_size)
+
+        voxel_out = self.voxel_classifier(x_conv1.features)
+        batch_dict['voxel_out'] = voxel_out
 
         return batch_dict
