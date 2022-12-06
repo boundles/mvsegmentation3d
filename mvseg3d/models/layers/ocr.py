@@ -39,7 +39,7 @@ class OCRLayer(nn.Module):
         super(OCRLayer, self).__init__()
 
         self.scale = scale
-        self.transform_input = self.conv_input = spconv.SparseSequential(
+        self.transform_input = spconv.SparseSequential(
             spconv.SubMConv3d(in_channels, in_channels, 3, padding=1, bias=False),
             nn.BatchNorm1d(in_channels),
             nn.ReLU(inplace=True)
@@ -56,10 +56,9 @@ class OCRLayer(nn.Module):
         output_feats = torch.zeros(feats.shape).to(feats.device)
         for i in range(batch_size):
             query_feat = feats[batch_indices == i]
-            value_feat = ocr_context[i]
-            key_feat = ocr_context[i]
-            attn_out, attn_weights = self.attn(query_feat, key_feat, value_feat)
-            output_feats[batch_indices == i] = attn_out
+            key_feat = value_feat = ocr_context[i]
+            out_feat, attn_weights = self.attn(query_feat, key_feat, value_feat)
+            output_feats[batch_indices == i] = out_feat
         feats = torch.cat([output_feats, feats], dim=1)
         feats = self.bottleneck(feats)
         inputs = replace_feature(inputs, feats)

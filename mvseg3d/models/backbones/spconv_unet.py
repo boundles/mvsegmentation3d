@@ -177,13 +177,6 @@ class SparseUnet(nn.Module):
         if self.use_ocr:
             self.ocr = OCRLayer(64, nhead=8)
 
-        self.voxel_classifier = nn.Sequential(
-            nn.Linear(64, 64, bias=False),
-            nn.BatchNorm1d(64),
-            nn.ReLU(True),
-            nn.Dropout(0.1),
-            nn.Linear(64, num_classes, bias=False))
-
         self.aux_voxel_classifier = nn.Sequential(
             nn.Linear(64, 64, bias=False),
             nn.BatchNorm1d(64),
@@ -232,7 +225,6 @@ class SparseUnet(nn.Module):
 
             x_conv1 = self.ocr(x_conv1, aux_voxel_out, batch_size)
 
-        voxel_out = self.voxel_classifier(x_conv1.features)
-        batch_dict['voxel_out'] = voxel_out
+        batch_dict['voxel_features'] = x_conv1.features
 
         return batch_dict
