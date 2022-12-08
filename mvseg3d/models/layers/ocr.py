@@ -34,6 +34,48 @@ class SpatialGatherModule(nn.Module):
         return ocr_context
 
 
+class ObjectAttentionBlock(nn.Module):
+    def __init__(self, in_channels, mid_channels):
+        self.query_project = nn.Sequential(
+            nn.Linear(in_channels, mid_channels, bias=False),
+            nn.BatchNorm1d(mid_channels),
+            nn.ReLU(inplace=True)
+        )
+
+        self.key_project = nn.Sequential(
+            nn.Linear(in_channels, mid_channels, bias=False),
+            nn.BatchNorm1d(mid_channels),
+            nn.ReLU(inplace=True)
+        )
+
+        self.value_project = nn.Sequential(
+            nn.Linear(in_channels, mid_channels, bias=False),
+            nn.BatchNorm1d(mid_channels),
+            nn.ReLU(inplace=True)
+        )
+
+        self.bottleneck = nn.Sequential(
+            nn.Linear(mid_channels, in_channels, bias=False),
+            nn.BatchNorm1d(mid_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x, proxy):
+        query = self.query_project(x)
+        key = self.key_project(proxy)
+        key = key.permute(1, 0)
+        value = self.value_project(proxy)
+
+        sim_map = torch.matmul(query, key)
+        sim_map = (self.key_channels ** -.5) * sim_map
+        sim_map = F.softmax(sim_map, dim=-1)
+
+        # add bg context ...
+        context = torch.matmul(sim_map, value)
+        context = self.bottleneck(context)
+        return context
+
+
 class OCRLayer(nn.Module):
     def __init__(self, in_channels, nhead, scale=1., attn_drop=0.):
         super(OCRLayer, self).__init__()
@@ -45,8 +87,12 @@ class OCRLayer(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.spatial_gather_module = SpatialGatherModule(self.scale)
-        self.attn = nn.MultiheadAttention(in_channels, nhead, dropout=attn_drop)
-        self.bottleneck = nn.Linear(in_channels * 2, in_channels, bias=False)
+        self.attn_block = ObjectAttentionBlock(in_channels, in_channels)
+        self.bottleneck = nn.Sequential(
+            nn.Linear(in_channels * 2, in_channels, bias=False),
+            nn.BatchNorm1d(in_channels),
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, inputs, probs, batch_size):
         inputs = self.transform_input(inputs)
@@ -55,9 +101,9 @@ class OCRLayer(nn.Module):
         ocr_context = self.spatial_gather_module(feats, probs, batch_size, batch_indices)
         output_feats = torch.zeros(feats.shape).to(feats.device)
         for i in range(batch_size):
-            query_feat = feats[batch_indices == i]
-            key_feat = value_feat = ocr_context[i]
-            out_feat, attn_weights = self.attn(query_feat, key_feat, value_feat)
+            feat = feats[batch_indices == i]
+            proxy_feat = ocr_context[i]
+            out_feat = self.attn_block(feat, proxy_feat)
             output_feats[batch_indices == i] = out_feat
         feats = torch.cat([output_feats, feats], dim=1)
         feats = self.bottleneck(feats)
