@@ -87,7 +87,7 @@ class OCRLayer(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.spatial_gather_module = SpatialGatherModule(self.scale)
-        self.attn_block = ObjectAttentionBlock(in_channels, in_channels)
+        self.object_context_block = ObjectAttentionBlock(in_channels, in_channels)
         self.bottleneck = nn.Sequential(
             nn.Linear(in_channels * 2, in_channels, bias=False),
             nn.BatchNorm1d(in_channels),
@@ -103,7 +103,7 @@ class OCRLayer(nn.Module):
         for i in range(batch_size):
             feat = feats[batch_indices == i]
             proxy_feat = ocr_context[i]
-            out_feat = self.attn_block(feat, proxy_feat)
+            out_feat = self.object_context_block(feat, proxy_feat)
             output_feats[batch_indices == i] = out_feat
         feats = torch.cat([output_feats, feats], dim=1)
         feats = self.bottleneck(feats)
