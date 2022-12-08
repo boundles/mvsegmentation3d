@@ -187,11 +187,6 @@ def main():
 
     # load data
     train_dataset = WaymoDataset(cfg, args.data_dir, 'training')
-    logger.info('Loaded %d train samples' % len(train_dataset))
-
-    val_dataset = WaymoDataset(cfg, args.data_dir, 'validation')
-    logger.info('Loaded %d validation samples' % len(val_dataset))
-
     train_set, train_loader, train_sampler = build_dataloader(
         dataset=train_dataset,
         batch_size=args.batch_size,
@@ -199,16 +194,20 @@ def main():
         num_workers=args.num_workers,
         seed=seed,
         training=True)
+    data_loaders = {'train': train_loader}
+    logger.info('Loaded %d train samples' % len(train_dataset))
 
-    val_set, val_loader, sampler = build_dataloader(
-        dataset=val_dataset,
-        batch_size=args.batch_size,
-        dist=distributed,
-        num_workers=args.num_workers,
-        seed=seed,
-        training=False)
-
-    data_loaders = {'train': train_loader, 'val': val_loader}
+    if not args.no_validate:
+        val_dataset = WaymoDataset(cfg, args.data_dir, 'validation')
+        val_set, val_loader, sampler = build_dataloader(
+            dataset=val_dataset,
+            batch_size=args.batch_size,
+            dist=distributed,
+            num_workers=args.num_workers,
+            seed=seed,
+            training=False)
+        data_loaders['val'] = val_loader
+        logger.info('Loaded %d validation samples' % len(val_dataset))
 
     # define model
     model = build_segmentor(cfg, train_dataset)
@@ -218,10 +217,10 @@ def main():
 
     # load pretrained model
     if args.pretrained_path:
-        logger.info('Load pretrained model from %s' % args.pretrained_path)
         loc_type = torch.device('cpu') if distributed else None
         pretrained = torch.load(args.pretrained_path, map_location=loc_type)
         model.load_state_dict(pretrained['model'], strict=False)
+        logger.info('Loaded pretrained model from %s' % args.pretrained_path)
 
     # optimizer and learning rate scheduler
     optimizer = build_optimizer(cfg, model)

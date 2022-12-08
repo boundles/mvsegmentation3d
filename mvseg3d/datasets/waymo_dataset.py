@@ -18,16 +18,13 @@ class WaymoDataset(Dataset):
         self.split = split
         self.test_mode = test_mode
 
+        self.lidar_filenames = self.get_filenames('lidar')
         if self.test_mode:
             self.filenames = self.get_filenames('image_feature')
         else:
             self.filenames = self.get_filenames('label')
 
-        self.file_idx_to_name = dict()
-        self.lidar_filenames = self.get_filenames('lidar')
-        for filename in self.lidar_filenames:
-            file_idx, frame_idx, timestamp = self.parse_filename(filename)
-            self.file_idx_to_name[(file_idx, frame_idx)] = filename
+        self.file_idx_to_name_map = self.get_file_idx_to_name_map(self.lidar_filenames)
 
         self.voxel_generator = VoxelGenerator(voxel_size=cfg.DATASET.VOXEL_SIZE,
                                               point_cloud_range=cfg.DATASET.POINT_CLOUD_RANGE)
@@ -87,6 +84,13 @@ class WaymoDataset(Dataset):
     def get_filenames(self, dir_name):
         return [os.path.splitext(os.path.basename(path))[0] for path in
                 glob.glob(os.path.join(self.root, self.split, dir_name, '*.npy'))]
+
+    def get_file_idx_to_name_map(self, filenames):
+        file_idx_to_name_map = dict()
+        for filename in filenames:
+            file_idx, frame_idx, timestamp = self.parse_filename(filename)
+            file_idx_to_name_map[(file_idx, frame_idx)] = filename
+        return file_idx_to_name_map
 
     def get_lidar_path(self, filename):
         lidar_file = os.path.join(self.root, self.split, 'lidar', filename + '.npy')
@@ -153,7 +157,7 @@ class WaymoDataset(Dataset):
         for i in range(0, max_num_sweeps - 1):
             sweep_frame_idx = frame_idx - i - 1
             if sweep_frame_idx >= 0:
-                sweep_filename = self.file_idx_to_name[(file_idx, sweep_frame_idx)]
+                sweep_filename = self.file_idx_to_name_map[(file_idx, sweep_frame_idx)]
                 history_sweep_filenames.append(sweep_filename)
 
         history_num_sweeps = num_sweeps - 1
