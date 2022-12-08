@@ -36,6 +36,8 @@ class SpatialGatherModule(nn.Module):
 
 class ObjectAttentionBlock(nn.Module):
     def __init__(self, in_channels, mid_channels):
+        self.mid_channels = mid_channels
+
         self.query_project = nn.Sequential(
             nn.Linear(in_channels, mid_channels, bias=False),
             nn.BatchNorm1d(mid_channels),
@@ -67,7 +69,7 @@ class ObjectAttentionBlock(nn.Module):
         value = self.value_project(proxy)
 
         sim_map = torch.matmul(query, key)
-        sim_map = (self.key_channels ** -.5) * sim_map
+        sim_map = (self.mid_channels ** -.5) * sim_map
         sim_map = F.softmax(sim_map, dim=-1)
 
         # add bg context ...
