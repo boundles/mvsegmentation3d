@@ -120,7 +120,7 @@ class SparseUnet(nn.Module):
     """
 
     def __init__(self, input_channels, output_channels, grid_size, voxel_size,
-                 point_cloud_range, num_classes, use_ocr=True):
+                 point_cloud_range, num_classes, use_ocr=False):
         super(SparseUnet, self).__init__()
         self.sparse_shape = grid_size[::-1]
         self.voxel_size = voxel_size
