@@ -36,6 +36,8 @@ class SpatialGatherModule(nn.Module):
 
 class ObjectAttentionBlock(nn.Module):
     def __init__(self, in_channels, mid_channels):
+        super(ObjectAttentionBlock, self).__init__()
+
         self.mid_channels = mid_channels
 
         self.query_project = nn.Sequential(
