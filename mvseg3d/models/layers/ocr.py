@@ -81,7 +81,7 @@ class ObjectAttentionBlock(nn.Module):
 
 
 class OCRLayer(nn.Module):
-    def __init__(self, in_channels, nhead, scale=1., attn_drop=0.):
+    def __init__(self, in_channels, scale=1.):
         super(OCRLayer, self).__init__()
 
         self.scale = scale
