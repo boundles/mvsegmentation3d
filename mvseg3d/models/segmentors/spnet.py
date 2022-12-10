@@ -186,9 +186,10 @@ class SPNet(nn.Module):
         point_out = self.classifier(point_fusion_features)
         result['point_out'] = point_out
 
-        voxel_features = batch_dict['voxel_features']
-        voxel_out = self.voxel_classifier(voxel_features)
-        result['voxel_out'] = voxel_out
+        result['voxel_out'] = self.voxel_classifier(batch_dict['voxel_features'])
         result['aux_voxel_out'] = batch_dict['aux_voxel_out']
+
+        result['voxel_coords'] = batch_dict['voxel_coords']
+        result['aux_voxel_coords'] = batch_dict['aux_voxel_coords']
 
         return result

@@ -175,7 +175,7 @@ class SparseUnet(nn.Module):
         self.up1 = UpBlock(64, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
         if self.use_ocr:
-            self.ocr = OCRLayer(64)
+            self.ocr = OCRLayer(512, 256, 128)
 
         self.aux_voxel_classifier = nn.Sequential(
             nn.Linear(64, 64, bias=False),
@@ -212,19 +212,21 @@ class SparseUnet(nn.Module):
         x_conv3 = self.conv3(x_conv2)
         x_conv4 = self.conv4(x_conv3)
 
+        # auxiliary branch
+        aux_voxel_out = self.aux_voxel_classifier(x_conv4.features)
+        batch_dict['aux_voxel_out'] = aux_voxel_out
+        batch_dict['aux_voxel_coords'] = x_conv4.indices
+
+        if self.use_ocr:
+            x_conv4 = self.ocr(x_conv4, aux_voxel_out, batch_size)
+
         # decoder
         x_conv4 = self.up4(x_conv4, x_conv4)
         x_conv3 = self.up3(x_conv4, x_conv3)
         x_conv2 = self.up2(x_conv3, x_conv2)
         x_conv1 = self.up1(x_conv2, x_conv1)
 
-        if self.use_ocr:
-            # auxiliary branch
-            aux_voxel_out = self.aux_voxel_classifier(x_conv1.features)
-            batch_dict['aux_voxel_out'] = aux_voxel_out
-
-            x_conv1 = self.ocr(x_conv1, aux_voxel_out, batch_size)
-
         batch_dict['voxel_features'] = x_conv1.features
+        batch_dict['voxel_coords'] = x_conv1.indices
 
         return batch_dict

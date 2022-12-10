@@ -35,32 +35,32 @@ class SpatialGatherModule(nn.Module):
 
 
 class ObjectAttentionBlock(nn.Module):
-    def __init__(self, in_channels, mid_channels):
+    def __init__(self, in_channels, key_channels):
         super(ObjectAttentionBlock, self).__init__()
 
-        self.mid_channels = mid_channels
+        self.key_channels = key_channels
 
         self.query_project = nn.Sequential(
-            nn.Linear(in_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
+            nn.Linear(in_channels, self.key_channels, bias=False),
+            nn.BatchNorm1d(self.key_channels),
             nn.ReLU(inplace=True)
         )
 
         self.key_project = nn.Sequential(
-            nn.Linear(in_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
+            nn.Linear(in_channels, self.key_channels, bias=False),
+            nn.BatchNorm1d(self.key_channels),
             nn.ReLU(inplace=True)
         )
 
         self.value_project = nn.Sequential(
-            nn.Linear(in_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
+            nn.Linear(in_channels, self.key_channels, bias=False),
+            nn.BatchNorm1d(self.key_channels),
             nn.ReLU(inplace=True)
         )
 
         self.bottleneck = nn.Sequential(
-            nn.Linear(mid_channels, in_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
+            nn.Linear(self.key_channels, in_channels, bias=False),
+            nn.BatchNorm1d(in_channels),
             nn.ReLU(inplace=True)
         )
 
@@ -71,29 +71,29 @@ class ObjectAttentionBlock(nn.Module):
         value = self.value_project(proxy)
 
         sim_map = torch.matmul(query, key)
-        sim_map = (self.mid_channels ** -.5) * sim_map
+        sim_map = (self.key_channels ** -.5) * sim_map
         sim_map = F.softmax(sim_map, dim=-1)
 
-        # add bg context ...
+        # add bg context
         context = torch.matmul(sim_map, value)
         context = self.bottleneck(context)
         return context
 
 
 class OCRLayer(nn.Module):
-    def __init__(self, in_channels, scale=1.):
+    def __init__(self, in_channels, mid_channels, key_channels, scale=1.):
         super(OCRLayer, self).__init__()
 
         self.scale = scale
         self.transform_input = spconv.SparseSequential(
-            spconv.SubMConv3d(in_channels, in_channels, 3, padding=1, bias=False),
-            nn.BatchNorm1d(in_channels),
+            spconv.SubMConv3d(in_channels, mid_channels, 3, padding=1, bias=False),
+            nn.BatchNorm1d(mid_channels),
             nn.ReLU(inplace=True)
         )
         self.spatial_gather_module = SpatialGatherModule(self.scale)
-        self.object_context_block = ObjectAttentionBlock(in_channels, in_channels)
+        self.object_context_block = ObjectAttentionBlock(mid_channels, key_channels)
         self.bottleneck = nn.Sequential(
-            nn.Linear(in_channels * 2, in_channels, bias=False),
+            nn.Linear(mid_channels * 2, in_channels, bias=False),
             nn.BatchNorm1d(in_channels),
             nn.ReLU(inplace=True)
         )
