@@ -178,7 +178,7 @@ class SparseUnet(nn.Module):
             self.ocr = OCRLayer(512, 256, 128)
 
         self.aux_voxel_classifier = nn.Sequential(
-            nn.Linear(64, 64, bias=False),
+            nn.Linear(512, 64, bias=False),
             nn.BatchNorm1d(64),
             nn.ReLU(True),
             nn.Dropout(0.1),
