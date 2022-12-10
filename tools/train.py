@@ -4,6 +4,7 @@ import argparse
 
 import torch
 import torch.optim
+from torch.utils.data import ConcatDataset
 
 from mvseg3d.datasets.waymo_dataset import WaymoDataset
 from mvseg3d.datasets import build_dataloader
@@ -209,18 +210,19 @@ def main():
 
     # load data
     train_dataset = WaymoDataset(cfg, args.data_dir, 'training')
+    val_dataset = WaymoDataset(cfg, args.data_dir, 'validation')
+    concatenated_train_dataset = ConcatDataset([train_dataset, val_dataset])
     train_set, train_loader, train_sampler = build_dataloader(
-        dataset=train_dataset,
+        dataset=concatenated_train_dataset,
         batch_size=args.batch_size,
         dist=distributed,
         num_workers=args.num_workers,
         seed=seed,
         training=True)
     data_loaders = {'train': train_loader}
-    logger.info('Loaded %d train samples' % len(train_dataset))
+    logger.info('Loaded %d train samples' % len(concatenated_train_dataset))
 
     if not args.no_validate:
-        val_dataset = WaymoDataset(cfg, args.data_dir, 'validation')
         val_set, val_loader, sampler = build_dataloader(
             dataset=val_dataset,
             batch_size=args.batch_size,

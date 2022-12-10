@@ -7,15 +7,16 @@ from torch.utils.data import Dataset
 
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
-from mvseg3d.utils.pointops_utils import cart2polar, get_voxel_centers
+from mvseg3d.utils.pointops_utils import cart2polar
 
 
 class WaymoDataset(Dataset):
-    def __init__(self, cfg, root, split='training', test_mode=False):
+    def __init__(self, cfg, root, split='training', is_training=True, test_mode=False):
         assert split in ['training', 'validation', 'testing']
         self.cfg = cfg
         self.root = root
         self.split = split
+        self.is_training = is_training
         self.test_mode = test_mode
 
         self.lidar_filenames = self.get_filenames('lidar')
@@ -168,7 +169,7 @@ class WaymoDataset(Dataset):
         else:
             if len(history_sweep_filenames) <= history_num_sweeps:
                 choices = np.arange(len(history_sweep_filenames))
-            elif self.split == 'training':
+            elif self.is_training:
                 choices = np.random.choice(
                     len(history_sweep_filenames), history_num_sweeps, replace=False)
             else:
@@ -249,7 +250,7 @@ class WaymoDataset(Dataset):
                 point_voxel_ids: optional, (N)
                 voxel_labels: optional, (num_voxels)
         """
-        if self.split == 'training' and self.cfg.DATASET.AUG_DATA:
+        if self.is_training and self.cfg.DATASET.AUG_DATA:
             data_dict = self.transforms(data_dict)
 
         if self.cfg.DATASET.USE_MULTI_SWEEPS:
