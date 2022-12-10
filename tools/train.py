@@ -216,6 +216,7 @@ def main():
         dataset=concatenated_train_dataset,
         batch_size=args.batch_size,
         dist=distributed,
+        collate_fn=train_dataset.collate_batch,
         num_workers=args.num_workers,
         seed=seed,
         training=True)
@@ -227,6 +228,7 @@ def main():
             dataset=val_dataset,
             batch_size=args.batch_size,
             dist=distributed,
+            collate_fn=val_dataset.collate_batch,
             num_workers=args.num_workers,
             seed=seed,
             training=False)
