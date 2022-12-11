@@ -81,7 +81,7 @@ class ObjectAttentionBlock(nn.Module):
 
 
 class OCRLayer(nn.Module):
-    def __init__(self, in_channels, mid_channels, key_channels, scale=1.):
+    def __init__(self, in_channels, mid_channels, key_channels, scale=1., drop=0.05):
         super(OCRLayer, self).__init__()
 
         self.scale = scale
@@ -95,7 +95,8 @@ class OCRLayer(nn.Module):
         self.bottleneck = nn.Sequential(
             nn.Linear(mid_channels * 2, in_channels, bias=False),
             nn.BatchNorm1d(in_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
+            nn.Dropout(drop)
         )
 
     def forward(self, inputs, probs, batch_size):
