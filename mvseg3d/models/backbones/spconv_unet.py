@@ -185,7 +185,7 @@ class SparseUnet(nn.Module):
             nn.Linear(64, num_classes, bias=False))
 
         self.voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 64, bias=False),
+            nn.Linear(64, 64, bias=False),
             nn.BatchNorm1d(64),
             nn.ReLU(True),
             nn.Dropout(0.3),
@@ -234,7 +234,7 @@ class SparseUnet(nn.Module):
         x_conv1 = self.up1(x_conv2, x_conv1)
 
         batch_dict['voxel_features'] = x_conv1.features
-        batch_dict['voxel_out'] = self.voxel_classifier(x_conv1.features)
         batch_dict['voxel_coords'] = x_conv1.indices
+        batch_dict['voxel_out'] = self.voxel_classifier(x_conv1.features)
 
         return batch_dict

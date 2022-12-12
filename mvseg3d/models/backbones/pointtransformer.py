@@ -175,7 +175,7 @@ class PointTransformer(nn.Module):
         self.up1 = UpBlock(48, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
         self.voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 64, bias=False),
+            nn.Linear(48, 64, bias=False),
             nn.BatchNorm1d(64),
             nn.ReLU(True),
             nn.Dropout(0.3),
