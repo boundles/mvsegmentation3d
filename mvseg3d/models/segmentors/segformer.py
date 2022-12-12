@@ -83,8 +83,8 @@ class Segformer(nn.Module):
         self.voxel_feature_channel = 32
         self.point_transformer = PointTransformer(self.voxel_in_feature_channel, self.voxel_feature_channel,
                                                   dataset.grid_size, dataset.voxel_size, dataset.point_cloud_range,
-                                                  batching_info=batching_info, window_shape=window_shape,
-                                                  depths=depths, drop_path_rate=drop_path_rate)
+                                                  batching_info=batching_info, window_shape=window_shape, depths=depths,
+                                                  drop_path_rate=drop_path_rate, num_classes=dataset.num_classes)
 
         self.use_image_feature = dataset.use_image_feature
         if self.use_image_feature:
@@ -112,15 +112,8 @@ class Segformer(nn.Module):
         self.classifier = nn.Sequential(nn.Linear(self.fusion_feature_channel, 64, bias=False),
                                         nn.BatchNorm1d(64),
                                         nn.ReLU(True),
-                                        nn.Dropout(0.1),
+                                        nn.Dropout(0.3),
                                         nn.Linear(64, dataset.num_classes, bias=False))
-
-        self.voxel_classifier = nn.Sequential(
-            nn.Linear(self.voxel_feature_channel, 64, bias=False),
-            nn.BatchNorm1d(64),
-            nn.ReLU(True),
-            nn.Dropout(0.1),
-            nn.Linear(64, dataset.num_classes, bias=False))
 
         self.weight_initialization()
 
@@ -184,8 +177,6 @@ class Segformer(nn.Module):
         point_out = self.classifier(point_fusion_features)
         result['point_out'] = point_out
 
-        voxel_features = batch_dict['voxel_features']
-        voxel_out = self.voxel_classifier(voxel_features)
-        result['voxel_out'] = voxel_out
+        result['voxel_out'] = batch_dict['voxel_out']
 
         return result
