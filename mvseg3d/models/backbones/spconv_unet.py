@@ -179,7 +179,7 @@ class SparseUnet(nn.Module):
 
         self.aux_voxel_classifier = nn.Sequential(nn.Linear(512, num_classes, bias=False))
 
-        self.voxel_classifier = nn.Sequential(nn.Linear(64, num_classes, bias=False))
+        self.voxel_classifier = nn.Sequential(nn.Linear(output_channels, num_classes, bias=False))
 
     def forward(self, batch_dict):
         """
