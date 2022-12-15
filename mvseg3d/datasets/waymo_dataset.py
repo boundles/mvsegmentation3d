@@ -297,14 +297,15 @@ class WaymoDataset(Dataset):
         if not self.test_mode:
             input_dict['point_labels'] = self.load_label(filename)
 
-        if self.split == 'training' and self.cfg.DATASET.AUG_DATA and not self.cfg.DATASET.USE_MULTI_SWEEPS and self.cfg.DATASET.USE_IMAGE_FEATURE:
-            filename2 = np.random.randint(len(self.filenames))
-            points2 = self.load_points(filename2)
-            labels2 = self.load_label(filename2)
-            point_images_features2 = self.load_image_features(points2.shape[0], filename2)
-            input_dict['points'], input_dict['point_image_features'], input_dict['point_labels'] = \
-                self.polar_mix(input_dict['points'], input_dict['point_image_features'],
-                               input_dict['point_labels'], points2, point_images_features2, labels2)
+        if self.split == 'training' and self.cfg.DATASET.AUG_DATA and not self.cfg.DATASET.USE_MULTI_SWEEPS:
+            if self.cfg.DATASET.USE_IMAGE_FEATURE:
+                filename2 = self.filenames[np.random.randint(len(self.filenames))]
+                points2 = self.load_points(filename2)[:, :self.dim_point]
+                labels2 = self.load_label(filename2)
+                point_images_features2 = self.load_image_features(points2.shape[0], filename2)
+                input_dict['points'], input_dict['point_image_features'], input_dict['point_labels'] = \
+                    self.polar_mix(input_dict['points'], input_dict['point_image_features'],
+                                   input_dict['point_labels'], points2, point_images_features2, labels2)
 
         if self.test_mode:
             if self.cfg.DATASET.USE_MULTI_SWEEPS:
