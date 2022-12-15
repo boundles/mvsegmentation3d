@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
+from mvseg3d.datasets.transforms.polarmix import PolarMix
 from mvseg3d.utils.pointops_utils import cart2polar, get_voxel_centers
 
 
@@ -32,6 +33,9 @@ class WaymoDataset(Dataset):
         self.grid_size = self.voxel_generator.grid_size
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
+
+        self.polar_mix = PolarMix(instance_classes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                                  rot_angle_range=[np.random.random() * np.pi * 2 / 3, (np.random.random() + 1) * np.pi * 2 / 3])
 
         self.transforms = transforms.Compose([transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
                                               transforms.RandomGlobalScaling(cfg.DATASET.AUG_SCALE_RANGE),
@@ -290,14 +294,23 @@ class WaymoDataset(Dataset):
             else:
                 input_dict['point_image_features'] = self.load_image_features(input_dict['points'].shape[0], filename)
 
+        if not self.test_mode:
+            input_dict['point_labels'] = self.load_label(filename)
+
+        if self.split == 'training' and self.cfg.DATASET.AUG_DATA and not self.cfg.DATASET.USE_MULTI_SWEEPS and self.cfg.DATASET.USE_IMAGE_FEATURE:
+            filename2 = np.random.randint(len(self.filenames))
+            points2 = self.load_points(filename2)
+            labels2 = self.load_label(filename2)
+            point_images_features2 = self.load_image_features(points2.shape[0], filename2)
+            input_dict['points'], input_dict['point_image_features'], input_dict['point_labels'] = \
+                self.polar_mix(input_dict['points'], input_dict['point_image_features'],
+                               input_dict['point_labels'], points2, point_images_features2, labels2)
+
         if self.test_mode:
             if self.cfg.DATASET.USE_MULTI_SWEEPS:
                 input_dict['points_ri'] = points[input_dict['cur_point_indices']][:, -3:].astype(np.int32)
             else:
                 input_dict['points_ri'] = points[:, -3:].astype(np.int32)
-
-        if not self.test_mode:
-            input_dict['point_labels'] = self.load_label(filename)
 
         data_dict = self.prepare_data(data_dict=input_dict)
 
