@@ -146,6 +146,7 @@ class SparseUnet(nn.Module):
             ConvModule(32, 64, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                        conv_type='spconv', indice_key='spconv2'),
             SparseBasicBlock(64, 64, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm2'),
+            SparseBasicBlock(64, 64, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm2'),
             SparseBasicBlock(64, 64, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm2')
         )
 
@@ -154,6 +155,7 @@ class SparseUnet(nn.Module):
             ConvModule(64, 128, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                        conv_type='spconv', indice_key='spconv3'),
             SparseBasicBlock(128, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm3'),
+            SparseBasicBlock(128, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm3'),
             SparseBasicBlock(128, 128, norm_fn=self.norm_fn, act_fn=self.act_fn, with_se=True, indice_key='subm3')
         )
 
@@ -161,6 +163,7 @@ class SparseUnet(nn.Module):
         self.conv4 = spconv.SparseSequential(
             ConvModule(128, 256, 3, norm_fn=self.norm_fn, act_fn=self.act_fn, stride=2, padding=1,
                        conv_type='spconv', indice_key='spconv4'),
+            SparseBasicBlock(256, 256, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm4'),
             SparseBasicBlock(256, 256, norm_fn=self.norm_fn, act_fn=self.act_fn, indice_key='subm4'),
             SparseBasicBlock(256, 256, norm_fn=self.norm_fn, act_fn=self.act_fn, with_se=True, indice_key='subm4')
         )
