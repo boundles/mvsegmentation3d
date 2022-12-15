@@ -24,7 +24,7 @@ def rotate_copy(points, point_image_features, labels, instance_classes, rot_angl
                              np.cos(angle), 0], [0, 0, 1]])
         new_point = np.zeros_like(points_inst)
         new_point[:, :3] = np.dot(points_inst[:, :3], rot_mat)
-        new_point[:, 3] = points_inst[:, 3]
+        new_point[:, 3:] = points_inst[:, 3:]
         points_copy.append(new_point)
         point_image_features_copy.append(point_image_features_inst)
         labels_copy.append(labels_inst)
