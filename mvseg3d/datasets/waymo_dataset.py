@@ -34,7 +34,7 @@ class WaymoDataset(Dataset):
         self.voxel_size = self.voxel_generator.voxel_size
         self.point_cloud_range = self.voxel_generator.point_cloud_range
 
-        self.polar_mix = PolarMix(instance_classes=[0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12],
+        self.polar_mix = PolarMix(instance_classes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
                                   rot_angle_range=[np.random.random() * np.pi * 2 / 3, (np.random.random() + 1) * np.pi * 2 / 3])
 
         self.transforms = transforms.Compose([transforms.RandomGlobalRotation(cfg.DATASET.AUG_ROT_RANGE),
