@@ -1,6 +1,26 @@
 import numpy as np
 
 
+def swap(points1, point_image_features1, labels1, points2, point_image_features2, labels2, start_angle, end_angle):
+    # calculate horizontal angle for each point
+    yaw1 = -np.arctan2(points1[:, 1], points1[:, 0])
+    yaw2 = -np.arctan2(points2[:, 1], points2[:, 0])
+
+    # select points in sector
+    indices1 = np.where((yaw1 > start_angle) & (yaw1 < end_angle))
+    indices2 = np.where((yaw2 > start_angle) & (yaw2 < end_angle))
+
+    # swap
+    points1_out = np.delete(points1, indices1, axis=0)
+    points1_out = np.concatenate((points1_out, points2[indices2]))
+    point_image_features1_out = np.delete(point_image_features1, indices1, axis=0)
+    point_image_features1_out = np.concatenate((point_image_features1_out, point_image_features2[indices2]))
+    labels1_out = np.delete(labels1, indices1)
+    labels1_out = np.concatenate((labels1_out, labels2[indices2]))
+
+    return points1_out, point_image_features1_out, labels1_out
+
+
 def rotate_copy(points, point_image_features, labels, instance_classes, rot_angle_range):
     # extract instance points
     points_inst, labels_inst, point_image_features_inst = [], [], []
@@ -39,8 +59,14 @@ class PolarMix(object):
         self.instance_classes = instance_classes
         self.rot_angle_range = rot_angle_range
 
-    def __call__(self, points1, point_image_features1, labels1, points2, point_image_features2, labels2):
+    def __call__(self, points1, point_image_features1, labels1, points2, point_image_features2, labels2, alpha, beta):
         points_out, point_image_features_out, labels_out = points1, point_image_features1, labels1
+
+        # swapping
+        if np.random.random() < 0.5:
+            points_out, point_image_features_out, labels_out = swap(points1, point_image_features1, labels1,
+                                                                    points2, point_image_features2, labels2,
+                                                                    start_angle=alpha, end_angle=beta)
 
         # rotate-pasting
         if np.random.random() < 1.0:

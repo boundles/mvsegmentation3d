@@ -303,9 +303,11 @@ class WaymoDataset(Dataset):
                 points2 = self.load_points(filename2)[:, :self.dim_point]
                 labels2 = self.load_label(filename2)
                 point_images_features2 = self.load_image_features(points2.shape[0], filename2)
+                alpha = (np.random.random() - 1) * np.pi
+                beta = alpha + np.pi
                 input_dict['points'], input_dict['point_image_features'], input_dict['point_labels'] = \
-                    self.polar_mix(input_dict['points'], input_dict['point_image_features'],
-                                   input_dict['point_labels'], points2, point_images_features2, labels2)
+                    self.polar_mix(input_dict['points'], input_dict['point_image_features'], input_dict['point_labels'],
+                                   points2, point_images_features2, labels2, alpha, beta)
 
         if self.test_mode:
             if self.cfg.DATASET.USE_MULTI_SWEEPS:
