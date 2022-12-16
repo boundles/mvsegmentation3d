@@ -59,11 +59,13 @@ class PolarMix(object):
         self.instance_classes = instance_classes
         self.rot_angle_range = rot_angle_range
 
-    def __call__(self, points1, point_image_features1, labels1, points2, point_image_features2, labels2, alpha, beta):
+    def __call__(self, points1, point_image_features1, labels1, points2, point_image_features2, labels2):
         points_out, point_image_features_out, labels_out = points1, point_image_features1, labels1
 
         # swapping
         if np.random.random() < 0.5:
+            alpha = (np.random.random() - 1) * np.pi
+            beta = alpha + np.pi
             points_out, point_image_features_out, labels_out = swap(points1, point_image_features1, labels1,
                                                                     points2, point_image_features2, labels2,
                                                                     start_angle=alpha, end_angle=beta)
