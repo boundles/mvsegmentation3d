@@ -13,10 +13,14 @@ def swap(points1, point_image_features1, labels1, points2, point_image_features2
     # swap
     points1_out = np.delete(points1, indices1, axis=0)
     points1_out = np.concatenate((points1_out, points2[indices2]))
-    point_image_features1_out = np.delete(point_image_features1, indices1, axis=0)
-    point_image_features1_out = np.concatenate((point_image_features1_out, point_image_features2[indices2]))
     labels1_out = np.delete(labels1, indices1)
     labels1_out = np.concatenate((labels1_out, labels2[indices2]))
+
+    if point_image_features1 is not None and point_image_features2 is not None:
+        point_image_features1_out = np.delete(point_image_features1, indices1, axis=0)
+        point_image_features1_out = np.concatenate((point_image_features1_out, point_image_features2[indices2]))
+    else:
+        point_image_features1_out = None
 
     return points1_out, point_image_features1_out, labels1_out
 
@@ -27,7 +31,8 @@ def rotate_copy(points, point_image_features, labels, instance_classes, rot_angl
     for s_class in instance_classes:
         point_indices = np.where((labels == s_class))
         points_inst.append(points[point_indices])
-        point_image_features_inst.append(point_image_features[point_indices])
+        if point_image_features is not None:
+            point_image_features_inst.append(point_image_features[point_indices])
         labels_inst.append(labels[point_indices])
     points_inst = np.concatenate(points_inst, axis=0)
     point_image_features_inst = np.concatenate(point_image_features_inst, axis=0)

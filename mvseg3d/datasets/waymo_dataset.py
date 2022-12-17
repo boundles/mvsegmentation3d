@@ -136,13 +136,14 @@ class WaymoDataset(Dataset):
             point_image_features[k] = image_feature[k]
         return point_image_features
 
-    def load_points(self, filename):
+    def load_points(self, filename, mask_range=False):
         lidar_file = self.get_lidar_path(filename)
         # (x, y, z, range, intensity, elongation, 6-dim camera project, range col, row and index): [N, 15]
         lidar_points = np.load(lidar_file)
 
         # set range value to be zero
-        lidar_points[:, 3] = 0
+        if mask_range:
+            lidar_points[:, 3] = 0
         # normalize intensity
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points
@@ -150,7 +151,7 @@ class WaymoDataset(Dataset):
     def load_points_from_sweeps(self, filename, num_sweeps=3, max_num_sweeps=5, pad_empty_sweeps=False):
         # current frame
         file_idx, frame_idx, timestamp = self.parse_filename(filename)
-        points = self.load_points(filename)
+        points = self.load_points(filename, mask_range=True)
         points[:, 3] = 0
         cur_point_indices = np.arange(points.shape[0])
         ts = timestamp / 1e6
@@ -180,7 +181,7 @@ class WaymoDataset(Dataset):
 
             for idx in choices:
                 sweep_filename = history_sweep_filenames[idx]
-                points_sweep = self.load_points(sweep_filename)
+                points_sweep = self.load_points(sweep_filename, mask_range=True)
                 timestamp = self.parse_filename(sweep_filename)[-1]
                 sweep_ts = timestamp / 1e6
                 sweep_transform_matrix = self.load_pose(sweep_filename)
@@ -298,14 +299,17 @@ class WaymoDataset(Dataset):
             input_dict['point_labels'] = self.load_label(filename)
 
         if self.split == 'training' and self.cfg.DATASET.AUG_DATA and not self.cfg.DATASET.USE_MULTI_SWEEPS:
+            filename2 = self.filenames[np.random.randint(len(self.filenames))]
+            points2 = self.load_points(filename2)[:, :self.dim_point]
+            labels2 = self.load_label(filename2)
             if self.cfg.DATASET.USE_IMAGE_FEATURE:
-                filename2 = self.filenames[np.random.randint(len(self.filenames))]
-                points2 = self.load_points(filename2)[:, :self.dim_point]
-                labels2 = self.load_label(filename2)
                 point_images_features2 = self.load_image_features(points2.shape[0], filename2)
                 input_dict['points'], input_dict['point_image_features'], input_dict['point_labels'] = \
                     self.polar_mix(input_dict['points'], input_dict['point_image_features'], input_dict['point_labels'],
                                    points2, point_images_features2, labels2)
+            else:
+                input_dict['points'], _, input_dict['point_labels'] = \
+                    self.polar_mix(input_dict['points'], None, input_dict['point_labels'], points2, None, labels2)
 
         if self.test_mode:
             if self.cfg.DATASET.USE_MULTI_SWEEPS:
