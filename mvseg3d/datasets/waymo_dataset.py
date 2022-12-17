@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from mvseg3d.core import VoxelGenerator
 from mvseg3d.datasets.transforms import transforms
 from mvseg3d.datasets.transforms.polarmix import PolarMix
-from mvseg3d.utils.pointops_utils import cart2polar, get_voxel_centers
+from mvseg3d.utils.pointops_utils import cart2polar
 
 
 class WaymoDataset(Dataset):
@@ -308,7 +308,7 @@ class WaymoDataset(Dataset):
                     self.polar_mix(input_dict['points'], input_dict['point_image_features'], input_dict['point_labels'],
                                    points2, point_images_features2, labels2)
             else:
-                input_dict['points'], _, input_dict['point_labels'] = \
+                input_dict['points'], input_dict['point_labels'] = \
                     self.polar_mix(input_dict['points'], None, input_dict['point_labels'], points2, None, labels2)
 
         if self.test_mode:
