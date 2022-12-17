@@ -42,13 +42,13 @@ __C.MODEL.BATCHING_INFO = [
     {
         '0': {'max_tokens': 16, 'batching_range': [0, 16]},
         '1': {'max_tokens': 64, 'batching_range': [16, 64]},
-        '2': {'max_tokens': 128, 'batching_range': [64, 128]},
-        '3': {'max_tokens': 800, 'batching_range': [128, 100000]}
+        '2': {'max_tokens': 256, 'batching_range': [64, 256]},
+        '3': {'max_tokens': 800, 'batching_range': [256, 100000]}
     },
     {
-        '0': {'max_tokens': 64, 'batching_range': [0, 64]},
-        '1': {'max_tokens': 192, 'batching_range': [64, 192]},
-        '2': {'max_tokens': 512, 'batching_range': [192, 512]},
+        '0': {'max_tokens': 32, 'batching_range': [0, 32]},
+        '1': {'max_tokens': 128, 'batching_range': [32, 128]},
+        '2': {'max_tokens': 512, 'batching_range': [128, 512]},
         '3': {'max_tokens': 800, 'batching_range': [512, 100000]}
     },
     {
