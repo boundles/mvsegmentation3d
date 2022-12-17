@@ -31,17 +31,19 @@ def rotate_copy(points, labels, instance_classes, rot_angle_range, point_image_f
     for s_class in instance_classes:
         point_indices = np.where((labels == s_class))
         points_inst.append(points[point_indices])
+        labels_inst.append(labels[point_indices])
         if point_image_features is not None:
             point_image_features_inst.append(point_image_features[point_indices])
-        labels_inst.append(labels[point_indices])
     points_inst = np.concatenate(points_inst, axis=0)
-    point_image_features_inst = np.concatenate(point_image_features_inst, axis=0)
     labels_inst = np.concatenate(labels_inst, axis=0)
+    if point_image_features is not None:
+        point_image_features_inst = np.concatenate(point_image_features_inst, axis=0)
 
     # rotate-copy
     points_copy = [points_inst]
-    point_image_features_copy = [point_image_features_inst]
     labels_copy = [labels_inst]
+    if point_image_features is not None:
+        point_image_features_copy = [point_image_features_inst]
     for angle in rot_angle_range:
         rot_mat = np.array([[np.cos(angle),
                              np.sin(angle), 0],
@@ -51,12 +53,13 @@ def rotate_copy(points, labels, instance_classes, rot_angle_range, point_image_f
         new_point[:, :3] = np.dot(points_inst[:, :3], rot_mat)
         new_point[:, 3:] = points_inst[:, 3:]
         points_copy.append(new_point)
-        point_image_features_copy.append(point_image_features_inst)
         labels_copy.append(labels_inst)
+        if point_image_features is not None:
+            point_image_features_copy.append(point_image_features_inst)
     points_copy = np.concatenate(points_copy, axis=0)
-    point_image_features_copy = np.concatenate(point_image_features_copy, axis=0)
     labels_copy = np.concatenate(labels_copy, axis=0)
     if point_image_features is not None:
+        point_image_features_copy = np.concatenate(point_image_features_copy, axis=0)
         return points_copy, point_image_features_copy, labels_copy
     else:
         return points_copy, labels_copy
