@@ -11,28 +11,28 @@ class MultiScaleFlipAug(object):
         self.flip_x = [True, False] if flip_x else [False]
         self.flip_y = [True, False] if flip_y else [False]
 
-    def __call__(self, data_dict):
+    def __call__(self, data):
         """Call function to apply test time augment transforms on results."""
         aug_data_list = []
         for scale in self.scales:
             for angle in self.angles:
                 for flip_x in self.flip_x:
                     for flip_y in self.flip_y:
-                        new_data_dict = dict()
-                        for key, val in data_dict.items():
+                        new_data = dict()
+                        for key, val in data.items():
                             if isinstance(val, np.ndarray):
-                                new_data_dict[key] = val.copy()
+                                new_data[key] = val.copy()
                             else:
-                                new_data_dict[key] = val
-                        points = new_data_dict['points']
+                                new_data[key] = val
+                        points = new_data['points']
                         points[:, :3] *= scale
                         points = transform_utils.rotate_points_along_z(points[np.newaxis, :, :], np.array([angle]))[0]
                         if flip_x:
                             points[:, 1] = -points[:, 1]
                         if flip_y:
                             points[:, 0] = -points[:, 0]
-                        new_data_dict['points'] = points
-                        aug_data_list.append(new_data_dict)
+                        new_data['points'] = points
+                        aug_data_list.append(new_data)
         return aug_data_list
 
     def __repr__(self):

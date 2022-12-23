@@ -35,9 +35,10 @@ def semseg_for_one_frame(model, data_dict, transforms):
     points_ri = data_dict['points_ri']
     frame_id = data_dict['filename'][0]
 
-    aug_data_list = transforms(data_dict)
     point_out_list = []
-    for aug_data in aug_data_list:
+    aug_data_list = transforms(data_dict)
+    for i in range(len(aug_data_list)):
+        aug_data = aug_data_list[i]
         load_data_to_gpu(aug_data)
         with torch.no_grad():
             result = model(aug_data)
