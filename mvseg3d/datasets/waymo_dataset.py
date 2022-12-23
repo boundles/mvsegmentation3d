@@ -136,14 +136,13 @@ class WaymoDataset(Dataset):
             point_image_features[k] = image_feature[k]
         return point_image_features
 
-    def load_points(self, filename, mask_range=False):
+    def load_points(self, filename):
         lidar_file = self.get_lidar_path(filename)
         # (x, y, z, range, intensity, elongation, 6-dim camera project, range col, row and index): [N, 15]
         lidar_points = np.load(lidar_file)
 
         # set range value to be zero
-        if mask_range:
-            lidar_points[:, 3] = 0
+        lidar_points[:, 3] = 0
         # normalize intensity
         lidar_points[:, 4] = np.tanh(lidar_points[:, 4])
         return lidar_points
@@ -151,7 +150,7 @@ class WaymoDataset(Dataset):
     def load_points_from_sweeps(self, filename, num_sweeps=3, max_num_sweeps=5, pad_empty_sweeps=False):
         # current frame
         file_idx, frame_idx, timestamp = self.parse_filename(filename)
-        points = self.load_points(filename, mask_range=True)
+        points = self.load_points(filename)
         points[:, 3] = 0
         cur_point_indices = np.arange(points.shape[0])
         ts = timestamp / 1e6
@@ -181,7 +180,7 @@ class WaymoDataset(Dataset):
 
             for idx in choices:
                 sweep_filename = history_sweep_filenames[idx]
-                points_sweep = self.load_points(sweep_filename, mask_range=True)
+                points_sweep = self.load_points(sweep_filename)
                 timestamp = self.parse_filename(sweep_filename)[-1]
                 sweep_ts = timestamp / 1e6
                 sweep_transform_matrix = self.load_pose(sweep_filename)
