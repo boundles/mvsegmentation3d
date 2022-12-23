@@ -24,14 +24,14 @@ class MultiScaleFlipAug(object):
                                 new_data[key] = val.copy()
                             else:
                                 new_data[key] = val
-                        points = new_data['points']
+                        points = new_data['points'][:, 1:4]
                         points[:, :3] *= scale
                         points = transform_utils.rotate_points_along_z(points[np.newaxis, :, :], np.array([angle]))[0]
                         if flip_x:
                             points[:, 1] = -points[:, 1]
                         if flip_y:
                             points[:, 0] = -points[:, 0]
-                        new_data['points'] = points
+                        new_data['points'][:, 1:4] = points
                         aug_data_list.append(new_data)
         return aug_data_list
 
