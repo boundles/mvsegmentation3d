@@ -18,13 +18,19 @@ class MultiScaleFlipAug(object):
             for angle in self.angles:
                 for flip_x in self.flip_x:
                     for flip_y in self.flip_y:
-                        new_data_dict = data_dict.copy()
-                        new_data_dict['points'][:, :3] *= scale
-                        new_data_dict['points'] = transform_utils.rotate_points_along_z(new_data_dict['points'][np.newaxis, :, :], np.array([angle]))[0]
+                        new_data_dict = dict()
+                        for key, val in data_dict.items():
+                            if not isinstance(val, np.ndarray):
+                                continue
+                            new_data_dict[key] = val.copy()
+                        points = new_data_dict['points']
+                        points[:, :3] *= scale
+                        points = transform_utils.rotate_points_along_z(points[np.newaxis, :, :], np.array([angle]))[0]
                         if flip_x:
-                            new_data_dict['points'][:, 1] = -new_data_dict['points'][:, 1]
+                            points[:, 1] = -points[:, 1]
                         if flip_y:
-                            new_data_dict['points'][:, 0] = -new_data_dict['points'][:, 0]
+                            points[:, 0] = -points[:, 0]
+                        new_data_dict['points'] = points
                         aug_data_list.append(new_data_dict)
         return aug_data_list
 
