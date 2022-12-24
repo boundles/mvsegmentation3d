@@ -19,11 +19,11 @@ class WaymoDataset(Dataset):
         self.split = split
         self.test_mode = test_mode
 
-        lidar_filenames = self.get_filenames('lidar')
-        self.file_idx_to_name = self.prepare_file_idx_to_name(lidar_filenames)
+        all_filenames = self.get_filenames('lidar')
+        self.file_idx_to_name = self.build_file_idx_to_name(all_filenames)
 
         if self.test_mode:
-            self.filenames = self.get_testing_filenames(lidar_filenames)
+            self.filenames = self.get_testing_filenames(all_filenames)
         else:
             self.filenames = self.get_filenames('label')
 
@@ -98,21 +98,23 @@ class WaymoDataset(Dataset):
                 glob.glob(os.path.join(self.root, self.split, dir_name, '*.npy'))]
 
     def get_testing_filenames(self, filenames):
-        test_frames = dict()
+        testing_frames = dict()
         with open(os.path.join(self.root, self.split, '3d_semseg_test_set_frames.txt'), 'r') as fp:
             lines = fp.read().splitlines()
             for line in lines:
-                infos = line.split(',')
-                test_frames[(infos[0], infos[1])] = 1
+                splits = line.split(',')
+                file_idx = splits[0]
+                timestamp = np.int64(splits[1])
+                testing_frames[(file_idx, timestamp)] = True
 
-        result_filenames = []
+        testing_filenames = []
         for filename in filenames:
             file_idx, frame_idx, timestamp = self.parse_filename(filename)
-            if (file_idx, timestamp) in test_frames:
-                result_filenames.append(filename)
-        return result_filenames
+            if (file_idx, timestamp) in testing_frames:
+                testing_filenames.append(filename)
+        return testing_filenames
 
-    def prepare_file_idx_to_name(self, filenames):
+    def build_file_idx_to_name(self, filenames):
         file_idx_to_name = dict()
         for filename in filenames:
             file_idx, frame_idx, timestamp = self.parse_filename(filename)
