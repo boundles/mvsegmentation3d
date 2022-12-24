@@ -108,7 +108,7 @@ class WaymoDataset(Dataset):
         result_filenames = []
         for filename in filenames:
             file_idx, frame_idx, timestamp = self.parse_filename(filename)
-            if (file_idx, timestamp) in filenames:
+            if (file_idx, timestamp) in test_frames:
                 result_filenames.append(filename)
         return result_filenames
 
