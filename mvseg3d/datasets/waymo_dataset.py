@@ -23,7 +23,7 @@ class WaymoDataset(Dataset):
         self.file_idx_to_name = self.prepare_file_idx_to_name(lidar_filenames)
 
         if self.test_mode:
-            self.filenames = self.prepare_testing_filenames(lidar_filenames)
+            self.filenames = self.get_testing_filenames(lidar_filenames)
         else:
             self.filenames = self.get_filenames('label')
 
@@ -85,10 +85,6 @@ class WaymoDataset(Dataset):
     def ignore_index(self):
         return self.cfg.DATASET.IGNORE_INDEX
 
-    def get_filenames(self, dir_name):
-        return [os.path.splitext(os.path.basename(path))[0] for path in
-                glob.glob(os.path.join(self.root, self.split, dir_name, '*.npy'))]
-
     @staticmethod
     def parse_filename(filename):
         splits = filename.split('-')
@@ -97,14 +93,11 @@ class WaymoDataset(Dataset):
         frame_idx = int(splits[2])
         return file_idx, frame_idx, timestamp
 
-    def prepare_file_idx_to_name(self, filenames):
-        file_idx_to_name = dict()
-        for filename in filenames:
-            file_idx, frame_idx, timestamp = self.parse_filename(filename)
-            file_idx_to_name[(file_idx, frame_idx)] = filename
-        return file_idx_to_name
+    def get_filenames(self, dir_name):
+        return [os.path.splitext(os.path.basename(path))[0] for path in
+                glob.glob(os.path.join(self.root, self.split, dir_name, '*.npy'))]
 
-    def prepare_testing_filenames(self, filenames):
+    def get_testing_filenames(self, filenames):
         test_frames = dict()
         with open(os.path.join(self.root, self.split, '3d_semseg_test_set_frames.txt'), 'r') as fp:
             lines = fp.read().splitlines()
@@ -118,6 +111,13 @@ class WaymoDataset(Dataset):
             if (file_idx, timestamp) in filenames:
                 result_filenames.append(filename)
         return result_filenames
+
+    def prepare_file_idx_to_name(self, filenames):
+        file_idx_to_name = dict()
+        for filename in filenames:
+            file_idx, frame_idx, timestamp = self.parse_filename(filename)
+            file_idx_to_name[(file_idx, frame_idx)] = filename
+        return file_idx_to_name
 
     def get_lidar_path(self, filename):
         lidar_file = os.path.join(self.root, self.split, 'lidar', filename + '.npy')
