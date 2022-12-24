@@ -138,5 +138,9 @@ class Segformer(nn.Module):
         result['point_out'] = point_out
 
         result['voxel_out'] = batch_dict['voxel_out']
+        result['aux_voxel_out'] = batch_dict['aux_voxel_out']
+
+        result['voxel_coords'] = batch_dict['voxel_coords']
+        result['aux_voxel_coords'] = batch_dict['aux_voxel_coords']
 
         return result

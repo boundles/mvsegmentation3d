@@ -174,6 +174,8 @@ class PointTransformer(nn.Module):
         # [1440, 1440, 64] -> [1440, 1440, 64]
         self.up1 = UpBlock(48, output_channels, self.norm_fn, self.act_fn, conv_type='subm', layer_id=1)
 
+        self.aux_voxel_classifier = nn.Sequential(nn.Linear(384, num_classes, bias=False))
+
         self.voxel_classifier = nn.Sequential(nn.Linear(output_channels, num_classes, bias=False))
 
     def forward(self, batch_dict):
@@ -199,6 +201,11 @@ class PointTransformer(nn.Module):
         x_conv4 = self.conv_down3(x_conv3)
         x_conv4 = replace_feature(x_conv4, self.swformer_block4(x_conv4))
 
+        # auxiliary branch
+        aux_voxel_out = self.aux_voxel_classifier(x_conv4.features)
+        batch_dict['aux_voxel_out'] = aux_voxel_out
+        batch_dict['aux_voxel_coords'] = x_conv4.indices
+
         # decoder
         x_conv4 = self.up4(x_conv4, x_conv4)
         x_conv3 = self.up3(x_conv4, x_conv3)
@@ -206,6 +213,7 @@ class PointTransformer(nn.Module):
         x_conv1 = self.up1(x_conv2, x_conv1)
 
         batch_dict['voxel_features'] = x_conv1.features
+        batch_dict['voxel_coords'] = x_conv1.indices
         batch_dict['voxel_out'] = self.voxel_classifier(x_conv1.features)
 
         return batch_dict
